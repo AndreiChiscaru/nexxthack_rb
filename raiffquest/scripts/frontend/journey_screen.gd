@@ -94,7 +94,7 @@ func _ready() -> void:
 	profile_panel.hide()
 	month_dialog = ConfirmationDialog.new()
 	month_dialog.title = "Închei luna curentă?"
-	month_dialog.dialog_text = "Veniturile și cheltuielile se vor aplica o singură dată în simulare. Evenimentele nerezolvate rămân disponibile."
+	month_dialog.dialog_text = "Veniturile și cheltuielile se aplică o singură dată. Sugestia de reducere trebuie aleasă înainte."
 	month_dialog.ok_button_text = "Luna următoare"
 	month_dialog.cancel_button_text = "Mai rămân"
 	month_dialog.confirmed.connect(controller.advance)
@@ -274,7 +274,13 @@ func _update() -> void:
 		progress.value = float(goal.get("progress", 0)) * 100
 		goal_text.text = "Obiectiv: %.0f lei · %.0f%%" % [goal.get("target_amount", 0), progress.value]
 		city.set_institutions(state.get("institutions", []))
-		advance_button.disabled = controller.busy or controller.needs_recovery
+		var must_choose := false
+		for event: Dictionary in controller.events:
+			if str(event.get("id", "")).begins_with("taie_"):
+				must_choose = true
+				break
+		advance_button.disabled = controller.busy or controller.needs_recovery or must_choose
+		advance_button.text = "Alege sugestia" if must_choose else "Luna următoare →"
 		refresh_button.disabled = controller.busy
 		if not selected.is_empty() and location.visible:
 			_institution(selected)

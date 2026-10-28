@@ -8,6 +8,8 @@ from . import engine as E
 
 IRRESPONSIBLE = ("uber", "restaurante", "abonamente", "pariuri", "livrari", "numerar", "cumparaturi", "cafea", "rate")
 MIN_MONTHLY = 40.0
+# After every current suggestion was shown, wait before the same ones can return.
+REPEAT_GAP = 3
 
 WHY = {
     "uber": "Uber și Bolt, mai ales noaptea, îți mănâncă salariul de part-time. Transportul în comun acoperă aceleași drumuri.",
