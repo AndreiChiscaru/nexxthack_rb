@@ -106,8 +106,13 @@ static func portrait(expression: String = "idle", side: float = 60.0) -> Texture
 	image.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return image
 
-static func profile_picture(user: bool, side: float = 36) -> TextureRect:
-	var image := player_portrait("talking", side) if user else portrait("idle", side)
+static func accountant_portrait(side: float = 60.0) -> TextureRect:
+	var image := portrait("idle", side)
+	image.texture = load("res://assets/raiff/accountant/accountant_idle.png")
+	return image
+
+static func profile_picture(user: bool, side: float = 36, agent: String = "") -> TextureRect:
+	var image := player_portrait("talking", side) if user else (accountant_portrait(side) if agent == "accountant" else portrait("idle", side))
 	image.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	image.stretch_mode = TextureRect.STRETCH_SCALE
 	var shader := Shader.new()
@@ -131,6 +136,9 @@ void fragment() {
 	var material := ShaderMaterial.new()
 	material.shader = shader
 	material.set_shader_parameter("backdrop", Color("fff19a") if user else Color("e7edcd"))
-	material.set_shader_parameter("crop", Vector4(0.18,0.02,0.64,0.55) if user else Vector4(0.08,0.0,0.84,0.65))
+	var crop := Vector4(0.18, 0.02, 0.64, 0.55) if user else Vector4(0.08, 0.0, 0.84, 0.65)
+	if agent == "accountant":
+		crop = Vector4(0.06, 0.0, 0.88, 0.58)
+	material.set_shader_parameter("crop", crop)
 	image.material = material
 	return image
