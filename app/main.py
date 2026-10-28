@@ -10,7 +10,9 @@ from fastapi.concurrency import run_in_threadpool  # noqa: E402
 from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
+from .agents.llm import AGENT_MODEL  # noqa: E402
 from .analyzer import MODEL, AnalysisError, analyze_statement  # noqa: E402
+from .demo.routes import router as demo_router  # noqa: E402
 from .extraction import extract_text  # noqa: E402
 from .game_profile import to_game_profile  # noqa: E402
 
@@ -25,6 +27,7 @@ app = FastAPI(title="Analiză extras de cont")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 if GAME_DIR.is_dir():
     app.mount("/joc", StaticFiles(directory=GAME_DIR, html=True), name="joc")
+app.include_router(demo_router)
 
 
 @app.get("/")
@@ -32,9 +35,14 @@ def index():
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@app.get("/demo")
+def demo():
+    return FileResponse(STATIC_DIR / "demo" / "index.html")
+
+
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "model": MODEL}
+    return {"status": "ok", "model": MODEL, "agent_model": AGENT_MODEL}
 
 
 @app.post("/api/analyze")
