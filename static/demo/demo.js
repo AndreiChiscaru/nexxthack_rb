@@ -14,7 +14,30 @@ const TOOL_LABELS = {
   calculate_taxes: "a calculat taxele",
   startup_checklist: "a generat checklist-ul",
   apply_business_to_game: "a pornit afacerea în joc",
+  fiscal_calendar: "a generat calendarul fiscal",
+  search_legislation: "a căutat în legislație",
+  review_dossier: "a verificat dosarul ONRC",
+  classify_expense: "a verificat deductibilitatea",
+  remember: "a notat în fișa comună",
 };
+const TOOL_RUNNING = {
+  update_profile: "salvez în profil…",
+  finish_onboarding: "finalizez profilul…",
+  get_financial_state: "citesc situația din joc…",
+  simulate_event_options: "rulez simularea opțiunilor…",
+  simulate_plan: "rulez simularea planului…",
+  search_products: "caut în catalogul de produse…",
+  compare_tax_regimes: "compar PFA, micro și profit…",
+  calculate_taxes: "calculez taxele…",
+  startup_checklist: "pregătesc pașii de înființare…",
+  apply_business_to_game: "pornesc afacerea în joc…",
+  fiscal_calendar: "generez calendarul fiscal…",
+  search_legislation: "caut în Codul fiscal și în legislație…",
+  review_dossier: "verific dosarul ONRC…",
+  classify_expense: "verific deductibilitatea…",
+  remember: "notez în fișa comună…",
+};
+const AGENT_NAMES = { onboarding: "Onboarding", statement: "Analiză extras", consultant: "Consultant", business: "Contabil" };
 
 // ------------------------------------------------------------ helpers
 
@@ -64,39 +87,91 @@ async function api(path, options = {}) {
 
 const post = (path, data) => api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data || {}) });
 
-function upload(path, file, extra = {}) {
-  const form = new FormData();
-  form.append("file", file);
-  for (const [k, v] of Object.entries(extra)) form.append(k, v);
-  return api(path, { method: "POST", body: form });
+// ------------------------------------------------------------ chat rendering + streaming
+
+const CHAT_EL = { onboarding: "onb-chat", consultant: "cons-chat", business: "biz-chat" };
+const messagesOf = (kind) => (kind === "onboarding" ? session.onboarding.chat : session[kind]);
+
+function toolChip(t) {
+  return `<span class="tool" title="${escapeHtml(JSON.stringify(t.args))}">🔧 <b>${escapeHtml(TOOL_LABELS[t.name] || t.name)}</b> · ${escapeHtml(t.summary)}</span>`;
 }
 
-// ------------------------------------------------------------ chat rendering
+function liveHtml(live) {
+  const tools = live.tools.map((t) => t.done ? toolChip(t)
+    : `<span class="tool running"><i class="spin"></i> ${escapeHtml(TOOL_RUNNING[t.name] || t.name + "…")}</span>`).join("");
+  const status = live.status && !live.text ? `<div class="typing">${escapeHtml(live.status)}</div>` : "";
+  const body = live.text ? markdown(live.text) + '<span class="caret"></span>' : (live.tools.length ? "" : '<div class="typing">scrie…</div>');
+  return `<div class="msg assistant live">${status}${body}${tools ? `<div class="tools">${tools}</div>` : ""}</div>`;
+}
 
-function renderChat(el, messages, pending) {
+function renderChat(el, messages, live) {
   el.innerHTML = messages.map((m) => {
-    const tools = (m.tool_calls || []).map((t) =>
-      `<span class="tool" title="${escapeHtml(JSON.stringify(t.args))}">🔧 <b>${escapeHtml(TOOL_LABELS[t.name] || t.name)}</b> · ${escapeHtml(t.summary)}</span>`).join("");
+    const tools = (m.tool_calls || []).map(toolChip).join("");
     const body = m.role === "user" ? `<p>${escapeHtml(m.text)}</p>` : markdown(m.text);
     return `<div class="msg ${m.role}">${body}${tools ? `<div class="tools">${tools}</div>` : ""}</div>`;
-  }).join("") + (pending ? `<div class="typing">${escapeHtml(pending)}</div>` : "");
+  }).join("") + (live ? liveHtml(live) : "");
   el.scrollTop = el.scrollHeight;
 }
 
-async function send(kind, action, pendingText) {
+async function streamTurn(kind, path, options) {
   if (busy) return;
   busy = true;
-  const chat = { onboarding: "onb-chat", consultant: "cons-chat", business: "biz-chat" }[kind];
-  const messages = kind === "onboarding" ? session.onboarding.chat : session[kind];
-  renderChat($(chat), messages, pendingText);
+  const el = $(CHAT_EL[kind]);
+  const live = { text: "", tools: [], status: "" };
+  let frame = null;
+  const paint = () => {
+    if (frame) return;
+    frame = requestAnimationFrame(() => { frame = null; renderChat(el, messagesOf(kind), live); });
+  };
+  paint();
   try {
-    session = await action();
+    const res = await fetch(`/api/demo${path}`, options);
+    if (!res.ok || !res.body) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `Eroare ${res.status}`);
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let cut;
+      while ((cut = buffer.indexOf("\n\n")) >= 0) {
+        const chunk = buffer.slice(0, cut).trim();
+        buffer = buffer.slice(cut + 2);
+        if (!chunk.startsWith("data:")) continue;
+        const ev = JSON.parse(chunk.slice(5));
+        if (ev.type === "text") live.text += ev.delta;
+        else if (ev.type === "status") live.status = ev.text;
+        else if (ev.type === "tool_start") live.tools.push({ name: ev.name, done: false });
+        else if (ev.type === "tool_end") {
+          const t = live.tools.find((x) => x.name === ev.name && !x.done) || {};
+          Object.assign(t, { name: ev.name, args: ev.args, summary: ev.summary, done: true });
+          if (!live.tools.includes(t)) live.tools.push(t);
+        } else if (ev.type === "view") session = ev.view;
+        else if (ev.type === "error") throw new Error(ev.message);
+        paint();
+      }
+    }
   } catch (err) {
     toast(err.message);
+    try { session = await api(`/session/${session.session_id}`); } catch { /* keep local state */ }
   } finally {
     busy = false;
+    if (frame) cancelAnimationFrame(frame);
     render();
   }
+}
+
+const postJsonOptions = (data) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+
+function uploadOptions(file, extra = {}) {
+  const form = new FormData();
+  form.append("file", file);
+  for (const [k, v] of Object.entries(extra)) form.append(k, v);
+  return { method: "POST", body: form };
 }
 
 function chatForm(formId, inputId, kind, path) {
@@ -105,10 +180,18 @@ function chatForm(formId, inputId, kind, path) {
     const text = $(inputId).value.trim();
     if (!text || busy) return;
     $(inputId).value = "";
-    const messages = kind === "onboarding" ? session.onboarding.chat : session[kind];
-    messages.push({ role: "user", text });
-    send(kind, () => post(`/${path}/${session.session_id}/message`, { text }), "Agentul scrie…");
+    messagesOf(kind).push({ role: "user", text });
+    streamTurn(kind, `/${path}/${session.session_id}/message`, postJsonOptions({ text }));
   });
+}
+
+function renderMemory() {
+  const notes = session.memory || [];
+  const html = notes.length
+    ? notes.slice().reverse().map((n) => `<li><small>${escapeHtml(AGENT_NAMES[n.agent] || n.agent)} · ${escapeHtml(n.topic)}${n.month != null ? ` · luna ${n.month}` : ""}</small><br>${escapeHtml(n.text)}</li>`).join("")
+    : '<li class="desc">Încă nimic. Agenții notează aici ce află despre tine, ca să nu te întrebe de două ori.</li>';
+  document.querySelectorAll(".memory-list").forEach((el) => { el.innerHTML = html; });
+  document.querySelectorAll(".memory-count").forEach((el) => { el.textContent = notes.length; });
 }
 
 // ------------------------------------------------------------ onboarding view
@@ -151,11 +234,12 @@ function renderOnboarding() {
 function renderHud(g) {
   const b = g.balance;
   const stats = [
-    ["Luna", g.month, ""],
+    [`Luna ${g.month}`, g.calendar, ""],
     ["Cont curent", lei(b.cash), b.cash < 0 ? "neg" : ""],
     ["Economii", lei(b.savings), "pos"],
     ["Investiții", lei(b.investments), ""],
     ["Datorii", lei(b.debt), b.debt > 0 ? "neg" : ""],
+    ...(b.taxes_due > 0.5 ? [["Taxe de plată", lei(b.taxes_due), "neg"]] : []),
     ["Patrimoniu", lei(b.net_worth), b.net_worth < 0 ? "neg" : "pos"],
     ["Surplus/lună", lei(g.monthly.surplus), g.monthly.surplus < 0 ? "neg" : "pos"],
   ];
@@ -180,7 +264,12 @@ function renderInstitutions(g) {
   $("institutions").innerHTML = g.institutions.map((inst) => {
     const items = inst.items.map((i) => `<li><span>${escapeHtml(i.label)}</span><span class="${i.amount >= 0 ? "pos" : "neg"}">${i.amount >= 0 ? "+" : ""}${lei(i.amount)}</span></li>`).join("");
     let extra = "";
-    if (inst.id === "business") extra = `<div class="actions"><button class="small primary" data-open-business>Deschide contabilul AI</button></div>`;
+    if (inst.id === "business") {
+      const obligations = g.fiscal.obligations.map((o) => `<li title="${escapeHtml(o.when)}"><span>🗓 ${escapeHtml(o.declaration)} · ${escapeHtml(o.next_due || "-")}</span><span class="neg">${lei(o.accrued)}</span></li>`).join("");
+      const arrears = g.fiscal.arrears.map((a) => `<li><span>⚠ Restanță: ${escapeHtml(a.label)}</span><span class="neg">${lei(a.amount)}</span></li>`).join("");
+      extra = (obligations || arrears ? `<div class="desc">Taxe acumulate și următorul termen:</div><ul>${obligations}${arrears}</ul>` : "")
+        + `<div class="actions"><button class="small primary" data-open-business>Deschide contabilul AI</button></div>`;
+    }
     if (inst.id === "bank") {
       const auto = g.auto.savings || g.auto.investments ? `<li><span>Automat: economii / investiții</span><span>${lei(g.auto.savings)} / ${lei(g.auto.investments)}</span></li>` : "";
       extra = `<ul>${auto}<li><span>Fond de urgență</span><span>${g.emergency_months} luni</span></li></ul>${bankActions()}`;
@@ -235,6 +324,7 @@ function render() {
   $("consultant-fab").classList.toggle("hidden", !inGame);
   if (inGame) renderGame();
   else renderOnboarding();
+  renderMemory();
   suggestions();
 }
 
@@ -242,7 +332,8 @@ function suggestions() {
   const cons = session.game?.pending_event
     ? ["Ce opțiune aleg la evenimentul ăsta?", "Cum mă afectează pe termen lung?"]
     : ["Sunt pe drumul cel bun spre scop?", "Cât ar trebui să economisesc lunar?", "Ce produs bancar mi se potrivește?"];
-  const biz = ["Am o idee: ", "PFA sau SRL pentru 5.000 lei/lună venit?", "Ce pași am de făcut ca să deschid un SRL?"];
+  const biz = ["PFA sau SRL pentru 5.000 lei/lună venit?", "Care sunt termenele mele fiscale?",
+    "Verifică-mi dosarul pentru ONRC", "Ce cheltuieli pot deduce?"];
   const fill = (id, list, input) => {
     $(id).innerHTML = list.map((s) => `<button type="button">${escapeHtml(s)}</button>`).join("");
     [...$(id).children].forEach((b) => b.addEventListener("click", () => { $(input).value = b.textContent; $(input).focus(); }));
@@ -269,8 +360,7 @@ function bindEvents() {
     e.target.value = "";
     if (!file) return;
     session.onboarding.chat.push({ role: "user", text: `📎 ${file.name}` });
-    send("onboarding", () => upload(`/onboarding/${session.session_id}/statement`, file),
-      "Agentul de analiză citește extrasul (OCR dacă e nevoie) și îi trimite raportul agentului de onboarding… (~30-60 s)");
+    streamTurn("onboarding", `/onboarding/${session.session_id}/statement`, uploadOptions(file));
   });
 
   $("biz-file").addEventListener("change", (e) => {
@@ -280,7 +370,7 @@ function bindEvents() {
     const note = $("biz-input").value.trim();
     $("biz-input").value = "";
     session.business.push({ role: "user", text: `📎 ${file.name}${note ? ` — ${note}` : ""}` });
-    send("business", () => upload(`/business/${session.session_id}/document`, file, { note }), "Contabilul analizează documentul…");
+    streamTurn("business", `/business/${session.session_id}/document`, uploadOptions(file, { note }));
   });
 
   $("start-game").addEventListener("click", () => gameAction(() => post(`/game/${session.session_id}/start`)));
@@ -297,6 +387,8 @@ function bindEvents() {
     }
     const close = e.target.closest("[data-close]");
     if (close) $(close.dataset.close).classList.add("hidden");
+    if (e.target.closest("[data-open-memory]")) { renderMemory(); $("memory").classList.toggle("hidden"); }
+    if (e.target.id === "memory") $("memory").classList.add("hidden");
     if (e.target.id === "business") $("business").classList.add("hidden");
     if (e.target.id === "bank-go") {
       const action = $("bank-action").value;
