@@ -1,0 +1,32 @@
+[
+  {
+    "id": "campanie_debit",
+    "name": "Bonus pentru cont și card de debit",
+    "terms": "Bonus de până la 600 lei. Campanie 1 septembrie 2026 – 31 ianuarie 2027.",
+    "conditions": "Condițiile exacte de eligibilitate sunt pe pagina campaniei.",
+    "best_for": "cine își deschide acum contul și cardul de debit",
+    "cautions": "Nu o prezenta ca pe un câștig sigur: depinde de îndeplinirea condițiilor.",
+    "start_date": "2026-09-01",
+    "end_date": "2027-01-31",
+    "product_id": "zero_simplu"
+  },
+  {
+    "id": "campanie_credit",
+    "name": "Bonus pentru carduri de credit Standard sau eMAG",
+    "terms": "Bonus de 150 lei după primii 1.000 lei cheltuiți. Campania se termină la 2 noiembrie 2026.",
+    "conditions": "Doar pentru anumite carduri Standard sau eMAG.",
+    "best_for": "cine oricum urma să facă acei 1.000 lei de cheltuieli și rambursează la timp",
+    "cautions": "Termen foarte scurt. Nu justifica deschiderea cardului doar pentru 150 lei.",
+    "end_date": "2026-11-02",
+    "product_id": "carduri_credit"
+  },
+  {
+    "id": "campanie_premium",
+    "name": "Campanie Pachet Premium",
+    "terms": "Include un premiu de 5.000 lei. Până la 31 decembrie 2026.",
+    "conditions": "Pachetul Premium are propriile condiții de venituri.",
+    "best_for": "cine se califică oricum pentru Premium",
+    "cautions": "E un premiu de campanie, nu un beneficiu garantat pentru fiecare client.",
+    "end_date": "2026-12-31"
+  }
+]

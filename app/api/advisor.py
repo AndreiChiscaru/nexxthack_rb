@@ -1,9 +1,17 @@
 from fastapi import APIRouter
 
+from ..catalog import catalog_products
 from ..schemas import ChatRequest, ChatResponse, ToolCall
 from ..sessions import get_session
 
 router = APIRouter(prefix="/api/advisor", tags=["advisor"])
+
+
+def _search_products(category: str) -> ToolCall:
+    """Mock tool call over the real catalog, so names match what the frontend shows from /api/products."""
+    found = catalog_products(category)
+    return ToolCall(name="search_products", args={"category": category},
+                    summary=f"{len(found)} produse ({category}): " + ", ".join(p.name for p in found))
 
 
 @router.post("/message", response_model=ChatResponse)
@@ -16,8 +24,7 @@ def advisor_message(req: ChatRequest):
     tool_calls = [
         ToolCall(name="get_player_profile", args={},
                  summary=f"Luna {session.month}, cash {cash:.0f} lei, stres {stress:.0f}/100."),
-        ToolCall(name="search_products", args={"category": "savings"},
-                 summary="2 produse demo: Cont de Economii Automat Demo, Depozit Flexibil Demo."),
+        _search_products("economii"),
     ]
     if "credit" in req.text.lower() or "rate" in req.text.lower():
         tool_calls.append(ToolCall(

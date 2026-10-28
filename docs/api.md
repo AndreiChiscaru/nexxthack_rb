@@ -2,7 +2,8 @@
 
 Shapes follow `docs/implementation-plan.md` §4. `/api/game/*` runs on the real financial engine
 (`app/sim/engine.py`, port of `finance_sim.gd`) with events from `data/events.json`. Onboarding runs the real
-agent when an API key is set (see [Onboarding](#onboarding)). Advisor, business and products are still **mock**;
+agent when an API key is set (see [Onboarding](#onboarding)). Products come from `data/products.json`
+(see [Products & campaigns](#products--campaigns)). Advisor and business are still **mock**;
 each mock in the code is marked `# TODO(real): ...`.
 
 - Base URL: same origin as the game (`/joc`). CORS is open (`*`) for local dev.
@@ -22,12 +23,14 @@ each mock in the code is marked `# TODO(real): ...`.
 | POST | `/api/advisor/message` | JSON `{session_id, text}` | `{reply, tool_calls[]}` |
 | POST | `/api/business/message` | multipart `session_id`, `text`, optional `file` | `{reply, tool_calls[]}` |
 | GET | `/api/products` | `?category=` (optional) | `{products[]}` |
+| GET | `/api/products/{id}` | none | `Product` (404 if unknown) |
+| GET | `/api/campaigns` | none | `{campaigns[]}`, only the ones not expired |
 
 Shared shapes:
 
 - `ToolCall = {name, args, summary}`
 - `Event` uses the §4.4 format: `{id, institution, title, text, options: [{id, label, ops}]}`
-- `Product = {id, category, name, apr, min_months, max_months, note, mock}`, the same fields as `catalog.gd`
+- `Product = {id, category, name, terms, conditions, best_for, cautions, as_of_date, disclaimer}`; see [Products & campaigns](#products--campaigns)
 - Institutions: `home | market | education | work | business | hospital | bank`
 
 Mock behaviour:
@@ -61,7 +64,7 @@ How the engine maps onto `GameState` (§4.2):
 | `monthly.income` | `salary + side_income`; side income starts as `income.other + education.scholarship` |
 | `monthly.expenses.business` | `0` for now |
 | `monthly.expenses.bank` | loan payments |
-| `products` | `cont_economii` = emergency, `depozit` = deposit, `fond_diversificat` = fund (only if > 0) |
+| `products` | catalog ids: `super_acces_plus` = emergency, `depozit_1_an` = deposit, `fonduri_smartinvest` = fund (only if > 0) |
 
 The six expense keys always add up to what the month deducts.
 
@@ -198,6 +201,58 @@ Mapping from the agent profile (`app/agents/profile.py`) to §4.1, in one place 
 
 Same names in both: `name`, `age`, `goal.description/target_amount/horizon_months`, `income.salary/other`, `education.status/tuition_monthly`, `health.insured`, `risk_tolerance` (`scazuta|medie|ridicata`), `dependents`.
 
+## Products & campaigns
+
+The catalog is `data/products.json`: the public Raiffeisen offer as of 28 October 2026, the same file the consultant agent (`app/agents/consultant.py`) searches. `app/catalog.py` validates it once at startup. The server refuses to start on:
+- a duplicate id or an id that isn't `snake_case`
+- a missing required field
+- an unknown category
+
+### Product schema
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string | `snake_case`, unique |
+| `category` | string | `credit`, `locuinta`, `economii`, `cont`, `card`, `investitii`, `pensie`, `asigurare` |
+| `name` | string | commercial name |
+| `terms` | string | rates, amounts, terms, as published |
+| `conditions` | string | eligibility (may be empty) |
+| `best_for` | string | who it suits |
+| `cautions` | string | what to watch out for |
+| `as_of_date` | date | **optional in the file**, defaults to `2026-10-28`; always present in the API |
+| `disclaimer` | string | **optional in the file**, defaults to the standard text; always present in the API |
+
+**Rates are not guaranteed.** Loan rates are "de la" (minimums, checked by a test for `credit`/`locuinta`) and the final cost is set by the bank. Savings rates are gross and can change. The `disclaimer` says this on every product.
+
+Unknown extra keys in the file are ignored, so a teammate's additions don't block startup.
+
+### Campaigns
+
+Time-limited campaigns are in `data/campaigns.json`: the same text fields plus `start_date?`, `end_date` (required), `product_id?` (must exist in the catalog), `as_of_date` and `disclaimer`. `GET /api/campaigns` returns only campaigns whose `end_date` hasn't passed (the end date itself still counts), soonest-ending first.
+
+The 4 old `category: "campanie"` entries stay in `products.json` for now, because the consultant searches them there. `/api/products` hides them: `?category=campanie` returns 400 pointing to `/api/campaigns`, and `/api/products/campanie_*` returns 404.
+
+### Endpoints
+
+| Request | Response |
+|---|---|
+| `GET /api/products` | every catalog product |
+| `GET /api/products?category=economii` | one category; an unknown category returns **400** |
+| `GET /api/products/{id}` | one product; **404** if unknown |
+| `GET /api/campaigns` | active campaigns |
+
+### Updating the catalog from the bank's PDF
+
+```bash
+python -m tools.ingest_products oferta_raiffeisen.pdf --dry-run          # print the result, write nothing
+python -m tools.ingest_products oferta_raiffeisen.pdf --as-of 2026-11-15  # write data/products.from_pdf.json
+```
+
+1. **Read and extract.** The script reads the PDF with `app/extraction.py` (OCR fallback) and asks Claude for a JSON list in the catalog's shape. Structured output is used, the model is `INGEST_MODEL` (default `claude-opus-5-5`), and `ANTHROPIC_API_KEY` must be set.
+2. **Validate.** It validates the list with the same `Product` model used at startup.
+3. **Review file.** It writes `data/products.from_pdf.json` and prints a review report: `added`, `changed` and `missing_from_pdf` ids.
+4. **Manual merge.** It **never** writes `data/products.json` and refuses `--out` pointing at it. A person reviews the file and copies over what's correct.
+
 ## Data & privacy
 
 - **Uploaded files** are read into memory and never written to disk. Neither the file nor its extracted text is kept in the session; the session keeps only `{score, risk_signals}` from the analysis.
@@ -277,7 +332,7 @@ curl -F session_id=c3db... -F file=@extras.pdf http://localhost:8000/api/onboard
            "monthly": {"income": 4300, "expenses": {"home": 1970, "market": 1800, "education": 0, "health": 0, "business": 0, "bank": 650}},
            "wellbeing": {"stress": 35, "confidence": 45},
            "institutions": [{"id": "home", "pending_events": 0}, "...", {"id": "hospital", "pending_events": 1}, {"id": "bank", "pending_events": 1}],
-           "products": [{"id": "cont_economii", "balance": 1200}],
+           "products": [{"id": "super_acces_plus", "balance": 1200}],
            "log": [{"month": 0, "institution": "home", "text": "Andrei începe aventura."}]},
  "events": [{"id": "dentist", "institution": "hospital", "title": "Urgență stomatologică", "text": "...",
              "options": [{"id": "pay_cash", "label": "Plătesc din economii", "ops": {"spend": 1200}},
@@ -323,7 +378,7 @@ Errors: see the actions table and [Events](#events). An `institution` outside th
 {"reply": "Îți recomand să pui întâi deoparte un fond de urgență de 3 luni, apoi să accelerezi plata creditului.",
  "tool_calls": [
    {"name": "get_player_profile", "args": {}, "summary": "Luna 0, cash 4000 lei, stres 35/100."},
-   {"name": "search_products", "args": {"category": "savings"}, "summary": "2 produse demo: Cont de Economii Automat Demo, Depozit Flexibil Demo."},
+   {"name": "search_products", "args": {"category": "economii"}, "summary": "6 produse (economii): Cont de economii Super Acces Plus, Plătești și economisești, Depozit Fresh Money, Flexidepozit, Depozit la termen până la 1 an, Depozit la 24 de luni"},
    {"name": "simulate_decision", "args": {"option": "A", "months": 36}, "summary": "Varianta A: dobândă totală plătită 2.310 lei, rată 650 lei/lună."}]}
 ```
 
@@ -335,16 +390,31 @@ curl -F session_id=c3db... -F text="Vreau o cafenea" -F file=@plan.pdf http://lo
 {"reply": "Ideea pare viabilă dacă poți acoperi 6 luni de costuri fixe. Hai să vedem un plan de finanțare.",
  "tool_calls": [
    {"name": "read_document", "args": {"filename": "plan.pdf"}, "summary": "Document primit (9 octeți), analiză mock."},
-   {"name": "search_products", "args": {"category": "credit_business"}, "summary": "1 produs demo: Credit Micro-Business Demo."},
+   {"name": "search_products", "args": {"category": "credit"}, "summary": "4 produse (credit): Credit de nevoi personale, Refinanțare fără ipotecă, Refinanțare cu ipotecă – Flexicredit Integral, Overdraft"},
    {"name": "simulate_decision", "args": {"principal": 20000, "apr": 0.099, "months": 36}, "summary": "Rată estimată 644 lei/lună, dobândă totală 3.190 lei."}]}
 ```
 
-### GET /api/products?category=savings
+### GET /api/products?category=economii
 ```json
 {"products": [
-  {"id": "cont_economii", "category": "savings", "name": "Cont de Economii Automat Demo", "apr": 0.03,
-   "min_months": 0, "max_months": 0, "note": "Dobândă fictivă 3%/an, transfer automat lunar, bani disponibili oricând.", "mock": true},
-  {"id": "depozit", "category": "savings", "name": "Depozit Flexibil Demo", "apr": 0.045,
-   "min_months": 0, "max_months": 0, "note": "Dobândă fictivă 4,5%/an, pentru sume care nu sunt necesare imediat.", "mock": true}]}
+  {"id": "super_acces_plus", "category": "economii", "name": "Cont de economii Super Acces Plus",
+   "terms": "Dobândă brută în lei 2% / 2,5% / 3% pe tranșe; 0,5% la euro; 0,3% la dolar. Acces oricând, fără sumă minimă efectivă. Dobânda se capitalizează lunar.",
+   "conditions": "Dobânda brută este impozitată cu 10%. Depozitele sunt acoperite de Fondul de Garantare a Depozitelor în Sistemul Bancar.",
+   "best_for": "fondul de urgență: banii rămân disponibili oricând",
+   "cautions": "Nu e produsul cu dobânda cea mai mare. Alege-l pentru siguranță și acces, nu pentru randament.",
+   "as_of_date": "2026-10-28",
+   "disclaimer": "Informații publice Raiffeisen Bank, cu titlu educativ. Dobânzile la credite sunt „de la” (minime) și nu sunt garantate: ..."},
+  "... platesti_si_economisesti, fresh_money, flexidepozit, depozit_1_an, depozit_24_luni"]}
 ```
-Categories: `credit_auto`, `credit_personal`, `credit_business`, `savings`, `investment`, `insurance`.
+`GET /api/products/super_acces_plus` returns that object on its own; `GET /api/products/nu_exista` → 404 `{"detail": "Produs necunoscut: nu_exista."}`.
+
+### GET /api/campaigns
+```json
+{"campaigns": [
+  {"id": "campanie_credit", "name": "Bonus pentru carduri de credit Standard sau eMAG",
+   "terms": "Bonus de 150 lei după primii 1.000 lei cheltuiți. Campania se termină la 2 noiembrie 2026.",
+   "conditions": "Doar pentru anumite carduri Standard sau eMAG.", "best_for": "...", "cautions": "...",
+   "start_date": null, "end_date": "2026-11-02", "product_id": "carduri_credit",
+   "as_of_date": "2026-10-28", "disclaimer": "..."},
+  "... campanie_premium (2026-12-31), campanie_debit (2027-01-31)"]}
+```

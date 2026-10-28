@@ -2,6 +2,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from ..schemas import ChatResponse, ToolCall
 from ..sessions import get_session
+from .advisor import _search_products
 
 router = APIRouter(prefix="/api/business", tags=["business"])
 
@@ -16,8 +17,7 @@ async def business_message(
 ):
     get_session(session_id)
     tool_calls = [
-        ToolCall(name="search_products", args={"category": "credit_business"},
-                 summary="1 produs demo: Credit Micro-Business Demo."),
+        _search_products("credit"),
         ToolCall(name="simulate_decision", args={"principal": 20000, "apr": 0.099, "months": 36},
                  summary="Rată estimată 644 lei/lună, dobândă totală 3.190 lei."),
     ]

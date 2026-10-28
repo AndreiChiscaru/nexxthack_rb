@@ -146,10 +146,10 @@ def test_business_message_with_and_without_file():
 
 def test_products():
     all_products = client.get("/api/products").json()["products"]
-    assert len(all_products) == 8
-    assert all(p["mock"] is True for p in all_products)
-    savings = client.get("/api/products", params={"category": "savings"}).json()["products"]
-    assert {p["id"] for p in savings} == {"cont_economii", "depozit"}
+    assert len(all_products) == 23  # data/products.json without the 4 legacy campaign entries
+    assert all(p["as_of_date"] and p["disclaimer"] for p in all_products)
+    savings = client.get("/api/products", params={"category": "economii"}).json()["products"]
+    assert "super_acces_plus" in {p["id"] for p in savings}
 
 
 @pytest.mark.parametrize(("horizon", "on_track"), [(12, False), (36, True)])
@@ -190,7 +190,7 @@ def test_full_flow():
 
     advice = client.post("/api/advisor/message", json={"session_id": sid, "text": "Ce fac acum?"}).json()
     assert advice["tool_calls"]
-    assert client.get("/api/products", params={"category": "investment"}).json()["products"]
+    assert client.get("/api/products", params={"category": "investitii"}).json()["products"]
 
     final = client.get("/api/game/state", params={"session_id": sid}).json()
     assert final["month"] == 3

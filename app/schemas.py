@@ -166,18 +166,6 @@ class ToolCall(BaseModel):
     summary: str
 
 
-class Product(BaseModel):
-    """Same shape as raiffquest/scripts/raiff/catalog.gd."""
-    id: str
-    category: str
-    name: str
-    apr: float
-    min_months: int
-    max_months: int
-    note: str
-    mock: bool = True
-
-
 # --- Requests / responses (§4.3) ---------------------------------------------
 
 class SessionResponse(BaseModel):
@@ -244,7 +232,3 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     tool_calls: list[ToolCall]
-
-
-class ProductsResponse(BaseModel):
-    products: list[Product]
