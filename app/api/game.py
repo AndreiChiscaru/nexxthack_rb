@@ -21,6 +21,7 @@ from ..sim import cuts
 from ..sim import engine as E
 from ..sim import events
 from ..sim import firm as F
+from ..sim import score as player_score
 
 router = APIRouter(prefix="/api/game", tags=["game"])
 
@@ -99,6 +100,7 @@ def start(req: GameStartRequest):
     session.used_events = {}
     session.cut_mode = bool(cuts.eligible(profile))
     session.sim["calendar_start"] = F.next_calendar_month()
+    player_score.reset(session, session.sim)
     _remember_start(session)
     opening = _schedule(session, count=1 if session.cut_mode else OPENING_EVENTS)
     return GameStartResponse(state=game_state(session), events=opening)
@@ -143,6 +145,12 @@ def _answer_cut(session: Session, req: GameActionRequest) -> tuple[str, str]:
         raise HTTPException(400, "Sugestia nu mai corespunde unei cheltuieli din extras.")
     session.pending_events.remove(pending)
     memory.add(session.id, "joc", "decizie", note)
+    chosen = next(option for option in pending.options if option.id == option_id)
+    player_score.record_choice(
+        session, institution=pending.institution, action_id=pending.id, option_id=option_id,
+        title=pending.title, label=chosen.label, chosen_ops=chosen.ops,
+        option_ops=[option.ops for option in pending.options],
+    )
     return f"{pending.title}: {option_id}", note
 
 
@@ -161,6 +169,11 @@ def _answer_fiscal(session: Session, req: GameActionRequest) -> tuple[str, str]:
         raise HTTPException(400, "Termenul fiscal nu mai corespunde firmei din joc.")
     session.pending_events.remove(pending)
     memory.add(session.id, "joc", "fiscal", note)
+    player_score.record_choice(
+        session, institution=pending.institution, action_id=pending.id, option_id=option.id,
+        title=pending.title, label=option.label, chosen_ops=option.ops,
+        option_ops=[item.ops for item in pending.options],
+    )
     return f"{pending.title}: {option.label}", note
 
 
@@ -188,6 +201,11 @@ def _answer_event(session: Session, req: GameActionRequest) -> tuple[str, str]:
     sim["stress"] = max(0.0, min(100.0, float(sim["stress"]) + mood["stress"]))
     sim["confidence"] = max(0.0, min(100.0, float(sim["confidence"]) + mood["confidence"]))
     session.pending_events.remove(pending)
+    player_score.record_choice(
+        session, institution=library_event.institution, action_id=library_event.id, option_id=option.id,
+        title=library_event.title, label=option.label, chosen_ops=option.ops.to_engine(),
+        option_ops=[item.ops.to_engine() for item in library_event.options],
+    )
     return f"{library_event.title}: {option.label}", events.advisor_note(option, notes)
 
 
@@ -212,12 +230,14 @@ def action(req: GameActionRequest):
         else:
             sim["cash"] = float(sim["cash"]) + E.prepay(sim, amount)
         text = f"Acțiune {req.action_id}: {E.money(amount)}"
+        player_score.record_free(session, institution=req.institution, action_id=req.action_id, amount=amount)
     elif req.action_id in MONTHLY_ACTIONS:
         amount = _amount(req.params)
         if amount < 0 or amount > E.income(sim):
             raise HTTPException(400, f"params.amount trebuie să fie între 0 și venitul lunar ({E.money(E.income(sim))}).")
         E.apply_ops(sim, {MONTHLY_ACTIONS[req.action_id]: amount}, notes)
         text = f"Acțiune {req.action_id}: {E.money(amount)}/lună"
+        player_score.record_free(session, institution=req.institution, action_id=req.action_id, amount=amount)
     else:
         text, note = _answer_event(session, req)
 

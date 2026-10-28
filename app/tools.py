@@ -124,7 +124,8 @@ def get_state(session_id: str) -> dict:
     state = game_state(session).model_dump(mode="json")
     b = state["balance"]
     return {**state, "summary": f"Luna {state['month']}: numerar {E.money(b['cash'])}, economii {E.money(b['savings'])}, "
-                                f"datorii {E.money(b['debt'])}, progres scop {state['goal']['progress']:.0%}."}
+                                f"datorii {E.money(b['debt'])}, progres scop {state['goal']['progress']:.0%}, "
+                                f"scor alegeri {state['score']}/100."}
 
 
 def get_goal_progress(session_id: str) -> dict:

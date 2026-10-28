@@ -10,6 +10,7 @@ from .onboarding import llm_enabled
 
 from ..schemas import ChatRequest, ChatResponse, Event, ToolCall
 from ..sessions import Session, game_state, get_session
+from ..sim import score as player_score
 from ..tools import ToolError, _run, llm_tools, run_tool
 
 router = APIRouter(prefix="/api/advisor", tags=["advisor"])
@@ -22,7 +23,10 @@ Răspunde în română, prietenos și concret, în cel mult 150 de cuvinte.
 Leagă sfatul de scop, orizont și toleranța la risc. Dacă orizontul e sub 3 ani sau nu există fond de urgență,
 spune că banii pentru scopul apropiat stau în economii, nu într-un fond.
 Nu inventa cifre sau randamente: folosește get_state, get_goal_progress, simulate_decision,
-search_products (categoria investitii, apoi economii sau pensie), compare_products și create_action_plan.
+search_products (categoria investitii, apoi economii sau pensie), compare_products, create_action_plan și add_to_score.
+Scorul (scor în context) este între 0 și 100 și se mută cu alegerile jucătorului. Când vezi o alegere
+fără ajustarea ta, apelează add_to_score (delta întreg între -10 și 10). Scorul rămâne între 0 și 100.
+Nu pretinde că ai mutat bani: add_to_score schimbă doar scorul.
 Recomandă numai produse din catalog, cu avertismentul lor. Fondurile și SmartInvest nu au randament garantat;
 dobânda de ~6% din joc este o simplificare, nu oferta băncii.
 Dacă profilul are categories (medii lunare din extras), leagă suma lunară pe care o poate investi de ce rămâne după cheltuieli.
@@ -37,9 +41,14 @@ Răspunde în română, prietenos și concret, în cel mult 180 de cuvinte.
 Folosește profilul și starea curentă de mai jos la fiecare răspuns; acestea au prioritate
 față de cifrele din conversațiile anterioare. Leagă sfatul de scop și toleranța la risc.
 Nu inventa cifre sau oferte: folosește get_state, get_goal_progress, simulate_event_options,
-simulate_decision, compare_scenarios, search_products, compare_products și create_action_plan.
-Uneltele sunt doar pentru citire și simulare; nu efectuează tranzacții. Nu afirma că
-ai modificat jocul. Utilizatorul confirmă și execută acțiunile în interfața jocului.
+simulate_decision, compare_scenarios, search_products, compare_products, create_action_plan și add_to_score.
+Uneltele financiare sunt doar pentru citire și simulare; nu efectuează tranzacții. Nu afirma că
+ai mutat bani. Utilizatorul confirmă și execută acțiunile în interfața jocului.
+add_to_score schimbă doar scorul de alegeri.
+Scorul (scor în context) este între 0 și 100. Pornește din situația de la începutul jocului și se mută
+la fiecare alegere. Când vezi o alegere fără ajustarea ta, apelează add_to_score cu id-ul ei, un delta
+întreg între -10 și 10 și un motiv scurt: plus dacă ajută scopul și reziliența, minus dacă le înrăutățește.
+Apelul tău înlocuiește evaluarea ta anterioară pentru aceeași alegere. Scorul rămâne între 0 și 100.
 Când există un eveniment deschis (eveniment_deschis în context) și utilizatorul cere sfat,
 compară fiecare variantă cu simulate_event_options și spune clar pe care ai alege-o și de ce.
 Pentru o sugestie „Taie …”, compară tăierea cu „O las așa”: linia iese din cheltuielile lunare
@@ -146,6 +155,7 @@ def _context(session: Session) -> dict:
         ],
         "game_state": game_state(session).model_dump(mode="json") if session.sim is not None else None,
         "eveniment_deschis": event_payload(open_event(session)) if session.sim is not None else None,
+        "scor": player_score.public(session),
     }
 
 
@@ -156,9 +166,10 @@ def _with_sheet(session: Session, system: str) -> str:
 def _live_turn(session: Session, text: str, history_attr: str, system: str, agent: str) -> ChatResponse:
     # The shared agent loop mutates history: commit only a completed turn.
     history = copy.deepcopy(getattr(session, history_attr))
+    saved_adjustments = copy.deepcopy(session.score_adjustments)
     llm.add_user_text(history, text)
     start = len(session.tool_log)
-    tools = llm_tools(session.id) + [memory.tool(session.id, agent)]
+    tools = llm_tools(session.id) + [memory.tool(session.id, agent), player_score.tool(session.id, agent)]
     if agent == "angel":
         tools.append(Tool(
             "simulate_event_options",
@@ -172,6 +183,7 @@ def _live_turn(session: Session, text: str, history_attr: str, system: str, agen
     except Exception:
         # Read-only tools cannot change finances, but their trace must roll back with the failed turn.
         del session.tool_log[start:]
+        session.score_adjustments = saved_adjustments
         log.warning("Advisor agent turn failed")
         raise HTTPException(502, "Consultantul nu a putut răspunde. Te rugăm să reîncerci.") from None
     setattr(session, history_attr, history)
