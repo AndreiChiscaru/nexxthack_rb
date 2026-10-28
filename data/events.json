@@ -1,0 +1,211 @@
+[
+  {
+    "id": "chirie_marita", "institution": "home", "title": "Chiria crește",
+    "text": "Proprietarul te anunță că de luna viitoare chiria crește cu 200 lei. Prețurile din zonă au urcat și nu prea are de gând să cedeze.",
+    "options": [
+      {"id": "accept", "label": "Accept creșterea (+200 lei/lună)", "ops": {"living_add": 200, "mood": {"stress": 4}}},
+      {"id": "negociez", "label": "Negociez și rămâne +100 lei/lună", "ops": {"living_add": 100, "mood": {"stress": 2, "conf": 3}}},
+      {"id": "colocatar", "label": "Mă mut cu un coleg: mutarea costă 800 lei, chiria scade cu 400 lei/lună", "ops": {"spend": 800, "living_add": -400, "mood": {"stress": 8, "conf": 2}}}
+    ]
+  },
+  {
+    "id": "avarie_baie", "institution": "home", "title": "S-a spart o țeavă în baie",
+    "text": "Apa a ajuns la vecinul de jos. Instalatorul cere 4.500 lei pentru reparație și faianță nouă.",
+    "options": [
+      {"id": "platesc", "label": "Plătesc din economii (4.500 lei)", "ops": {"spend": 4500, "mood": {"stress": 4}}},
+      {"id": "credit", "label": "Credit de nevoi personale: 4.500 lei, 13,9%, 24 de luni", "ops": {"loan": {"name": "Credit nevoi personale", "principal": 4500, "apr": 0.139, "months": 24}, "mood": {"stress": 6}}},
+      {"id": "rate_instalator", "label": "Plata în rate la instalator: 4.800 lei, fără dobândă, 12 luni", "ops": {"loan": {"name": "Rate instalator", "principal": 4800, "apr": 0, "months": 12}, "mood": {"stress": 5}}},
+      {"id": "improvizez", "label": "Reparație improvizată de 2.000 lei (poate ceda din nou)", "ops": {"spend": 2000, "mood": {"stress": 10, "conf": -3}}}
+    ]
+  },
+  {
+    "id": "frigider_stricat", "institution": "home", "title": "Frigiderul nu mai răcește",
+    "text": "Frigiderul are 12 ani. Service-ul cere 450 lei, unul nou eficient energetic costă 2.200 lei.",
+    "options": [
+      {"id": "repar", "label": "Îl repar (450 lei)", "ops": {"spend": 450, "mood": {"stress": 1}}},
+      {"id": "nou_cash", "label": "Cumpăr unul nou cash (2.200 lei)", "ops": {"spend": 2200, "living_add": -30, "mood": {"conf": 2}}},
+      {"id": "nou_rate", "label": "Iau unul de 2.400 lei în 12 rate fără dobândă", "ops": {"loan": {"name": "Rate frigider", "principal": 2400, "apr": 0, "months": 12}, "living_add": -30, "mood": {"stress": 2}}}
+    ]
+  },
+  {
+    "id": "black_friday", "institution": "market", "title": "Black Friday",
+    "text": "Laptopul tău are 6 ani și se încălzește. De Black Friday, unul bun e redus la 3.500 lei.",
+    "options": [
+      {"id": "cash", "label": "Îl cumpăr cash (3.500 lei)", "ops": {"spend": 3500, "mood": {"conf": 2}}},
+      {"id": "card_magazin", "label": "Îl iau pe cardul magazinului: 22% dobândă, 24 de luni", "ops": {"loan": {"name": "Card magazin", "principal": 3500, "apr": 0.22, "months": 24}, "mood": {"stress": -2, "conf": 1}}},
+      {"id": "astept", "label": "Mai folosesc laptopul vechi", "ops": {"mood": {"stress": 1, "conf": 2}}}
+    ]
+  },
+  {
+    "id": "masina", "institution": "market", "title": "Prima mașină",
+    "text": "Navetezi o oră pe sens. O mașină te-ar ajuta, dar vine cu rate, asigurare, combustibil și service.",
+    "conditions": {"min_month": 6},
+    "options": [
+      {"id": "noua", "label": "Mașină nouă: avans 6.000 lei + credit auto 24.000 lei (9,5%, 60 de luni)", "ops": {"spend": 6000, "loan": {"name": "Credit auto", "principal": 24000, "apr": 0.095, "months": 60}, "car_value": 30000, "living_add": 600, "mood": {"stress": 4, "conf": 3}}},
+      {"id": "second_hand", "label": "Second-hand: 4.000 lei avans + credit 9.000 lei (10,5%, 36 de luni)", "ops": {"spend": 4000, "loan": {"name": "Credit second-hand", "principal": 9000, "apr": 0.105, "months": 36}, "car_value": 13000, "living_add": 450, "mood": {"stress": 2, "conf": 2}}},
+      {"id": "transport_comun", "label": "Rămân pe transport în comun și ride-sharing (+150 lei/lună)", "ops": {"living_add": 150, "mood": {"stress": 3}}}
+    ]
+  },
+  {
+    "id": "preturi_cresc", "institution": "market", "title": "Coșul lunar s-a scumpit",
+    "text": "Inflația a împins cumpărăturile lunare în sus cu aproximativ 150 lei.",
+    "options": [
+      {"id": "accept", "label": "Plătesc diferența (+150 lei/lună)", "ops": {"living_add": 150, "mood": {"stress": 2}}},
+      {"id": "gatesc", "label": "Gătesc acasă și fac listă (+50 lei/lună)", "ops": {"living_add": 50, "mood": {"stress": 2, "conf": 2}}},
+      {"id": "discount", "label": "Trec la magazine discount (+80 lei/lună)", "ops": {"living_add": 80, "mood": {"conf": 1}}}
+    ]
+  },
+  {
+    "id": "curs_certificare", "institution": "education", "title": "Curs de certificare",
+    "text": "Un curs de cloud de 3 luni costă 2.400 lei. Colegii certificați câștigă cu aproximativ 8% mai mult.",
+    "options": [
+      {"id": "cash", "label": "Mă înscriu și plătesc cash (2.400 lei)", "ops": {"spend": 2400, "salary_mult": 1.08, "mood": {"stress": 4, "conf": 6}}},
+      {"id": "rate", "label": "Mă înscriu cu plata în 6 rate fără dobândă", "ops": {"loan": {"name": "Rate curs", "principal": 2400, "apr": 0, "months": 6}, "salary_mult": 1.08, "mood": {"stress": 5, "conf": 5}}},
+      {"id": "nu_acum", "label": "Nu acum", "ops": {"mood": {"conf": -1}}}
+    ]
+  },
+  {
+    "id": "bursa_merit", "institution": "education", "title": "Bursă de merit",
+    "text": "Ai obținut o bursă de merit de 1.800 lei pentru semestrul acesta.",
+    "options": [
+      {"id": "fond_urgenta", "label": "Pun toți cei 1.800 lei în fondul de urgență", "ops": {"bonus": {"amount": 1800, "mode": "safe"}, "mood": {"stress": -2, "conf": 4}}},
+      {"id": "fond_investitii", "label": "Investesc toți cei 1.800 lei în fondul diversificat", "ops": {"bonus": {"amount": 1800, "mode": "fund"}, "mood": {"conf": 3}}},
+      {"id": "vacanta", "label": "Vacanță de 1.200 lei, restul de 600 lei în fondul de urgență", "ops": {"bonus": {"amount": 1800, "mode": "spend", "spend": 1200}, "mood": {"stress": -5, "conf": 1}}}
+    ]
+  },
+  {
+    "id": "master", "institution": "education", "title": "Master",
+    "text": "Te-ai gândit la un master. Varianta cu taxă e seara; la buget, programul te obligă să treci pe part-time.",
+    "conditions": {"min_month": 12},
+    "options": [
+      {"id": "cu_taxa", "label": "Master cu taxă, seara (350 lei/lună)", "ops": {"living_add": 350, "salary_mult": 1.05, "mood": {"stress": 8, "conf": 6}}},
+      {"id": "buget_part_time", "label": "Master la buget, trec pe part-time (salariul scade cu 15%)", "ops": {"salary_mult": 0.85, "mood": {"stress": 4, "conf": 4}}},
+      {"id": "renunt", "label": "Mă concentrez pe job", "ops": {"mood": {"conf": 1}}}
+    ]
+  },
+  {
+    "id": "promovare", "institution": "work", "title": "Ofertă de promovare",
+    "text": "Șeful îți propune rolul de team lead: salariu mai mare, dar mai multe responsabilități și ședințe.",
+    "options": [
+      {"id": "accept", "label": "Accept (+15% salariu)", "ops": {"salary_mult": 1.15, "mood": {"stress": 8, "conf": 6}}},
+      {"id": "negociez", "label": "Negociez +20%, cu mai multe ore", "ops": {"salary_mult": 1.2, "living_add": 150, "mood": {"stress": 12, "conf": 5}}},
+      {"id": "refuz", "label": "Refuz, îmi place rolul actual", "ops": {"mood": {"stress": -2}}}
+    ]
+  },
+  {
+    "id": "bonus_anual", "institution": "work", "title": "Bonusul anual",
+    "text": "Ai primit un bonus de performanță de 6.000 lei net.",
+    "conditions": {"min_month": 10},
+    "options": [
+      {"id": "rambursare", "label": "Rambursez anticipat creditele, restul în fondul de urgență", "ops": {"bonus": {"amount": 6000, "mode": "prepay"}, "mood": {"stress": -4, "conf": 4}}},
+      {"id": "fond_investitii", "label": "Investesc toți cei 6.000 lei în fondul diversificat", "ops": {"bonus": {"amount": 6000, "mode": "fund"}, "mood": {"conf": 3}}},
+      {"id": "fond_urgenta", "label": "Pun toți cei 6.000 lei în fondul de urgență", "ops": {"bonus": {"amount": 6000, "mode": "safe"}, "mood": {"stress": -3, "conf": 2}}},
+      {"id": "vacanta", "label": "Vacanță de 4.000 lei, restul de 2.000 lei în fondul de urgență", "ops": {"bonus": {"amount": 6000, "mode": "spend", "spend": 4000}, "mood": {"stress": -6, "conf": 2}}}
+    ]
+  },
+  {
+    "id": "ore_suplimentare", "institution": "work", "title": "Ore suplimentare",
+    "text": "Un proiect urgent: poți lucra în weekenduri luna asta pentru încă 1.200 lei net.",
+    "options": [
+      {"id": "da_urgenta", "label": "Lucrez weekendurile: 1.200 lei în fondul de urgență", "ops": {"bonus": {"amount": 1200, "mode": "safe"}, "mood": {"stress": 10, "conf": 2}}},
+      {"id": "da_investitii", "label": "Lucrez weekendurile: 1.200 lei în fondul diversificat", "ops": {"bonus": {"amount": 1200, "mode": "fund"}, "mood": {"stress": 10, "conf": 1}}},
+      {"id": "nu", "label": "Îmi păstrez weekendurile", "ops": {"mood": {"stress": -2}}}
+    ]
+  },
+  {
+    "id": "pfa_freelance", "institution": "business", "title": "Proiect freelance pe PFA",
+    "text": "Un fost client îți propune un proiect de lungă durată, pe PFA, seara și în weekend.",
+    "options": [
+      {"id": "proiect_mare", "label": "Iau proiectul întreg (+900 lei/lună)", "ops": {"side_income_add": 900, "mood": {"stress": 6, "conf": 5}}},
+      {"id": "proiect_mic", "label": "Iau doar o parte (+400 lei/lună)", "ops": {"side_income_add": 400, "mood": {"stress": 2, "conf": 2}}},
+      {"id": "refuz", "label": "Nu am timp acum", "ops": {"mood": {"stress": -1}}}
+    ]
+  },
+  {
+    "id": "cafenea_mobila", "institution": "business", "title": "Cafenea mobilă",
+    "text": "Un prieten vrea să deschideți o cafenea mobilă la festivaluri și în campusuri. Îți cere să intri asociat.",
+    "conditions": {"min_month": 6},
+    "options": [
+      {"id": "credit", "label": "Credit micro-business: 20.000 lei, 9,9%, 60 de luni", "ops": {"loan": {"name": "Credit micro-business", "principal": 20000, "apr": 0.099, "months": 60}, "business_value": 15000, "side_income_add": 1200, "mood": {"stress": 10, "conf": 6}}},
+      {"id": "economii", "label": "Intru cu 5.000 lei din economii, ca asociat minoritar", "ops": {"spend": 5000, "business_value": 4000, "side_income_add": 400, "mood": {"stress": 3, "conf": 3}}},
+      {"id": "refuz", "label": "Refuz politicos", "ops": {"mood": {"stress": -2}}}
+    ]
+  },
+  {
+    "id": "vanzari_online", "institution": "business", "title": "Magazin online",
+    "text": "Obiectele handmade pe care le faci în timpul liber au succes la prieteni. Ai putea vinde online.",
+    "conditions": {"min_month": 3},
+    "options": [
+      {"id": "pornesc", "label": "Pornesc cu 1.500 lei (stoc + site)", "ops": {"spend": 1500, "business_value": 1000, "side_income_add": 300, "mood": {"stress": 3, "conf": 4}}},
+      {"id": "renunt", "label": "Rămâne un hobby", "ops": {"mood": {"conf": -1}}}
+    ]
+  },
+  {
+    "id": "dentist", "institution": "hospital", "title": "Urgență stomatologică",
+    "text": "O măsea te doare de câteva zile. Tratamentul de canal și coroana costă 1.200 lei.",
+    "options": [
+      {"id": "pay_cash", "label": "Plătesc din economii", "ops": {"spend": 1200}},
+      {"id": "installments", "label": "Plată în rate", "ops": {"loan": {"principal": 1200, "apr": 0, "months": 6}}}
+    ]
+  },
+  {
+    "id": "asigurare_sanatate", "institution": "hospital", "title": "Asigurare de sănătate privată",
+    "text": "Un consultant îți prezintă pachetele de asigurare privată. Acum te bazezi doar pe asigurarea de stat.",
+    "conditions": {"requires_no_insurance": true},
+    "options": [
+      {"id": "complet", "label": "Pachet complet: 280 lei/lună, acoperă ~85% din costuri", "ops": {"insurance_level": 2, "insurance_premium": 280, "mood": {"stress": -6, "conf": 4}}},
+      {"id": "baza", "label": "Pachet de bază: 90 lei/lună, acoperă ~35% din costuri", "ops": {"insurance_level": 1, "insurance_premium": 90, "mood": {"stress": -2}}},
+      {"id": "fara", "label": "Rămân doar pe asigurarea de stat", "ops": {"mood": {"stress": 2}}}
+    ]
+  },
+  {
+    "id": "urgenta_medicala", "institution": "hospital", "title": "Urgență medicală",
+    "text": "Ai nevoie de o operație de menisc. La privat costă 9.000 lei; la stat aștepți și plătești mai puțin. Asigurarea privată, dacă o ai, acoperă o parte.",
+    "conditions": {"min_month": 4},
+    "options": [
+      {"id": "privat", "label": "Clinică privată acum (9.000 lei)", "ops": {"medical_cost": 9000, "mood": {"stress": 3}}},
+      {"id": "stat", "label": "Spital de stat, cu așteptare (3.000 lei)", "ops": {"medical_cost": 3000, "mood": {"stress": 14, "conf": -4}}},
+      {"id": "privat_rate", "label": "Clinică privată, plata în 12 rate fără dobândă", "ops": {"medical_cost": 9000, "finance_months": 12, "mood": {"stress": 5}}}
+    ]
+  },
+  {
+    "id": "economisire_automata", "institution": "bank", "title": "Economisire automată",
+    "text": "Banca îți propune un transfer automat lunar din salariu în contul de economii, imediat după ce intră banii.",
+    "options": [
+      {"id": "300", "label": "300 lei/lună în fondul de urgență", "ops": {"emergency_contrib": 300, "mood": {"stress": -2, "conf": 5}}},
+      {"id": "500", "label": "500 lei/lună în fondul de urgență", "ops": {"emergency_contrib": 500, "mood": {"stress": -1, "conf": 6}}},
+      {"id": "mixt", "label": "200 lei/lună în fondul de urgență + 150 lei/lună în fondul diversificat", "ops": {"emergency_contrib": 200, "invest_contrib": 150, "mood": {"conf": 4}}},
+      {"id": "nu_acum", "label": "Nu acum, prefer să cheltui mai mult (+250 lei/lună pe ieșiri)", "ops": {"living_add": 250}}
+    ]
+  },
+  {
+    "id": "pensie_facultativa", "institution": "bank", "title": "Pensie facultativă",
+    "text": "Angajatorul contribuie dacă și tu pui bani într-un fond de pensie facultativă. Suma înlocuiește investiția lunară actuală.",
+    "conditions": {"min_month": 12},
+    "options": [
+      {"id": "200", "label": "200 lei/lună în fondul de investiții", "ops": {"invest_contrib": 200, "mood": {"conf": 4}}},
+      {"id": "400", "label": "400 lei/lună în fondul de investiții", "ops": {"invest_contrib": 400, "mood": {"stress": 2, "conf": 6}}},
+      {"id": "nu", "label": "Mă gândesc la pensie mai târziu", "ops": {"mood": {"conf": -2}}}
+    ]
+  },
+  {
+    "id": "cashback_rambursare", "institution": "bank", "title": "Cashback de la bancă",
+    "text": "Ai primit 800 lei cashback din campania cardului. Ai încă un credit activ.",
+    "conditions": {"requires_debt": true},
+    "options": [
+      {"id": "rambursare", "label": "Folosesc cei 800 lei pentru rambursare anticipată", "ops": {"bonus": {"amount": 800, "mode": "prepay"}, "mood": {"stress": -2, "conf": 3}}},
+      {"id": "fond_urgenta", "label": "Pun cei 800 lei în fondul de urgență", "ops": {"bonus": {"amount": 800, "mode": "safe"}, "mood": {"conf": 2}}},
+      {"id": "cumparaturi", "label": "Îi cheltui pe haine", "ops": {"bonus": {"amount": 800, "mode": "spend", "spend": 800}, "mood": {"stress": -2}}}
+    ]
+  },
+  {
+    "id": "cont_avans", "institution": "bank", "title": "Economii pentru avans",
+    "text": "Consilierul băncii îți arată cât ar trebui să pui deoparte lunar ca să strângi avansul pentru locuință la timp.",
+    "conditions": {"goal_types": ["avans_casa"]},
+    "options": [
+      {"id": "800", "label": "800 lei/lună în fondul de urgență, pentru avans", "ops": {"emergency_contrib": 800, "mood": {"stress": 3, "conf": 6}}},
+      {"id": "400", "label": "400 lei/lună în fondul de urgență, pentru avans", "ops": {"emergency_contrib": 400, "mood": {"conf": 4}}},
+      {"id": "amana", "label": "Mai amân", "ops": {"mood": {"conf": -1}}}
+    ]
+  }
+]

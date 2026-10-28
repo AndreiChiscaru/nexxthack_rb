@@ -1,15 +1,24 @@
-"""Engine tests: port of raiffquest/test/test_suite.gd (engine parts) + per-op checks."""
+"""Engine tests: port of raiffquest/test/test_suite.gd (engine parts) + per-op checks.
+
+Scenario tests run on data/events.json (the backend event library).
+"""
 import math
 import random
 
 import pytest
 
 from app.sim import engine as E
-from tests.gd_events import all_events, personalize
+from app.sim.events import EVENT_LIBRARY
 
-PRUDENT = [0, 2, 0, 0, 0, 0, 0, 0, 1, 1]
-CARELESS = [1, 0, 3, 0, 0, 2, 2, 1, 3, 2]
-RECKLESS = [1, 1, 0, 3, 2, 2, 3, 1, 0, 2]
+# Ten decisions from data/events.json mirroring the 10 Godot decisions in events.gd
+# (buget, job, auto, avarie, blackfriday, asigurari, bonus, medical, afacere, pensie).
+SCENARIO = ["economisire_automata", "promovare", "masina", "avarie_baie", "black_friday",
+            "asigurare_sanatate", "bonus_anual", "urgenta_medicala", "cafenea_mobila", "pensie_facultativa"]
+# Option ids chosen to match test_suite.gd's strategies option by option:
+# PRUDENT [0,2,0,0,0,0,0,0,1,1], CARELESS [1,0,3,0,0,2,2,1,3,2], RECKLESS [1,1,0,3,2,2,3,1,0,2].
+PRUDENT = ["500", "accept", "second_hand", "platesc", "astept", "complet", "rambursare", "privat", "economii", "400"]
+CARELESS = ["nu_acum", "accept", "transport_comun", "platesc", "cash", "fara", "fond_urgenta", "stat", "refuz", "nu"]
+RECKLESS = ["nu_acum", "negociez", "noua", "improvizez", "card_magazin", "fara", "vacanta", "stat", "credit", "nu"]
 
 STATEMENT_PROFILE = {
     "name": "Ion Popescu", "salary": 6850.0, "living": 2320.0, "cash": 5309.81, "overdraft": 0.0,
@@ -25,12 +34,15 @@ def state(seed: int = 1, profile: dict | None = None) -> E.SimState:
     return E.new_state(random.Random(seed), profile)
 
 
-def play(strategy: list[int], seed: int = 1, events: list[dict] | None = None, s: E.SimState | None = None) -> E.SimState:
+def option(event_id: str, option_id: str) -> dict:
+    return {"ops": EVENT_LIBRARY[event_id].option(option_id).ops.to_engine()}
+
+
+def play(strategy: list[str], seed: int = 1, s: E.SimState | None = None) -> E.SimState:
+    """One decision per 36-month period, like the Godot game."""
     s = s if s is not None else state(seed)
-    events = events or all_events()
-    for i, ev in enumerate(events):
-        idx = min(strategy[i], len(ev["options"]) - 1)
-        E.resolve(s, ev["options"][idx], s["shocks"][i])
+    for i, (event_id, option_id) in enumerate(zip(SCENARIO, strategy)):
+        E.resolve(s, option(event_id, option_id), s["shocks"][i])
     return s
 
 
@@ -77,15 +89,16 @@ def test_36_month_loan_is_paid_after_one_period():
 
 @pytest.mark.parametrize("seed", [1, 2, 3])
 def test_every_option_is_finite(seed):
-    events = all_events()
     s = state(seed)
-    for i, ev in enumerate(events):
-        for j, opt in enumerate(ev["options"]):
-            rep = E.resolve(E.clone(s), opt, s["shocks"][i])
+    for i, event in enumerate(EVENT_LIBRARY.values()):
+        shock = s["shocks"][i % E.PERIODS]
+        for opt in event.options:
+            rep = E.resolve(E.clone(s), {"ops": opt.ops.to_engine()}, shock)
             nw = rep["after"]["net_worth"]
-            assert math.isfinite(nw) and abs(nw) < 100_000_000, f"{ev['id']} / option {j}"
+            assert math.isfinite(nw) and abs(nw) < 100_000_000, f"{event.id} / {opt.id}"
             assert 0.0 <= rep["after"]["stress"] <= 100.0
-        E.resolve(s, ev["options"][0], s["shocks"][i])
+        if i < E.PERIODS:  # play the first option of the first 10 events in sequence
+            E.resolve(s, {"ops": event.options[0].ops.to_engine()}, shock)
     assert s["overdraft"] <= E.OVERDRAFT_LIMIT + 1.0
 
 
@@ -118,15 +131,8 @@ def test_statement_profile_sets_state():
     assert E.net_worth(s) > 0.0, "home value offsets the mortgage"
 
 
-def test_personalized_budget_contribution_is_positive():
-    s = state(5, STATEMENT_PROFILE)
-    assert personalize(all_events(), s)[0]["options"][0]["ops"]["emergency_contrib"] >= 100.0
-
-
 def test_full_game_on_statement_profile():
-    s = state(5, STATEMENT_PROFILE)
-    events = personalize(all_events(), s)
-    final = play([0] * 10, events=events, s=state(5, STATEMENT_PROFILE))
+    final = play(PRUDENT, s=state(5, STATEMENT_PROFILE))
     assert final["age"] == 52
     assert not math.isnan(E.net_worth(final))
 
@@ -134,7 +140,7 @@ def test_full_game_on_statement_profile():
 # ---------------------------------------------------------------- ported: engine side of _test_full_playthrough
 
 def test_ten_decisions_end_at_52():
-    s = play([0, 2, 1, 0, 0, 0, 0, 0, 1, 1])
+    s = play(PRUDENT)
     assert s["age"] == 52
     assert s["period"] == 10
     assert len(s["history"]) == 1  # new_state seeds history; appending per turn is the caller's job

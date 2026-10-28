@@ -1,8 +1,8 @@
 # Raiff Quest API
 
 Shapes follow `docs/implementation-plan.md` §4. `/api/game/*` runs on the real financial engine
-(`app/sim/engine.py`, port of `finance_sim.gd`). Events, onboarding, advisor, business and products are
-still **mock**; each mock in the code is marked `# TODO(real): ...`.
+(`app/sim/engine.py`, port of `finance_sim.gd`) with events from `data/events.json`. Onboarding, advisor,
+business and products are still **mock**; each mock in the code is marked `# TODO(real): ...`.
 
 - Base URL: same origin as the game (`/joc`). CORS is open (`*`) for local dev.
 - Swagger: `GET /docs`. Raw schema: `GET /openapi.json`.
@@ -32,7 +32,6 @@ Shared shapes:
 Mock behaviour:
 
 - **Onboarding.** The 3rd message returns `done: true` with the Andrei profile.
-- **Events.** Two opening events at start, then 0–2 new ones per month (still mock, real library in task 4).
 
 ## Game loop (engine)
 
@@ -68,14 +67,102 @@ The six expense keys always add up to what the month deducts.
 
 | `action_id` | `params` | Effect | 400 when |
 |---|---|---|---|
-| `<pending event id>` | `{option_id}` | applies the option's `ops` through the engine; mood applies immediately | unknown `option_id` |
+| `<pending event id>` | `{option_id}` | answers the event (see [Events](#events)) | unknown `option_id`, or `institution` isn't the event's |
 | `save` | `{amount}` | one-off transfer cash → savings (emergency fund) | `amount <= 0` or `> cash` |
 | `invest` | `{amount}` | one-off transfer cash → investments (fund) | `amount <= 0` or `> cash` |
 | `repay` | `{amount}` | early repayment: overdraft first, then highest-APR loan; any leftover returns to cash | `amount <= 0` or `> cash` |
 | `set_monthly_saving` | `{amount}` | automatic monthly amount into savings; **replaces** the previous value, `0` stops it | `amount < 0` or `>` monthly income |
 | `set_monthly_invest` | `{amount}` | automatic monthly amount into the fund; **replaces**, `0` stops it | `amount < 0` or `>` monthly income |
 
-Any other `action_id` returns 400.
+Free actions are checked first. Any other `action_id` is treated as an event id: **404** if no such event exists, **409** if it exists but isn't pending for this session.
+
+## Events
+
+The library lives in `data/events.json`: 22 events, 2–4 per institution. It's validated strictly when the app starts, and the server refuses to start on bad data:
+- an unknown op or sub-key, or a negative `spend`
+- an unknown institution or condition
+- a duplicate event id, or a duplicate option id within an event
+- an option without ops
+- an event id equal to a free action
+
+### Format
+
+What the API sends is exactly §4.4:
+
+```json
+{"id": "dentist", "institution": "hospital", "title": "Urgență stomatologică", "text": "...",
+ "options": [{"id": "pay_cash", "label": "Plătesc din economii", "ops": {"spend": 1200.0}},
+             {"id": "installments", "label": "Plată în rate", "ops": {"loan": {"principal": 1200.0, "apr": 0.0, "months": 6}}}]}
+```
+
+The JSON file can also have two fields that are **never** sent to the client:
+- `conditions`: `min_month`, `requires_debt`, `requires_no_insurance`, `goal_types[]`
+- `weight` (default 1)
+
+`ops` uses only what the engine's `apply_ops` understands:
+
+| Op | Effect |
+|---|---|
+| `spend` | ≥ 0; paid from cash, then savings, then overdraft |
+| `loan{name?, principal, apr, months}` | adds a loan |
+| `salary_mult`, `salary_add` | salary changes; 60% of the difference also goes into living costs |
+| `living_add` | changes living costs directly |
+| `side_income_add` | adds side income; living costs rise by 30% of it |
+| `business_value`, `car_value` | adds to the asset's value |
+| `emergency_contrib`, `invest_contrib` | monthly contribution; **replaces** the current value |
+| `insurance_level` (0–2) + `insurance_premium` | coverage 0 / 35% / 85% |
+| `medical_cost` + optional `finance_months` | cost after insurance, paid now or in 0% installments |
+| `bonus{amount, mode}` | one-off income. `mode`: `prepay` (leftover → savings), `fund`, `safe` (emergency fund up to 6 months of living costs, then deposit), `spend` (+ `spend`: the part spent; the rest goes to savings) |
+| `mood{stress, conf}` | applied immediately |
+
+One-off income always goes through `bonus`, and the option label says where the money goes (e.g. "în fondul de urgență").
+
+### How events arrive
+- **Start:** `POST /api/game/start` schedules exactly **2** events eligible in month 0 and returns them in `events`.
+- **Each advance:** `POST /api/game/advance` schedules **0–2** new events and returns them in `events`. The picks are weighted, and deterministic per `session_id`.
+- **One per institution:** an institution with a pending event gets no new one, so `state.institutions[].pending_events` is 0 or 1.
+- **Cycles:** an event doesn't repeat until every currently eligible event of its institution has been used. A new cycle never starts with the event that ended the previous one.
+- **Lifetime:** pending events never expire. They stay until answered.
+
+### How to answer one
+
+`POST /api/game/action` with `action_id` = event id, `institution` = the event's institution, and `params.option_id` = the chosen option. The server:
+1. applies the option's ops through the engine
+2. removes the event from pending
+3. adds a log line, `"<title>: <option label>"`
+4. returns `advisor_note`, a short Romanian note built from the option (no LLM)
+
+| Status | When |
+|---|---|
+| 200 | answered |
+| 400 | unknown `option_id`, or `institution` isn't the event's institution |
+| 404 | no event with this id (and it isn't a free action) |
+| 409 | the event exists but isn't pending (already answered, or never scheduled for this session) |
+
+Real example (Andrei, month 1):
+
+```json
+// POST /api/game/advance → events contains
+{"id": "cashback_rambursare", "institution": "bank", "title": "Cashback de la bancă",
+ "text": "Ai primit 800 lei cashback din campania cardului. Ai încă un credit activ.",
+ "options": [{"id": "rambursare", "label": "Folosesc cei 800 lei pentru rambursare anticipată", "ops": {"bonus": {"amount": 800.0, "mode": "prepay"}, "mood": {"stress": -2.0, "conf": 3.0}}},
+             {"id": "fond_urgenta", "label": "Pun cei 800 lei în fondul de urgență", "ops": {"bonus": {"amount": 800.0, "mode": "safe"}, "mood": {"stress": 0, "conf": 2.0}}},
+             {"id": "cumparaturi", "label": "Îi cheltui pe haine", "ops": {"bonus": {"amount": 800.0, "mode": "spend", "spend": 800.0}, "mood": {"stress": -2.0, "conf": 0}}}]}
+
+// POST /api/game/action
+{"session_id": "c3db...", "institution": "bank", "action_id": "cashback_rambursare", "params": {"option_id": "fond_urgenta"}}
+// 200
+{"state": {"...": "...", "institutions": [..., {"id": "bank", "pending_events": 0}],
+           "log": [..., {"month": 1, "institution": "bank", "text": "Cashback de la bancă: Pun cei 800 lei în fondul de urgență"}]},
+ "delta": {"cash": 0.0, "savings": 800.0, "investments": 0.0, "debt": 0.0, "net_worth": 800.0},
+ "advisor_note": "Ai pus 800 lei deoparte, în fondul de urgență (surplusul merge în depozit)."}
+
+// the same request again → 409
+{"detail": "Evenimentul cashback_rambursare nu este în așteptare."}
+```
+
+### Future work
+- **Personalized amounts:** scale event amounts (rent increases, bonuses, repair costs) and the suggested monthly contributions to the player's bank-statement profile. The Godot game does this for its first decision (`Events.personalize`); the backend library uses fixed amounts for now.
 
 ## Errors
 
@@ -84,8 +171,10 @@ Every error uses FastAPI's default body, `{"detail": "<message>"}`. Validation e
 | Status | When | Example `detail` |
 |---|---|---|
 | **404** | `session_id` doesn't exist (any route that takes it, including `/api/onboarding/*`, `/api/advisor/*` and `/api/business/*`) | `"Sesiune inexistentă."` |
+| **404** | `POST /api/game/action` with an `action_id` that's neither a free action nor a known event | `"Eveniment sau acțiune necunoscută: teleport."` |
 | **409** | `GET /api/game/state`, `POST /api/game/action` or `POST /api/game/advance` before `POST /api/game/start` | `"Jocul nu a pornit încă (POST /api/game/start)."` |
-| 400 | unknown `action_id`, invalid `option_id`, `amount` out of range (see the actions table), empty uploaded file | `"Acțiune necunoscută: teleport."` |
+| **409** | answering an event that isn't pending (already answered, or never scheduled) | `"Evenimentul dentist nu este în așteptare."` |
+| 400 | invalid `option_id`, event answered with the wrong `institution`, `amount` out of range (see the actions table), empty uploaded file | `"option_id invalid; alege din ['pay_cash', 'installments']."` |
 | 413 | upload over 25 MB | `"Fișierul depășește 25 MB."` |
 | 422 | body or query fails validation (e.g. `institution` not one of the 7 ids, missing `session_id`) | `[{"type": "literal_error", "loc": ["body", "institution"], ...}]` |
 
@@ -163,9 +252,9 @@ Returns the same `GameState` object as `state` above.
 // response (event example)
 {"state": { "...": "GameState" },
  "delta": {"cash": 0, "savings": 0, "investments": 0, "debt": 1200, "net_worth": -1200},
- "advisor_note": "Atenție: datoria a crescut, verifică dobânda."}
+ "advisor_note": "Ai luat un credit de 1.200 lei la 0,0% pe 6 luni: rată de 200 lei/lună."}
 ```
-Errors: see the actions table above. An invalid `institution` returns 422.
+Errors: see the actions table and [Events](#events). An `institution` outside the 7 ids returns 422.
 
 ### POST /api/game/advance
 ```json

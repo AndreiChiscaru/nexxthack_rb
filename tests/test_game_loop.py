@@ -7,6 +7,7 @@ from app.main import app
 from app.mock_data import ANDREI_PROFILE
 from app.sim import adapter
 from app.sim import engine as E
+from app.sim.events import EVENT_LIBRARY
 
 client = TestClient(app)
 
@@ -241,6 +242,8 @@ def test_invalid_amounts_are_400(action_id, amount):
 
 def test_event_option_runs_through_engine():
     sid = start_game()
+    # Opening events are random per session; make the §4.4 example event the pending one.
+    sessions.get_session(sid).pending_events = [EVENT_LIBRARY["dentist"].to_api()]
     body = client.post("/api/game/action", json={
         "session_id": sid, "institution": "hospital", "action_id": "dentist",
         "params": {"option_id": "installments"}}).json()

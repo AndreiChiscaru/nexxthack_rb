@@ -24,6 +24,8 @@ class Session:
     year_rep: dict[str, Any] = field(default_factory=dict)
     log: list[LogEntry] = field(default_factory=list)
     pending_events: list[Event] = field(default_factory=list)
+    # institution -> {"cycle": ids used in the current cycle, "last": last id}; see app/sim/events.py schedule().
+    used_events: dict[str, dict] = field(default_factory=dict)
 
 
 _SESSIONS: dict[str, Session] = {}

@@ -1,5 +1,5 @@
 """Mock fixtures so the frontend can work before the real engine/agents exist."""
-from .schemas import Event, Product, Profile
+from .schemas import Product, Profile
 
 # TODO(real): produced by the onboarding agent's submit_profile tool.
 ANDREI_PROFILE = Profile.model_validate({
@@ -22,66 +22,6 @@ ANDREI_PROFILE = Profile.model_validate({
 # Order in which the mock onboarding "collects" required fields (§4.1).
 REQUIRED_FIELDS = ["goal", "age", "income.salary", "recurring", "savings", "debts", "risk_tolerance"]
 
-
-# TODO(real): data/events.json + scheduler; 2-4 events per institution.
-EVENTS: list[Event] = [Event.model_validate(e) for e in [
-    {"id": "chirie_marita", "institution": "home", "title": "Chiria crește",
-     "text": "Proprietarul anunță o creștere a chiriei cu 200 lei de luna viitoare.",
-     "options": [{"id": "accept", "label": "Accept creșterea", "ops": {"living_add": 200, "mood": {"stress": 4}}},
-                 {"id": "move", "label": "Mă mut în ceva mai mic", "ops": {"spend": 800, "living_add": -100, "mood": {"stress": 8}}}]},
-    {"id": "frigider_stricat", "institution": "home", "title": "Frigiderul s-a stricat",
-     "text": "Frigiderul nu mai răcește. Reparația sau unul nou?",
-     "options": [{"id": "repair", "label": "Repar (450 lei)", "ops": {"spend": 450}},
-                 {"id": "new_rates", "label": "Iau unul nou în rate", "ops": {"loan": {"name": "Rate frigider", "principal": 2400, "apr": 0, "months": 12}}}]},
-    {"id": "black_friday", "institution": "market", "title": "Black Friday",
-     "text": "Reduceri mari la electronice. Laptopul tău e vechi.",
-     "options": [{"id": "buy", "label": "Cumpăr laptop (3.500 lei)", "ops": {"spend": 3500, "mood": {"conf": 3}}},
-                 {"id": "skip", "label": "Mai aștept", "ops": {"mood": {"stress": -1}}}]},
-    {"id": "preturi_cresc", "institution": "market", "title": "Prețurile cresc",
-     "text": "Inflația împinge coșul lunar în sus cu 150 lei.",
-     "options": [{"id": "absorb", "label": "Plătesc diferența", "ops": {"living_add": 150}},
-                 {"id": "budget", "label": "Gătesc mai mult acasă", "ops": {"living_add": 50, "mood": {"stress": 2}}}]},
-    {"id": "curs_certificare", "institution": "education", "title": "Curs de certificare",
-     "text": "Un curs de cloud de 3 luni ți-ar putea crește salariul.",
-     "options": [{"id": "enroll", "label": "Mă înscriu (2.400 lei)", "ops": {"spend": 2400, "salary_mult": 1.1, "mood": {"conf": 6}}},
-                 {"id": "skip", "label": "Nu acum", "ops": {}}]},
-    {"id": "bursa_merit", "institution": "education", "title": "Bursă de merit",
-     "text": "Ai prins o bursă de merit pe semestru.",
-     "options": [{"id": "save_it", "label": "O pun deoparte", "ops": {"emergency_contrib": 600, "mood": {"conf": 4}}},
-                 {"id": "spend_it", "label": "O cheltui", "ops": {"mood": {"conf": 2}}}]},
-    {"id": "promovare", "institution": "work", "title": "Ofertă de promovare",
-     "text": "Șeful îți propune un rol de team lead, cu mai multă responsabilitate.",
-     "options": [{"id": "accept", "label": "Accept", "ops": {"salary_mult": 1.2, "mood": {"stress": 8, "conf": 6}}},
-                 {"id": "decline", "label": "Refuz", "ops": {"mood": {"stress": -2}}}]},
-    {"id": "ore_suplimentare", "institution": "work", "title": "Ore suplimentare",
-     "text": "Proiect urgent: poți lucra în weekenduri luna asta.",
-     "options": [{"id": "yes", "label": "Lucrez weekendurile (+900 lei)", "ops": {"spend": -900, "mood": {"stress": 10}}},
-                 {"id": "no", "label": "Îmi păstrez weekendurile", "ops": {}}]},
-    {"id": "idee_afacere", "institution": "business", "title": "Idee de afacere",
-     "text": "Un prieten vrea să deschideți împreună o cafenea mobilă.",
-     "options": [{"id": "invest", "label": "Intru cu 5.000 lei", "ops": {"spend": 5000, "mood": {"stress": 6, "conf": 5}}},
-                 {"id": "pass", "label": "Refuz politicos", "ops": {}}]},
-    {"id": "pfa_freelance", "institution": "business", "title": "Proiect freelance",
-     "text": "Un client îți oferă un proiect pe PFA.",
-     "options": [{"id": "take", "label": "Îl iau (+1.500 lei)", "ops": {"spend": -1500, "mood": {"stress": 5, "conf": 4}}},
-                 {"id": "skip", "label": "Nu am timp", "ops": {}}]},
-    {"id": "dentist", "institution": "hospital", "title": "Urgență stomatologică",
-     "text": "O măsea te doare de câteva zile. Tratamentul costă 1.200 lei.",
-     "options": [{"id": "pay_cash", "label": "Plătesc din economii", "ops": {"spend": 1200}},
-                 {"id": "installments", "label": "Plată în rate", "ops": {"loan": {"principal": 1200, "apr": 0, "months": 6}}}]},
-    {"id": "control_anual", "institution": "hospital", "title": "Control anual",
-     "text": "Medicul de familie îți recomandă un set de analize.",
-     "options": [{"id": "do_it", "label": "Fac analizele (300 lei)", "ops": {"spend": 300, "mood": {"stress": -3}}},
-                 {"id": "insure", "label": "Îmi fac asigurare de sănătate", "ops": {"insurance_level": 1, "living_add": 90}}]},
-    {"id": "oferta_refinantare", "institution": "bank", "title": "Ofertă de refinanțare",
-     "text": "Banca îți propune refinanțarea creditului la o dobândă mai mică.",
-     "options": [{"id": "refinance", "label": "Refinanțez", "ops": {"loan": {"name": "Refinanțare", "principal": 0, "apr": 0.099, "months": 36}, "mood": {"stress": -4}}},
-                 {"id": "keep", "label": "Rămân pe creditul actual", "ops": {}}]},
-    {"id": "economisire_automata", "institution": "bank", "title": "Economisire automată",
-     "text": "Poți seta un transfer lunar automat în contul de economii.",
-     "options": [{"id": "300", "label": "300 lei/lună", "ops": {"emergency_contrib": 300, "mood": {"conf": 3}}},
-                 {"id": "invest", "label": "200 economii + 150 fond", "ops": {"emergency_contrib": 200, "invest_contrib": 150, "mood": {"conf": 4}}}]},
-]]
 
 # TODO(real): data/products.json, ingested from the Raiffeisen PDF. Copied from catalog.gd.
 PRODUCTS: list[Product] = [Product.model_validate(p) for p in [
