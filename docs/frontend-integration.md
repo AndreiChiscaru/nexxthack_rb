@@ -2,6 +2,21 @@
 
 Branch initial: `frontend/integration-foundation`.
 Referinta comuna confirmata: `implementation-plan.md`, sectiunea 4.
+Detaliile HTTP implementate de backend: [`api.md`](api.md).
+
+## Mod de lucru convenit
+
+Pentru fiecare punct din lista de task-uri:
+
+1. `git fetch origin --prune`, verificarea commit-urilor noi si integrarea schimbarilor relevante din `main` si din branch-urile colegilor. Se pastreaza istoricul si se rezolva conflictele in branch-ul frontend.
+2. Implementare limitata la punctul curent si verificarea contractelor cu backend-ul.
+3. Testele relevante, apoi pornirea aplicatiei pentru verificare manuala.
+4. Utilizatoarea verifica aplicatia. Orice observatie se rezolva si se retesteaza.
+5. Dupa confirmarea verificarii, o ultima sincronizare, retestare daca au aparut modificari, commit si push pe branch-ul frontend. Fara force-push sau modificari directe pe `main`.
+
+Integrarea curenta include `main` (`6af45b6`), `backend/gabi` (`0cb9bc0`, API mock, motor portat si teste), `feature/ui-ux` (`d062c15`, ghid vizual actualizat) si `agenti` (`a504d30`, demo agenti si corectii de conversatie). Conflictul din `app/main.py` este rezolvat pastrand ambele familii de rute.
+
+**Limita actuala intre backend si agenti:** API-ul comun din `api.md` foloseste inca mock-uri. Branch-ul agentilor adauga separat `/api/demo/...`, un alt format de profil si alte sesiuni. Codul coexista, dar nu este inca legat in acelasi flux. Frontend-ul ramane pe contractul comun confirmat; conectarea agentilor cere un adaptor in backend sau o modificare coordonata a contractului. Nu schimbam implicit endpoint-urile clientului.
 
 ## Etapa 1: transportul API (implementat)
 
@@ -60,11 +75,13 @@ La eroare: `ok=false`, `data=null`, `error={"code", "message"}`. Coduri: `invali
 | `advisor_message(session_id, text)` | `POST /api/advisor/message`, `{session_id, text}` |
 | `get_products(category)` | `GET /api/products?category=...` |
 
-Clarificari adaugate de adaptor: planul nu precizeaza transportul sesiunii pe fiecare ruta. Frontend-ul propune `session_id` in JSON pentru POST si in query pentru GET; profilul de start este in cheia `profile`. Colegul de backend trebuie sa confirme aceste detalii inainte de conectarea ecranelor. Daca difera, se modifica doar `game_api.gd`.
+Implementarea backend integrata confirma `session_id` in JSON pentru POST si in query pentru GET; profilul de start este in cheia `profile`. Frontend-ul cere un profil confirmat pentru start, chiar daca serverul permite si pornirea fara profil explicit.
 
-Forma completa a raspunsurilor pentru start/action/advance si a evenimentelor active trebuie stabilita inainte de etapa 3. Clientul pastreaza raspunsurile nemodificate; nu presupune inca daca starea este directa sau in cheia `state`. `/api/onboarding/statement` si agentul de afaceri vor fi conectate separat cand exista contractele multipart.
+`start` si `advance` returneaza `{state, events}`; `action` returneaza `{state, delta, advisor_note}`; `GET state` returneaza starea direct. `products` returneaza `{products}`. Clientul pastreaza aceste raspunsuri nemodificate. `/api/onboarding/statement` si `/api/business/message` au acum contracte multipart documentate in `api.md`; conectarea lor in frontend ramane o etapa separata.
 
-Endpoint-urile noi nu exista in backend-ul acestui commit de baza. Un 404 este afisat drept eroare, nu drept succes demonstrativ. `session_id` identifica o sesiune; transportul sau nu reprezinta un mecanism de autentificare.
+Endpoint-urile noi exista in backend-ul integrat, dar agentii si simularea folosesc inca date mock. Testele de integrare verifica compatibilitatea clientului Godot cu aceasta implementare, nu existenta agentilor LLM finali. Un 404 este afisat drept eroare, nu drept succes demonstrativ. `session_id` identifica o sesiune; transportul sau nu reprezinta un mecanism de autentificare.
+
+Pentru recuperarea completa dupa timeout mai trebuie ca backend-ul sa expuna si lista evenimentelor active: `GET state` ofera doar numarul lor pe institutie, iar `advance.events` contine doar evenimentele noi. Pana atunci, nu putem reconstrui numai din `GET state` optiunile unui eveniment al carui raspuns s-a pierdut.
 
 ## Etapele urmatoare
 
@@ -89,3 +106,23 @@ godot --headless --path . res://test/test_suite.tscn
 ```
 
 Testele frontend pornesc un server temporar doar pe loopback si nu apeleaza Claude, banca sau serverul de deploy. Acopera requesturile convenite, sesiunea, Unicode, query encoding, erori HTTP/JSON, concurenta, anulare, timeout, lipsa retry-ului automat si importul web. Testele de transport nu valideaza logica backend-ului sau layout-ul final.
+
+Pentru integrarea cu aplicatia FastAPI a echipei, instaleaza dependintele din `requirements.txt` intr-un mediu virtual, apoi ruleaza din `raiffquest/`:
+
+```sh
+python tools/run_backend_integration.py --godot /cale/catre/godot
+```
+
+Acest test porneste automat backend-ul pe un port local liber si il opreste la final. Foloseste clientul Godot pentru sesiune, onboarding, profil confirmat, stare, eveniment, economisire, luna urmatoare, consultant, produse si erori 400/404/409/422. Din radacina repository-ului, `python -m pytest -q` ruleaza si testele backend-ului.
+
+### Rezultatul verificarii integrarii curente
+
+- 308 verificari Godot ale jocului: PASS.
+- 59 verificari ale transportului frontend: PASS.
+- 26 verificari Godot - FastAPI (inclusiv coexistenta rutelor demo): PASS.
+- 65 teste backend si motor financiar: PASS.
+- Testele JavaScript ale importului web: PASS.
+- `python deploy/demo_selftest.py`: toate verificarile offline ale agentilor au trecut.
+- Aplicatia desktop porneste; `/api/health`, `/docs` si `/demo` raspund local.
+
+Apelurile LLM reale si exportul web complet nu au fost verificate in acest checkpoint. Verificarea utilizatoarei si push-ul sunt urmatorul pas al fluxului convenit.
