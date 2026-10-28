@@ -461,11 +461,17 @@ func _close_chat() -> void:
 	channel = "onboarding"
 	chat.invest_mode = false
 	chat.attach_kind = "statement"
+	_dismiss(chat)
+	# Refill only once the panel is hidden, so fresh portraits never flash over the map.
+	_panel_tweens[chat].chain().tween_callback(_refill_onboarding_chat)
+
+func _refill_onboarding_chat() -> void:
+	if chat.visible:
+		return
 	chat.set_heading("AIngel\nConsilierul tău · pas cu pas")
 	chat.clear_messages()
 	for message: Dictionary in controller.transcript:
 		chat.append(message)
-	_dismiss(chat)
 
 func _open_chat() -> void:
 	_layout()
@@ -611,13 +617,22 @@ func _institution(id: String) -> void:
 		_bank_actions()
 	if id == "business":
 		location_contents.add_child(Kit.button("Contabil", _show_business, true))
-	location_contents.add_child(Kit.button("Întreabă-l pe AIngel", func():
-		var question := "Ce opțiuni am la %s pentru obiectivul meu?" % NAMES.get(id, id)
-		_show_onboarding_chat()
-		chat.input.text = question
-	))
+	if id != "bank":
+		location_contents.add_child(Kit.button("Întreabă-l pe AIngel", func():
+			var question := "Ce opțiuni am la %s pentru obiectivul meu?" % NAMES.get(id, id)
+			_show_onboarding_chat()
+			chat.input.text = question
+		))
 	if not location.visible:
 		_reveal(location)
+
+# AIngel opens on the Raiffeisen offer and immediately asks the agent, which picks products from the catalog.
+func _ask_raiffeisen_offer() -> void:
+	if controller.busy:
+		return
+	_show_onboarding_chat()
+	chat.append({"role": "AIngel", "text": "Hai să vedem ce îți poate oferi Raiffeisen: conturi și economii, depozite, carduri, credite, investiții, pensie și asigurări. Mă uit în oferta băncii și îți spun ce ți se potrivește acum."})
+	controller.send_message("Ce produse și servicii Raiffeisen mi se potrivesc acum, pentru obiectivul și cheltuielile mele? Dă-mi câteva recomandări și explică-mi beneficiile lor.")
 
 func _bank_actions() -> void:
 	location_contents.add_child(Kit.text("Transfer în simulare", 17))
@@ -627,6 +642,10 @@ func _bank_actions() -> void:
 	amount.value = 100
 	amount.suffix = " lei"
 	location_contents.add_child(amount)
+	var offer_button := Kit.button("Întreabă-l pe AIngel de serviciile Raiffeisen", _ask_raiffeisen_offer, true)
+	offer_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	offer_button.disabled = controller.busy or controller.needs_recovery
+	location_contents.add_child(offer_button)
 	for spec in [["save", "Mută în economii"], ["invest", "Investește"], ["repay", "Rambursează datorii"], ["set_monthly_saving", "Economisire lunară automată"], ["set_monthly_invest", "Investiție lunară automată"]]:
 		var button := Kit.button(spec[1], func(): controller.act("bank", spec[0], {"amount": amount.value}))
 		button.disabled = controller.busy or controller.needs_recovery
