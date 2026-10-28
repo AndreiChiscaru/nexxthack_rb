@@ -1,0 +1,19 @@
+{
+  "name": "game-generic",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "verify": "./tools/verify.sh",
+    "verify:release": "./tools/verify.sh --export",
+    "verify:clean": "./tools/verify_clean_scaffold.sh",
+    "export": "mkdir -p dist && godot --headless --path . --export-release Web dist/index.html",
+    "dev": "node scripts/manus/runtime-command.cjs ./server.mjs",
+    "build": "node scripts/manus/runtime-command.cjs ./build.mjs",
+    "preview:build": "node scripts/manus/runtime-command.cjs ./preview-build.mjs",
+    "preview:status": "node scripts/manus/runtime-command.cjs ./preview-build.mjs --status",
+    "doctor": "node scripts/manus/runtime-command.cjs ./doctor.mjs",
+    "check": "node scripts/manus/runtime-command.cjs ./verify.mjs",
+    "inspect": "node scripts/manus/runtime-command.cjs ./inspect-file.mjs",
+    "assets:report": "node scripts/manus/runtime-command.cjs ./asset-provenance.mjs"
+  }
+}

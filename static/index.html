@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Analiză extras de cont</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main>
+    <h1>Analiză extras de cont</h1>
+    <p class="sub">Încarcă un extras (PDF sau imagine). Textul se extrage direct sau prin OCR, apoi este analizat de Claude.</p>
+
+    <form id="form">
+      <label id="drop" for="file">
+        <input type="file" id="file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp,.txt,.csv" />
+        <span id="fileLabel">Trage fișierul aici sau apasă pentru a alege</span>
+      </label>
+      <button type="submit" id="submit" disabled>Analizează</button>
+    </form>
+
+    <div id="status" class="hidden"></div>
+    <section id="result" class="hidden"></section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+.env
+.venv/
+__pycache__/
+# Real bank statements and personal documents never go into the repo.
+/*.pdf
+/*.zip
