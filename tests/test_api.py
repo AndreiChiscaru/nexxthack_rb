@@ -177,6 +177,15 @@ def test_existing_routes_still_work():
     assert client.get("/").status_code == 200
 
 
+def test_demo_opens_the_current_game_and_keeps_the_previous_one():
+    current = client.get("/demo", follow_redirects=False)
+    assert current.status_code == 308
+    assert current.headers["location"].endswith("/joc/")
+    previous = client.get("/demo-vechi")
+    assert previous.status_code == 200
+    assert "varianta anterioară" in previous.text
+
+
 def test_full_flow():
     sid = new_session()
     for _ in range(3):

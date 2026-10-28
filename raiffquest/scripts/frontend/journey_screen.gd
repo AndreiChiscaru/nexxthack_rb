@@ -65,7 +65,7 @@ func _ready() -> void:
 	uploader.api_base = controller.api_base
 	add_child(uploader)
 	uploader.started.connect(controller.upload_started)
-	uploader.finished.connect(controller.upload_finished)
+	uploader.finished.connect(_upload_finished)
 	city = CityMap.new()
 	add_child(city)
 	city.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -322,13 +322,15 @@ func _update() -> void:
 		else:
 			goal_text.text = "Obiectiv: %.0f lei · %.0f%%" % [goal.get("target_amount", 0), progress.value]
 		city.set_institutions(state.get("institutions", []))
-		var must_choose := false
+		var waiting := ""
 		for event: Dictionary in controller.events:
-			if str(event.get("id", "")).begins_with("taie_"):
-				must_choose = true
-				break
-		advance_button.disabled = controller.busy or controller.needs_recovery or must_choose
-		advance_button.text = "Alege sugestia" if must_choose else "Luna următoare →"
+			var event_id := str(event.get("id", ""))
+			if event_id.begins_with("fiscal_"):
+				waiting = "fiscal"
+			elif event_id.begins_with("taie_") and waiting != "fiscal":
+				waiting = "cut"
+		advance_button.disabled = controller.busy or controller.needs_recovery or waiting != ""
+		advance_button.text = "Alege termenul fiscal" if waiting == "fiscal" else ("Alege sugestia" if waiting == "cut" else "Luna următoare →")
 		refresh_button.disabled = controller.busy
 		if not selected.is_empty() and location.visible:
 			_institution(selected)
@@ -339,7 +341,10 @@ func _on_sent(text: String) -> void:
 	elif channel == "business":
 		controller.ask_business(text)
 	else:
-		controller.send_message(text)
+		var event_id := ""
+		if controller.phase == "map":
+			event_id = str(_decision_on_screen().get("id", ""))
+		controller.send_message(text, event_id)
 
 func _on_message(message: Dictionary) -> void:
 	var incoming := str(message.get("channel", "onboarding"))
@@ -365,6 +370,7 @@ func _toggle_investments() -> void:
 func _show_onboarding_chat() -> void:
 	channel = "onboarding"
 	chat.invest_mode = false
+	chat.attach_kind = "statement"
 	chat.set_heading("AIngel\nConsilierul tău · pas cu pas")
 	chat.clear_messages()
 	for message: Dictionary in controller.transcript:
@@ -399,28 +405,21 @@ func _advice_for_screen() -> String:
 		return "Nu ai o decizie deschisă. Spune-mi ce vrei să schimbi la bani în luna asta."
 	var place: String = NAMES.get(str(event.get("institution", "")), "hartă")
 	var title := str(event.get("title", "alegerea asta"))
-	if str(event.get("id", "")).begins_with("taie_"):
-		var monthly := -1.0
-		var cat_id := str(event.get("id", "")).trim_prefix("taie_")
-		for cat: Dictionary in controller.state.get("categories", []):
-			if str(cat.get("id", "")) == cat_id:
-				monthly = float(cat.get("monthly", 0))
-		var sum := " Cam %.0f lei pe lună." % monthly if monthly >= 0.0 else ""
-		return "La %s ai de ales: %s.%s Eu aș tăia cheltuiala dacă nu îți trebuie: iese din cheltuielile lunare. «O las așa» o păstrează și o revezi mai târziu, nu luna viitoare." % [place, title, sum]
-	var detail := str(event.get("text", ""))
-	if detail.length() > 160:
-		detail = detail.substr(0, 157) + "..."
-	return "La %s ai de ales: %s. %s Alege tu varianta de pe clădire." % [place, title, detail]
+	var labels: PackedStringArray = []
+	for option: Dictionary in event.get("options", []):
+		labels.append(str(option.get("label", "")))
+	return "La %s ai deschis: %s. Variantele sunt: %s. Scrie «ce aleg?» și compar efectul fiecăreia pe lunile următoare." % [place, title, ", ".join(labels)]
 
 func _show_business() -> void:
 	channel = "business"
 	chat.invest_mode = true
+	chat.attach_kind = "business"
 	chat.set_heading("Contabil\nAfacere · taxe 2026, PFA sau SRL")
 	chat.clear_messages()
 	if controller.business_transcript.is_empty():
 		chat.append({
 			"role": "Contabil",
-			"text": "Sunt contabilul de la Afacere. Spune-mi ideea, veniturile și cheltuielile estimate, iar eu compar PFA, SRL micro și impozitul pe profit. Cifrele sunt orientative pentru 2026.",
+			"text": "Sunt contabilul de la Afacere. Spune-mi ideea, veniturile și cheltuielile, iar eu compar PFA cu SRL. Cu «Adaugă un document» îmi trimiți dosarul ONRC sau o factură. Când confirmi cifrele, pornesc firma în oraș, iar taxele apar aici la termen. Cifrele pentru 2026 sunt orientative.",
 		})
 	else:
 		for message: Dictionary in controller.business_transcript:
@@ -432,6 +431,7 @@ func _show_investments() -> void:
 		return
 	channel = "investments"
 	chat.invest_mode = true
+	chat.attach_kind = ""
 	chat.set_heading("Consultant de investiții\nFonduri și orizont, din catalog")
 	chat.clear_messages()
 	if controller.advisor_transcript.is_empty():
@@ -447,6 +447,7 @@ func _show_investments() -> void:
 func _close_chat() -> void:
 	channel = "onboarding"
 	chat.invest_mode = false
+	chat.attach_kind = "statement"
 	chat.set_heading("AIngel\nConsilierul tău · pas cu pas")
 	chat.clear_messages()
 	for message: Dictionary in controller.transcript:
@@ -465,8 +466,19 @@ func _load_sample() -> void:
 		return
 	uploader.load_sample()
 
+func _upload_finished(response: Dictionary) -> void:
+	if uploader.last_purpose == "business":
+		controller.finish_business_document(response)
+	else:
+		controller.upload_finished(response)
+
 func _pick_statement() -> void:
-	if controller.busy or controller.phase == "map":
+	if controller.busy:
+		return
+	if channel == "business":
+		uploader.pick_business_document()
+		return
+	if controller.phase == "map":
 		return
 	uploader.pick()
 
@@ -556,6 +568,12 @@ func _institution(id: String) -> void:
 		location_contents.add_child(Kit.text("Venit lunar: %.0f lei" % controller.state.get("monthly", {}).get("income", 0), 16))
 	else:
 		location_contents.add_child(Kit.text("Cheltuieli lunare: %.0f lei" % expenses.get("health" if id == "hospital" else id, 0), 16))
+	if id == "business" and controller.state.get("firm") is Dictionary:
+		var firm: Dictionary = controller.state["firm"]
+		location_contents.add_child(Kit.text("%s · %s" % [firm.get("name", ""), firm.get("regime_label", "")], 16))
+		location_contents.add_child(Kit.text("Încasări %.0f lei/lună, cheltuieli de firmă %.0f, taxe de plătit %.0f." % [float(firm.get("monthly_revenue", 0)), float(firm.get("monthly_expenses", 0)), float(firm.get("taxes_due", 0))], 14))
+		if str(firm.get("next_due", "")) != "":
+			location_contents.add_child(Kit.text("Următorul termen: %s" % firm.get("next_due", ""), 14, Kit.MUTED))
 	for cat: Dictionary in controller.state.get("categories", []):
 		if str(cat.get("institution", "")) != id:
 			continue

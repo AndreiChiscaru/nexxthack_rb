@@ -17,6 +17,7 @@ from ..schemas import (
     GoalProgress,
     InstitutionStatus,
     LogEntry,
+    FirmState,
     Monthly,
     MonthlyExpenses,
     ProductHolding,
@@ -24,6 +25,7 @@ from ..schemas import (
     Wellbeing,
 )
 from . import engine as E
+from . import firm as F
 from .cuts import _bucket
 
 MONTHS_PER_YEAR = 12
@@ -124,9 +126,18 @@ def advance_month(sim: E.SimState, month: int, year_rep: dict[str, Any]) -> dict
     inflation, car depreciation), age +1 and wellbeing; then restarts `year_rep`.
     """
     shock = sim["shocks"][min(month // E.MONTHS_PER_PERIOD, E.PERIODS - 1)]
+    # Firm cash is personal money for this month only. It must not stick to side_income and grow with it.
+    firm_cash = F.month_cash(sim)
+    if firm_cash:
+        sim["side_income"] = float(sim["side_income"]) + firm_cash
     inc = E.income(sim)
     out = float(sim["living"]) + float(sim["insurance_premium"]) + E.debt_payments(sim)
-    E._month(sim, shock, year_rep)
+    try:
+        E._month(sim, shock, year_rep)
+    finally:
+        if firm_cash:
+            sim["side_income"] = float(sim["side_income"]) - firm_cash
+    F.accrue(sim)
     month += 1
     if month % MONTHS_PER_YEAR == 0:
         sim["salary"] = float(sim["salary"]) * (1.0 + E.SALARY_GROWTH)
@@ -148,23 +159,44 @@ def advance_month(sim: E.SimState, month: int, year_rep: dict[str, Any]) -> dict
 def expenses(sim: E.SimState, profile: Profile) -> MonthlyExpenses:
     """The single mapping of engine outflows onto §4.2 expense keys.
 
-    `living` is split across home/market/education/health by the profile's starting proportions, so the
-    keys always sum to living + insurance_premium + debt_payments (what _month subtracts).
+    `living` is split across home/market/education/health by the profile's starting proportions, so those
+    keys sum to living + insurance_premium + debt_payments (what _month subtracts).
     health = its share of living (profile health.monthly_costs) + the insurance premium.
+    business is the firm's operating cost when the accountant has started one; it is not part of `living`.
     """
     base = _base_categories(profile)
     total = sum(base.values())
     shares = ({k: v / total for k, v in base.items()} if total > 0
               else {"home": 0.0, "market": 1.0, "education": 0.0, "health": 0.0})
     living = float(sim["living"])
+    running = sim.get("firm") if isinstance(sim.get("firm"), dict) and not sim["firm"].get("_projection") else None
     return MonthlyExpenses(
         home=_r2(living * shares["home"]),
         market=_r2(living * shares["market"]),
         education=_r2(living * shares["education"]),
         health=_r2(living * shares["health"] + float(sim["insurance_premium"])),
-        business=0.0,  # TODO(real): business running costs once the engine models them.
+        business=_r2(float(running["monthly_expenses"])) if running else 0.0,
         bank=_r2(E.debt_payments(sim)),
     )
+
+
+def _shown_income(sim: E.SimState) -> float:
+    running = sim.get("firm") if isinstance(sim.get("firm"), dict) and not sim["firm"].get("_projection") else None
+    extra = float(running["monthly_revenue"]) if running else 0.0
+    return E.income(sim) + extra
+
+
+def _firm_state(sim: E.SimState, month: int, pending_events: list[Event]) -> FirmState | None:
+    view = F.public_view(sim, month)
+    if not view:
+        return None
+    # The deadline event holds the amount after it is taken off the accrual, until the player pays.
+    for event in pending_events:
+        if event.id.startswith("fiscal_"):
+            pay = next((option.ops.get("fiscal_pay") for option in event.options if option.id == "plateste"), None)
+            if pay:
+                view["taxes_due"] = round(float(view["taxes_due"]) + float(pay), 2)
+    return FirmState(**view)
 
 
 def balance(sim: E.SimState) -> Balance:
@@ -215,11 +247,12 @@ def to_game_state(session_id: str, sim: E.SimState, profile: Profile, month: int
         age=int(sim["age"]),
         goal=goal(sim, profile, month),
         balance=balance(sim),
-        monthly=Monthly(income=_r2(E.income(sim)), expenses=expenses(sim, profile)),
+        monthly=Monthly(income=_r2(_shown_income(sim)), expenses=expenses(sim, profile)),
         wellbeing=Wellbeing(stress=_r2(float(sim["stress"])), confidence=_r2(float(sim["confidence"]))),
         institutions=[InstitutionStatus(id=i, pending_events=sum(1 for e in pending_events if e.institution == i))
                       for i in INSTITUTIONS],
         products=products(sim),
         log=list(log),
         categories=list(profile.categories),
+        firm=_firm_state(sim, month, pending_events),
     )

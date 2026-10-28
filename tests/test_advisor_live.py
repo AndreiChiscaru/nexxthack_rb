@@ -54,7 +54,8 @@ def test_live_reply_uses_real_readonly_tools_and_retains_tool_history(live, monk
     assert response.json()["tool_calls"][0]["name"] == "simulate_decision"
     assert set(response.json()["tool_calls"][0]) == {"name", "args", "summary"}
     assert seen[0][2] == {"get_state", "get_goal_progress", "simulate_decision", "compare_scenarios",
-                          "search_products", "compare_products", "create_action_plan"}
+                          "search_products", "compare_products", "create_action_plan", "remember",
+                          "simulate_event_options"}
     assert any(block["type"] == "tool_result" for turn in get_session(sid).advisor_history for block in turn["content"])
     assert client.get("/api/game/state", params={"session_id": sid}).json() == before
 
@@ -135,15 +136,49 @@ def test_advisor_keeps_onboarding_discussion_without_internal_payloads(live, mon
     assert "Viena" not in seen[2][0]
 
 
+def test_shared_sheet_reaches_the_other_agents_and_stays_off_the_reply(live, monkeypatch):
+    from app.agents import memory
+
+    sid = session(start=False)
+    memory.add(sid, "onboarding", "familie", "Vrea să ajute sora să studieze la Viena.")
+    seen = fake_stream(monkeypatch, "search_products", {"category": "investitii"})
+    response = client.post("/api/advisor/investments", json={"session_id": sid, "text": "Unde pun banii?"})
+    assert response.status_code == 200, response.text
+    assert "Viena" in seen[0][0]
+    assert "remember" in seen[0][2]
+    assert "Viena" not in response.json()["reply"]
+    other = session(start=False)
+    assert ask(other, "Ce știi?").status_code == 200
+    assert "Viena" not in seen[-1][0]
+
+
 def test_investments_agent_is_separate_and_uses_the_catalog(live, monkeypatch):
     sid = session(start=False)
     seen = fake_stream(monkeypatch, "search_products", {"category": "investitii"})
     response = client.post("/api/advisor/investments", json={"session_id": sid, "text": "Pot pune bani într-un fond pentru o mașină în 2 ani?"})
     assert response.status_code == 200, response.text
     assert "consultantul de investiții" in seen[0][0]
+    assert "simulate_event_options" not in seen[0][2]
     stored = get_session(sid)
     assert stored.advisor_history == []
     assert stored.investment_history
+
+
+def test_advisor_is_tied_to_the_open_event(live, monkeypatch):
+    sid = session()
+    event = client.get("/api/game/snapshot", params={"session_id": sid}).json()["events"][0]
+    stored = get_session(sid)
+    cash = stored.sim["cash"]
+    seen = fake_stream(monkeypatch, "simulate_event_options", {"months": 6})
+    response = client.post("/api/advisor/message", json={"session_id": sid, "text": "Ce aleg?", "event_id": event["id"]})
+    assert response.status_code == 200, response.text
+    assert event["title"] in seen[0][0]
+    assert "simulate_event_options" in seen[0][0]
+    from app.api.advisor import project_open_event
+    compared = project_open_event(stored, 6)
+    assert compared["eveniment"] == event["title"]
+    assert len(compared["rezultate"]) == len(event["options"])
+    assert stored.sim["cash"] == cash
 
 
 def test_investments_agent_mock_names_the_fund(monkeypatch):

@@ -8,7 +8,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 from fastapi import FastAPI, File, HTTPException, UploadFile  # noqa: E402
 from fastapi.concurrency import run_in_threadpool  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from fastapi.responses import FileResponse  # noqa: E402
+from fastapi.responses import FileResponse, RedirectResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from .agents.llm import AGENT_MODEL  # noqa: E402
@@ -41,8 +41,15 @@ def index():
     return FileResponse(STATIC_DIR / "index.html")
 
 
-@app.get("/demo")
+@app.get("/demo", include_in_schema=False)
+@app.get("/demo/", include_in_schema=False)
 def demo():
+    """The address people already use. It opens the current game; the card demo stays at /demo-vechi."""
+    return RedirectResponse(url="/joc/", status_code=308)
+
+
+@app.get("/demo-vechi", include_in_schema=False)
+def demo_previous():
     return FileResponse(STATIC_DIR / "demo" / "index.html")
 
 

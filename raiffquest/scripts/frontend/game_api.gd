@@ -32,8 +32,13 @@ func advance_month(session_id: String) -> int:
 		return reject("Sesiunea de joc nu a fost creată.")
 	return request_json("/api/game/advance", HTTPClient.METHOD_POST, {"session_id": session_id})
 
-func advisor_message(session_id: String, text: String) -> int:
-	return _message("/api/advisor/message", session_id, text)
+func advisor_message(session_id: String, text: String, event_id: String = "") -> int:
+	if session_id.strip_edges().is_empty() or text.strip_edges().is_empty():
+		return reject("Introdu un mesaj și pornește o sesiune înainte de a continua.")
+	var body := {"session_id": session_id, "text": text.strip_edges()}
+	if not event_id.strip_edges().is_empty():
+		body["event_id"] = event_id.strip_edges()
+	return request_json("/api/advisor/message", HTTPClient.METHOD_POST, body)
 
 func investments_message(session_id: String, text: String) -> int:
 	return _message("/api/advisor/investments", session_id, text)

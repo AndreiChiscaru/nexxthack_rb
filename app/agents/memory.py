@@ -5,9 +5,29 @@ from . import store
 from .llm import Tool
 
 TOPICS = ["scop", "afacere", "fiscal", "documente", "decizie", "preferinta", "risc", "familie", "cariera", "altele"]
-AGENTS = {"onboarding": "Onboarding", "statement": "Analiză extras", "consultant": "Consultant", "business": "Contabil"}
+AGENTS = {
+    "onboarding": "Onboarding",
+    "statement": "Analiză extras",
+    "consultant": "Consultant",
+    "angel": "AIngel",
+    "investments": "Consultant de investiții",
+    "business": "Contabil",
+    "joc": "Joc",
+}
 MAX_NOTES = 60
 PROMPT_NOTES = 25
+
+
+def _month(session_id: str):
+    game = store.load(session_id, "game")
+    if isinstance(game, dict) and game.get("month") is not None:
+        return game["month"]
+    # The journey keeps its month on the live session, not in the demo store.
+    from ..sessions import find_session
+    live = find_session(session_id)
+    if live is not None and live.sim is not None:
+        return live.month
+    return None
 
 
 def load(session_id: str) -> list[dict]:
@@ -20,9 +40,8 @@ def add(session_id: str, agent: str, topic: str, text: str) -> dict:
     for note in notes:
         if note["topic"] == topic and note["text"].lower() == text.lower():
             return note
-    game = store.load(session_id, "game")
     note = {"agent": agent, "topic": topic if topic in TOPICS else "altele", "text": text,
-            "month": game["month"] if game else None, "at": datetime.now().strftime("%H:%M")}
+            "month": _month(session_id), "at": datetime.now().strftime("%H:%M")}
     notes.append(note)
     store.save(session_id, "memory", notes[-MAX_NOTES:])
     return note
