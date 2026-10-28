@@ -6,7 +6,6 @@ DEFAULT_LOAN = {"apr": 0.10, "months": 48}
 MORTGAGE_LOAN = {"apr": 0.065, "months": 240}
 IFN_LOAN = {"apr": 0.35, "months": 24}
 IFN_MARKERS = ("ifn", "credius", "provident", "viva credit", "ferratum", "cetelem", "tbi", "mogo", "credit rapid")
-OVERDRAFT_LIMIT = 15000.0
 MIN_LIVING = 300.0
 # Typical Romanian mortgages finance ~80% of the property, so value ≈ principal / 0.8.
 HOME_VALUE_TO_MORTGAGE = 1.25
@@ -84,7 +83,7 @@ def to_game_profile(analysis: dict) -> dict:
         "salary": round(max(income, 0.0), 2),
         "living": round(living, 2),
         "cash": round(max(balance, 0.0), 2),
-        "overdraft": round(min(max(-balance, 0.0), OVERDRAFT_LIMIT), 2),
+        "overdraft": round(max(-balance, 0.0), 2),
         "emergency": round(max(_num(analysis.get("economii_identificate")), 0.0), 2),
         "home_value": round(mortgage_principal * HOME_VALUE_TO_MORTGAGE, 2),
         "loans": loans,

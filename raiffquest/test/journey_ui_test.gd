@@ -24,7 +24,14 @@ func _ready() -> void:
 	var scene = load("res://scenes/journey.tscn").instantiate()
 	add_child(scene)
 	await get_tree().process_frame
+	for button in [scene.start_button, scene.chat.send, scene.advance_button, scene.city.labels["bank"]]:
+		for state in ["font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
+			check(button.get_theme_color(state) == Color("303a28"), "Button text remains dark in " + state)
 	await capture("welcome")
+	var hover := InputEventMouseMotion.new()
+	hover.position = scene.start_button.get_global_rect().get_center()
+	get_viewport().push_input(hover)
+	await capture("welcome-hover")
 	scene.controller.begin()
 	await wait_for(scene.controller)
 	print("Screen: ",scene.size, " chat: ",scene.chat.size," min:",scene.chat.get_combined_minimum_size()," scroll:",scene.chat.scroll.size)
@@ -48,6 +55,18 @@ func _ready() -> void:
 	check(not scene.map_controls.get_global_rect().intersects(Rect2(scene.size.x-200,scene.size.y-62,180,52)),"map controls do not overlap navigation")
 	await capture("map")
 	scene._open_chat()
+	await wait_for(scene.controller)
+	check(scene.chat.size.x <= 360, "map chat stays a compact left drawer")
+	check(scene.chat.portraits.all(func(p): return p.visible and p.material is ShaderMaterial), "Both participants keep circular profile pictures on the map")
+	await capture("map-chat")
 	check(scene.chat.visible and scene.controller.transcript.size()>=10,"map advisor retains onboarding chat")
+	for repeat in range(2):
+		scene._show_investments()
+		await get_tree().process_frame
+		scene._show_business()
+		await get_tree().process_frame
+		scene._close_chat()
+		await get_tree().process_frame
+	check(scene.chat.portraits.all(func(p): return is_instance_valid(p)), "switching advisors clears old portrait references")
 	print("[journey-ui] ","FAIL" if failed else "PASS")
 	get_tree().quit(1 if failed else 0)

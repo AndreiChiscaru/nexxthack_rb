@@ -99,7 +99,14 @@ def _parse_json(raw: str) -> dict:
 
 
 def _request(client, text: str, use_tool: bool) -> dict:
-    kwargs = {"tools": [REPORT_TOOL], "tool_choice": {"type": "tool", "name": REPORT_TOOL["name"]}} if use_tool else {}
+    # Sonnet 5.5 rejects forced tool use; accept either the report tool or JSON text.
+    kwargs = {"tools": [REPORT_TOOL], "tool_choice": {"type": "auto"}} if use_tool else {}
+    # Sonnet 5.5 thinks by default, using the same output budget as the report.
+    # This extraction needs a direct structured response, not up-front thinking.
+    if MODEL == "claude-sonnet-5-5":
+        kwargs.update(thinking={"type": "between_tools"}, output_config={"effort": "medium"})
+    elif MODEL == "claude-haiku-5-5":
+        kwargs.update(thinking={"type": "disabled"}, output_config={"effort": "medium"})
     message = client.messages.create(
         model=MODEL,
         max_tokens=12000,
@@ -108,7 +115,7 @@ def _request(client, text: str, use_tool: bool) -> dict:
         **kwargs,
     )
     if message.stop_reason == "max_tokens":
-        raise AnalysisError("Răspunsul modelului a fost trunchiat (extras prea lung).")
+        raise AnalysisError("Răspunsul analizei a atins limita modelului. Conversația poate continua; extrasul nu a fost importat.")
     for block in message.content:
         if block.type == "tool_use" and isinstance(block.input, dict):
             return block.input

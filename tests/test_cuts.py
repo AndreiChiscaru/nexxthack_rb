@@ -26,6 +26,8 @@ def test_sample_statement_reports_category_averages(monkeypatch):
 def test_cuts_replace_surprise_events_and_remove_the_expense():
     sid = client.post("/api/session").json()["session_id"]
     profile = ANDREI_PROFILE.model_dump()
+    profile["recurring"]["transport"] = 670
+    profile["spending"]["leisure"] = 775
     profile["categories"] = [
         {"id": "uber", "label": "Transport (Uber / Bolt)", "institution": "market", "monthly": 670},
         {"id": "restaurante", "label": "Restaurante și baruri", "institution": "market", "monthly": 550},
@@ -54,6 +56,8 @@ def test_cuts_replace_surprise_events_and_remove_the_expense():
 def test_a_cut_must_be_answered_and_returns_after_a_gap():
     sid = client.post("/api/session").json()["session_id"]
     profile = ANDREI_PROFILE.model_dump()
+    profile["recurring"]["transport"] = 670
+    profile["spending"]["leisure"] = 775
     profile["categories"] = [
         {"id": "uber", "label": "Transport (Uber / Bolt)", "institution": "market", "monthly": 670},
     ]

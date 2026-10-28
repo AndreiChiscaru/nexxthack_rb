@@ -87,7 +87,7 @@ func _test_every_option_is_finite() -> void:
 				_check(not is_nan(nw) and not is_inf(nw) and absf(nw) < 100000000.0, "valoare finită: %s / %s" % [events[i].id, opt.title])
 				_check(float(rep.after.stress) >= 0.0 and float(rep.after.stress) <= 100.0, "stres în 0-100")
 			Sim.resolve(s, events[i].options[0], float(s.shocks[i]))
-		_check(float(s.overdraft) <= Sim.OVERDRAFT_LIMIT + 1.0, "descoperitul respectă plafonul")
+		_check(is_finite(float(s.overdraft)) and float(s.overdraft) >= 0.0, "descoperitul rămâne finit și nenegativ")
 
 func _test_strategies_differ() -> void:
 	var prudent := _play([0, 2, 0, 0, 0, 0, 0, 0, 1, 1])

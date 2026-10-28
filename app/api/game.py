@@ -1,3 +1,5 @@
+from functools import wraps
+
 from fastapi import APIRouter, HTTPException
 
 from ..mock_data import ANDREI_PROFILE
@@ -19,6 +21,17 @@ from ..sim import engine as E
 from ..sim import events
 
 router = APIRouter(prefix="/api/game", tags=["game"])
+
+def _serialized(handler):
+    """Serialize a session's game reads and mutations within the single worker."""
+    @wraps(handler)
+    def wrapped(*args, **kwargs):
+        value = args[0] if args else next(iter(kwargs.values()))
+        sid = value if isinstance(value, str) else value.session_id
+        with get_session(sid).lock:
+            return handler(*args, **kwargs)
+    return wrapped
+
 
 OPENING_EVENTS = 2
 
@@ -70,9 +83,11 @@ def _schedule(session: Session, count: int | None = None) -> list[Event]:
 
 
 @router.post("/start", response_model=GameStartResponse)
+@_serialized
 def start(req: GameStartRequest):
     session = get_session(req.session_id)
-    profile = req.profile or session.profile or ANDREI_PROFILE
+    profile = (req.profile or session.profile or ANDREI_PROFILE).model_copy(deep=True)
+    adapter.reconcile_categories(profile)
     session.profile = profile
     session.sim, session.rng = adapter.profile_to_state(profile, session.id)
     session.month = 0
@@ -86,6 +101,7 @@ def start(req: GameStartRequest):
 
 
 @router.get("/snapshot", response_model=GameStartResponse)
+@_serialized
 def snapshot(session_id: str):
     """Recover both authoritative balances and pending decisions after a lost response."""
     session = get_session(session_id)
@@ -93,6 +109,7 @@ def snapshot(session_id: str):
 
 
 @router.get("/state", response_model=GameState)
+@_serialized
 def state(session_id: str):
     return game_state(get_session(session_id))
 
@@ -140,6 +157,7 @@ def _answer_event(session: Session, req: GameActionRequest) -> tuple[str, str]:
 
 
 @router.post("/action", response_model=GameActionResponse)
+@_serialized
 def action(req: GameActionRequest):
     session = get_session(req.session_id)
     sim = require_game(session)
@@ -175,10 +193,11 @@ def action(req: GameActionRequest):
             else "Bună mișcare, economiile cresc." if delta["savings"] > 0
             else "Atenție: datoria a crescut, verifică dobânda." if delta["debt"] > 0
             else "Am notat decizia ta.")
-    return GameActionResponse(state=game_state(session), delta=delta, advisor_note=note)
+    return GameActionResponse(state=game_state(session), delta=delta, advisor_note=note, pending_events=list(session.pending_events))
 
 
 @router.post("/advance", response_model=GameAdvanceResponse)
+@_serialized
 def advance(req: GameAdvanceRequest):
     session = get_session(req.session_id)
     sim = require_game(session)
@@ -194,4 +213,4 @@ def advance(req: GameAdvanceRequest):
     ))
     new_events = _schedule(session)
     return GameAdvanceResponse(state=game_state(session),
-                               delta=adapter.delta(before, adapter.balance(sim)), events=new_events)
+                               delta=adapter.delta(before, adapter.balance(sim)), events=new_events, pending_events=list(session.pending_events))

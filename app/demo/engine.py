@@ -109,7 +109,9 @@ def new_game(profile: dict, seed: int) -> dict:
         "seed": seed,
         "name": _get(profile, "name") or "Jucător",
         "age": int(g("age", 25)),
+        "initial_debt": sum(d["balance"] for d in debts),
         "goal": {
+            "type": _get(profile, "goal.type") or "fond_urgenta",
             "description": _get(profile, "goal.description") or "Stabilitate financiară",
             "target_amount": g("goal.target_amount") or 10000.0,
             "horizon_months": int(g("goal.horizon_months") or 24),
@@ -199,6 +201,10 @@ def net_worth(state: dict) -> float:
 
 
 def goal_progress(state: dict) -> float:
+    if state["goal"].get("type") == "achitare_datorii":
+        initial = state.get("initial_debt", total_debt(state))
+        target = min(initial, state["goal"]["target_amount"])
+        return min(1.0, max(0.0, (initial - total_debt(state)) / target)) if target > 0 else float(total_debt(state) <= 0)
     return (state["savings"] + state["investments"]) / max(state["goal"]["target_amount"], 1.0)
 
 

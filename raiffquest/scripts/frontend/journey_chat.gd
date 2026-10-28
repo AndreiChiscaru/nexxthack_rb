@@ -13,8 +13,11 @@ var attach: Button
 var sample: Button
 var review: Button
 var status: Label
-var face: TextureRect
 var close_button: Button
+var tip: Label
+var layout_width := 940.0
+var compact := false
+var portraits: Array[Control] = []
 var heading: Label
 var invest_mode := false
 var _rows: Array[Control] = []
@@ -26,12 +29,11 @@ func _ready() -> void:
 	add_child(column)
 	var header := HBoxContainer.new()
 	column.add_child(header)
-	face = Kit.portrait("idle", 56)
-	header.add_child(face)
-	heading = Kit.text("AIngel\nConsilierul tău · pas cu pas", 18)
+	heading = Kit.strong("AIngel · ghidul tău", 18)
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(heading)
-	close_button = Kit.close_button(func(): closed.emit())
+	close_button = Kit.button("×", func(): closed.emit())
+	close_button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 	header.add_child(close_button)
 	scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -64,7 +66,7 @@ func _ready() -> void:
 	sample.add_theme_font_size_override("font_size", 12)
 	sample.custom_minimum_size.y = 30
 	actions.add_child(sample)
-	var tip := Kit.text("opțional · sau trage fișierul în fereastră", 11, Kit.MUTED)
+	tip = Kit.text("opțional · sau trage fișierul în fereastră", 11, Kit.MUTED)
 	tip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(tip)
 	review = Kit.button("Verifică profilul →", func(): review_requested.emit(), true)
@@ -80,6 +82,7 @@ func clear_messages() -> void:
 		messages.remove_child(child)
 		child.queue_free()
 	_rows.clear()
+	portraits.clear()
 
 func submit() -> void:
 	if send.disabled or input.text.strip_edges().is_empty():
@@ -92,6 +95,7 @@ func append(message: Dictionary) -> void:
 	var bar := scroll.get_v_scroll_bar()
 	var was_bottom := bar.value >= bar.max_value - bar.page - 35
 	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
 	messages.add_child(row)
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -99,17 +103,28 @@ func append(message: Dictionary) -> void:
 	if user:
 		row.add_child(spacer)
 	else:
-		row.add_child(Kit.portrait("explaining", 42))
+		var portrait := Kit.profile_picture(false, 36)
+		row.add_child(portrait)
+		portraits.append(portrait)
 	var bubble := PanelContainer.new()
-	bubble.add_theme_stylebox_override("panel", Kit.box(Color("fff19a") if user else Color("fffdf3")))
+	var surface := Kit.box(Color("fff19a") if user else Color("eef0db"))
+	surface.set_border_width_all(0)
+	surface.set_corner_radius_all(8)
+	surface.shadow_size = 0
+	surface.shadow_offset = Vector2.ZERO
+	bubble.add_theme_stylebox_override("panel", surface)
 	row.add_child(bubble)
 	_rows.append(bubble)
 	var contents := VBoxContainer.new()
 	bubble.add_child(contents)
-	contents.add_child(Kit.text(str(message.get("role", "AIngel")), 12, Kit.MUTED))
-	contents.add_child(Kit.text(str(message.get("text", "")), 16))
+	contents.add_child(Kit.strong(str(message.get("role", "AIngel")), 12))
+	var body := Kit.text(str(message.get("text", "")), 14)
+	body.add_theme_constant_override("line_spacing", 5)
+	contents.add_child(body)
 	if user:
-		row.add_child(Kit.text("●", 26))
+		var portrait := Kit.profile_picture(true, 36)
+		row.add_child(portrait)
+		portraits.append(portrait)
 	else:
 		row.add_child(spacer)
 	_resize_rows()
@@ -124,14 +139,19 @@ func _scroll_end() -> void:
 
 func _resize_rows() -> void:
 	for bubble in _rows:
-		bubble.custom_minimum_size.x = maxf(120, size.x * 0.78 - 60)
+		bubble.custom_minimum_size.x = maxf(120, layout_width - 105 if compact else layout_width * 0.78 - 60)
+	for portrait in portraits:
+		portrait.visible = true
 
 func show_state(busy: bool, phase: String, error: String) -> void:
+	compact = phase == "map"
+	_resize_rows()
 	send.disabled = busy
 	input.editable = not busy
 	attach.disabled = busy
 	var angel := phase != "map" and not invest_mode
 	attach.visible = angel
+	tip.visible = angel
 	sample.disabled = busy
 	sample.visible = angel
 	review.visible = phase == "review"
@@ -139,4 +159,3 @@ func show_state(busy: bool, phase: String, error: String) -> void:
 	close_button.visible = phase == "map"
 	status.text = "AIngel îți răspunde…" if busy else error
 	status.add_theme_color_override("font_color", Color("963b2b") if not error.is_empty() else Kit.MUTED)
-	face.texture = load("res://assets/raiff/consultant/consultant_%s.png" % ("thinking" if busy else "idle"))

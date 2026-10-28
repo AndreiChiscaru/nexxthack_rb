@@ -63,7 +63,7 @@ static func apply_profile(s: Dictionary, p: Dictionary) -> void:
 	for key: String in ["salary", "living", "cash", "emergency", "home_value", "stress", "confidence"]:
 		if p.get(key) != null:
 			s[key] = maxf(float(p[key]), 0.0)
-	s.overdraft = clampf(float(p.get("overdraft", 0.0)), 0.0, OVERDRAFT_LIMIT)
+	s.overdraft = maxf(float(p.get("overdraft", 0.0)), 0.0)
 	for loan: Dictionary in p.get("loans", []):
 		if float(loan.get("principal", 0.0)) > 0.5 and int(loan.get("months", 0)) > 0:
 			add_loan(s, str(loan.get("name", "Credit existent")), float(loan.principal), float(loan.get("apr", 0.1)), int(loan.months))
@@ -346,8 +346,7 @@ static func _month(s: Dictionary, shock: float, rep: Dictionary) -> void:
 	if float(s.overdraft) > 0.5:
 		rep.overdraft_months = int(rep.overdraft_months) + 1
 	if float(s.overdraft) > OVERDRAFT_LIMIT:
-		# Banca nu mai acordă descoperit: ajustezi forțat cheltuielile (austeritate).
-		s.overdraft = OVERDRAFT_LIMIT
+		# Semnalăm dificultatea financiară fără să ștergem datoria.
 		rep.austerity_months = int(rep.austerity_months) + 1
 	s.emergency = float(s.emergency) * (1.0 + EMERGENCY_APR / 12.0)
 	s.deposit = float(s.deposit) * (1.0 + DEPOSIT_APR / 12.0)

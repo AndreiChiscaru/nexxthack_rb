@@ -58,6 +58,16 @@ func _ready() -> void:
 	c.refresh()
 	await settle(c)
 	check(not c.events.is_empty(), "snapshot restores pending event cards")
+	# Every mutation can replace the complete pending set; replaying a response cannot duplicate cards.
+	var sample_event: Dictionary = c.events[0].duplicate(true)
+	var payload := {"ok":true,"data":{"state":c.state.duplicate(true),"pending_events":[sample_event, sample_event],"events":[sample_event]}}
+	for request_id in [100001, 100002]:
+		c._track(request_id, "advance")
+		c._response(request_id, payload)
+		check(c.events.size() == 1, "authoritative event snapshots deduplicate repeated responses")
+	c._track(100003, "action")
+	c._response(100003, {"ok":true,"data":{"state":c.state.duplicate(true),"pending_events":[]}})
+	check(c.events.is_empty(), "resolved events disappear from the full server snapshot")
 	c.queue_free()
 	print("[journey-integration] ", "FAIL" if failed else "PASS")
 	get_tree().quit(1 if failed else 0)

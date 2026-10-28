@@ -130,18 +130,32 @@ def get_goal_progress(session_id: str) -> dict:
     sim, profile = session.sim, session.profile
     goal = adapter.goal(sim, profile, session.month)
     b = adapter.balance(sim)
-    saved = b.savings + b.investments
-    remaining = max(goal.target_amount - saved, 0.0)
     months_left = max(profile.goal.horizon_months - session.month, 0)
-    needed = remaining / months_left if months_left else remaining
     contributing = float(sim["emergency_contrib"]) + float(sim["invest_contrib"])
+    if profile.goal.type == "achitare_datorii":
+        initial = float(sim.get("initial_debt", sum(debt.remaining for debt in profile.debts)))
+        repaid = max(initial - b.debt, 0.0)
+        repayment_target = min(initial, goal.target_amount) if goal.target_amount > 0 else initial
+        remaining = max(repayment_target - repaid, 0.0)
+        needed = remaining / months_left if months_left else remaining
+        pace = (f"mai sunt {months_left} luni, ai nevoie de ~{E.money(needed)}/lună din principal"
+                if months_left else "termenul a trecut")
+        summary = (f"Progres {goal.progress:.0%} către achitarea datoriilor "
+                   f"({E.money(repaid)} reduși; {E.money(remaining)} rămași din obiectiv; "
+                   f"datorie totală {E.money(b.debt)}); {pace}.")
+        saved = repaid
+    else:
+        saved = b.savings + b.investments
+        remaining = max(goal.target_amount - saved, 0.0)
+        needed = remaining / months_left if months_left else remaining
+        summary = (f"Progres {goal.progress:.0%} ({E.money(saved)} din {E.money(goal.target_amount)}); "
+                   + (f"mai sunt {months_left} luni, ai nevoie de ~{E.money(needed)}/lună" if months_left
+                      else "termenul a trecut") + f"; pui deoparte automat {E.money(contributing)}/lună.")
     return {
         "goal_type": goal.type, "target_amount": goal.target_amount, "saved": _r(saved), "remaining": _r(remaining),
         "progress": goal.progress, "on_track": goal.on_track, "months_elapsed": session.month, "months_left": months_left,
         "monthly_needed": _r(needed), "monthly_contributions": _r(contributing),
-        "summary": (f"Progres {goal.progress:.0%} ({E.money(saved)} din {E.money(goal.target_amount)}); "
-                    + (f"mai sunt {months_left} luni, ai nevoie de ~{E.money(needed)}/lună" if months_left
-                       else "termenul a trecut") + f"; pui deoparte automat {E.money(contributing)}/lună."),
+        "summary": summary,
     }
 
 
@@ -250,10 +264,16 @@ def create_action_plan(session_id: str) -> dict:
     if int(sim["insurance_level"]) == 0 and profile.dependents > 0:
         step("Ia în calcul o asigurare de viață", f"Ai {profile.dependents} persoane în întreținere.", None, "asigurare_viata")
     if not goal["on_track"] and goal["months_left"]:
-        amount = _r(min(goal["monthly_needed"], surplus))
-        step("Pune deoparte automat pentru scop", f"Ca să atingi {E.money(goal['target_amount'])} la timp ai nevoie de "
-             f"~{E.money(goal['monthly_needed'])}/lună.", {"action_id": "set_monthly_saving", "params": {"amount": amount}},
-             "depozit_1_an")
+        if profile.goal.type == "achitare_datorii":
+            cash_for_debt = _r(min(goal["monthly_needed"], max(float(sim["cash"]), 0.0)))
+            step("Rambursează din principal", f"Ca să stingi datoria la timp ai nevoie de "
+                 f"~{E.money(goal['monthly_needed'])}/lună din sold, nu din mutarea banilor în economii.",
+                 {"action_id": "repay", "params": {"amount": cash_for_debt}} if cash_for_debt > 0 else None, "refinantare")
+        else:
+            amount = _r(min(goal["monthly_needed"], surplus))
+            step("Pune deoparte automat pentru scop", f"Ca să atingi {E.money(goal['target_amount'])} la timp ai nevoie de "
+                 f"~{E.money(goal['monthly_needed'])}/lună.", {"action_id": "set_monthly_saving", "params": {"amount": amount}},
+                 "depozit_1_an")
     if em_months >= 6 and profile.risk_tolerance != "scazuta" and profile.goal.horizon_months - session.month > 36:
         step("Investește pe termen lung", "Ai fondul de urgență complet și un orizont de peste 3 ani.",
              {"action_id": "set_monthly_invest", "params": {"amount": _r(surplus * 0.3)}}, "fonduri_smartinvest")

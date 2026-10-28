@@ -4,7 +4,7 @@ Pure functions, no I/O, no FastAPI. The engine dict is the source of truth; Game
 Mapping:
   savings     = emergency + deposit      investments = fund
   debt        = engine.total_debt        net_worth   = engine.net_worth (includes car/home/business)
-  goal.progress = (savings + investments) / target, clamped 0..1
+  goal.progress = saved assets / target, or net debt repaid / repayment target
 """
 import random
 from typing import Any
@@ -24,6 +24,7 @@ from ..schemas import (
     Wellbeing,
 )
 from . import engine as E
+from .cuts import _bucket
 
 MONTHS_PER_YEAR = 12
 DELTA_KEYS = ("cash", "savings", "investments", "debt", "net_worth")
@@ -35,31 +36,51 @@ def _r2(x: float) -> float:
 
 # ---------------------------------------------------------------- profile -> engine
 
+def _expense_total(profile: Profile, obj, attr: str) -> float:
+    if attr in obj.model_fields_set:
+        return float(getattr(obj, attr))
+    rows = [cat for cat in profile.categories
+            if (holder := _bucket(profile, cat.id)) and holder[0] is obj and holder[1] == attr]
+    return sum(cat.monthly for cat in rows) if rows else float(getattr(obj, attr))
+
+
 def _base_categories(profile: Profile) -> dict[str, float]:
     """Profile spending grouped by institution; their sum is the engine's `living`."""
-    if profile.categories:
-        # Statement lines already include transport, food, leisure and subscriptions.
-        # Rent, utilities, tuition and medical costs stay beside them.
-        base = {
-            "home": profile.recurring.rent + profile.recurring.utilities,
-            "market": 0.0,
-            "education": profile.education.tuition_monthly,
-            "health": profile.health.monthly_costs,
-        }
-        for cat in profile.categories:
-            # The faculty scholarship is income. It is listed on Education, not spent.
-            if cat.id == "bursa":
-                continue
-            bucket = cat.institution if cat.institution in ("home", "market", "education") else "market"
-            base[bucket] += cat.monthly
-        return base
     r, s = profile.recurring, profile.spending
-    return {
-        "home": r.rent + r.utilities + r.subscriptions,
-        "market": s.food + s.leisure + r.transport,
+    base = {
+        "home": r.rent + r.utilities + _expense_total(profile, r, "subscriptions"),
+        "market": _expense_total(profile, s, "food") + _expense_total(profile, s, "leisure") + _expense_total(profile, r, "transport"),
         "education": profile.education.tuition_monthly,
         "health": profile.health.monthly_costs,
     }
+
+    # Unknown statement categories have no editable aggregate field.
+    for cat in profile.categories:
+        if cat.id != "bursa" and _bucket(profile, cat.id) is None:
+            bucket = "health" if cat.institution == "hospital" else cat.institution
+            base[bucket if bucket in base else "market"] += cat.monthly
+    return base
+
+
+def reconcile_categories(profile: Profile) -> None:
+    """Editable totals win; retain each statement category's relative share for cut suggestions."""
+    groups = {}
+    for cat in profile.categories:
+        holder = _bucket(profile, cat.id)
+        if holder:
+            obj, attr = holder
+            groups.setdefault((id(obj), attr), (obj, attr, []))[2].append(cat)
+    for obj, attr, rows in groups.values():
+        total = sum(cat.monthly for cat in rows)
+        target = max(0.0, _expense_total(profile, obj, attr))
+        setattr(obj, attr, target)
+        if total <= 0:
+            continue  # A new aggregate expense is not an identified statement category.
+        remaining = round(target, 2)
+        for index, cat in enumerate(rows):
+            amount = remaining if index == len(rows) - 1 else min(remaining, round(target * cat.monthly / total, 2))
+            cat.monthly = amount
+            remaining = round(remaining - amount, 2)
 
 
 def profile_to_state(profile: Profile, seed: str) -> tuple[E.SimState, random.Random]:
@@ -83,6 +104,7 @@ def profile_to_state(profile: Profile, seed: str) -> tuple[E.SimState, random.Ra
         E.add_loan(sim, debt.name, debt.remaining, debt.apr, months)
         # Keep the real bank payment from the statement instead of the recomputed annuity.
         sim["loans"][-1]["payment"] = float(debt.monthly)
+    sim["initial_debt"] = E.total_debt(sim)
     sim["history"] = [E.snapshot(sim)]
     return sim, rng
 
@@ -162,12 +184,17 @@ def delta(before: Balance, after: Balance) -> dict[str, float]:
 def goal(sim: E.SimState, profile: Profile, month: int) -> GoalProgress:
     b = balance(sim)
     target = profile.goal.target_amount
-    progress = min(1.0, max(0.0, (b.savings + b.investments) / target)) if target > 0 else 1.0
+    if profile.goal.type == "achitare_datorii":
+        initial = float(sim.get("initial_debt", sum(d.remaining for d in profile.debts)))
+        repayment_target = min(initial, target) if target > 0 else initial
+        progress = min(1.0, max(0.0, (initial - b.debt) / repayment_target)) if repayment_target > 0 else float(b.debt <= 0)
+    else:
+        progress = min(1.0, max(0.0, (b.savings + b.investments) / target)) if target > 0 else 1.0
     return GoalProgress(
         type=profile.goal.type,
         target_amount=target,
         progress=round(progress, 3),
-        on_track=progress >= month / max(1, profile.goal.horizon_months),
+        on_track=progress >= min(1.0, month / max(1, profile.goal.horizon_months)),
     )
 
 
