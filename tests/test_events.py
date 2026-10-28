@@ -206,15 +206,24 @@ def test_max_one_pending_per_institution():
             assert event.institution not in {"hospital", "work"}
 
 
-def test_pending_never_exceeds_one_per_institution_via_api():
+def test_all_pending_missions_block_advance_until_last_answer():
     sid = start_game()
-    for _ in range(24):  # never answering
-        body = client.post("/api/game/advance", json={"session_id": sid}).json()
-        counts = {i["id"]: i["pending_events"] for i in body["state"]["institutions"]}
-        assert max(counts.values()) <= 1
-        pending = sessions.get_session(sid).pending_events
-        assert sum(counts.values()) == len(pending)
-        assert {e["id"] for e in body["events"]} <= {e.id for e in pending}
+    session = sessions.get_session(sid)
+    session.pending_events = [EVENT_LIBRARY["dentist"].to_api(), EVENT_LIBRARY["promovare"].to_api()]
+    before = client.get("/api/game/snapshot", params={"session_id": sid}).json()
+    for event in list(session.pending_events):
+        blocked = client.post("/api/game/advance", json={"session_id": sid})
+        assert blocked.status_code == 409
+        snapshot = client.get("/api/game/snapshot", params={"session_id": sid}).json()
+        assert snapshot["state"]["month"] == 0
+        if len(session.pending_events) == 2:
+            assert snapshot == before
+        result = client.post("/api/game/action", json={"session_id":sid, "institution":event.institution,
+            "action_id":event.id, "params":{"option_id":event.options[0].id}})
+        assert result.status_code == 200, result.text
+    advanced = client.post("/api/game/advance", json={"session_id":sid})
+    assert advanced.status_code == 200, advanced.text
+    assert advanced.json()["state"]["month"] == 1
 
 
 def test_start_schedules_two_month_zero_events():
@@ -230,6 +239,7 @@ def test_start_schedules_two_month_zero_events():
 def test_advance_returns_new_events_as_pending():
     sid = start_game()
     for _ in range(6):
+        sessions.get_session(sid).pending_events.clear()  # Test scheduling after missions complete.
         body = client.post("/api/game/advance", json={"session_id": sid}).json()
         pending_ids = {e.id for e in sessions.get_session(sid).pending_events}
         assert {e["id"] for e in body["events"]} <= pending_ids

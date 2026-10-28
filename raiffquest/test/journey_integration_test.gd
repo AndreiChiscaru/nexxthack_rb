@@ -39,6 +39,9 @@ func _ready() -> void:
 	c.act("bank", "unknown-action")
 	await settle(c)
 	check(not c.last_error.is_empty() and c.state == saved_state, "rejected action preserves state and exposes error")
+	for pending: Dictionary in c.events.duplicate(true):
+		c.act(pending.institution, pending.id, {"option_id": pending.options[0].id})
+		await settle(c)
 	c.advance()
 	await settle(c)
 	check(c.state.month == 1, "month advance connected")

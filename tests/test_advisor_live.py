@@ -1,3 +1,4 @@
+from app.sessions import get_session as pending_session
 import copy
 import json
 
@@ -64,6 +65,8 @@ def test_followup_has_full_history_and_fresh_context_isolated_by_session(live, m
     first, second = session(), session()
     seen = fake_stream(monkeypatch)
     assert ask(first, "Ține minte obiectivul meu.").status_code == 200
+    # Isolate monthly accounting from independently tested mission choices.
+    pending_session(first).pending_events.clear()
     client.post("/api/game/advance", json={"session_id": first})
     get_session(first).profile = get_session(first).profile.model_copy(update={"name": "Profil actualizat"})
     assert ask(first, "Și acum?").status_code == 200

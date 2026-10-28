@@ -1,3 +1,4 @@
+from app.sessions import get_session as pending_session
 import pytest
 from fastapi.testclient import TestClient
 
@@ -116,6 +117,8 @@ def test_game_action_free_and_invalid(started):
 
 def test_game_advance(started):
     sid, body = started
+    # Isolate monthly accounting from independently tested mission choices.
+    pending_session(sid).pending_events.clear()
     r = client.post("/api/game/advance", json={"session_id": sid})
     assert r.status_code == 200
     new = r.json()
@@ -167,6 +170,8 @@ def test_on_track_uses_profile_horizon(horizon, on_track):
     profile["goal"]["horizon_months"] = horizon
     sid = new_session()
     client.post("/api/game/start", json={"session_id": sid, "profile": profile})
+    # Isolate monthly accounting from independently tested mission choices.
+    pending_session(sid).pending_events.clear()
     state = client.post("/api/game/advance", json={"session_id": sid}).json()["state"]
     assert state["goal"]["progress"] == 0.048
     assert state["goal"]["on_track"] is on_track
@@ -202,6 +207,8 @@ def test_full_flow():
     assert acted.status_code == 200
 
     for month in range(1, 4):
+        # Isolate monthly accounting from independently tested mission choices.
+        pending_session(sid).pending_events.clear()
         adv = client.post("/api/game/advance", json={"session_id": sid}).json()
         assert adv["state"]["month"] == month
 

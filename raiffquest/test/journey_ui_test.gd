@@ -52,6 +52,13 @@ func _ready() -> void:
 	scene.controller.confirm_profile(scene.controller.profile)
 	await wait_for(scene.controller)
 	check(scene.city.visible, "map visible after confirmed profile")
+	check(scene.advance_button.disabled, "Pending missions block next month")
+	var missions: Array = scene.controller.events.duplicate(true)
+	for mission: Dictionary in missions:
+		scene.controller.act(mission.institution, mission.id, {"option_id":mission.options[0].id})
+		await wait_for(scene.controller)
+		check(scene.advance_button.disabled == not scene.controller.events.is_empty(), "Next month unlocks only after last mission")
+
 	check(scene.map_controls.get_child_count() == 1 and not scene.recovery_button.visible, "Healthy map has no manual refresh button")
 	var original_state: Dictionary = scene.controller.state.duplicate(true)
 	scene.controller._track(99999, "advance")

@@ -1,3 +1,4 @@
+from app.sessions import get_session as pending_session
 """Engine + catalog tools for the agents (app/tools.py)."""
 import copy
 import inspect
@@ -119,6 +120,8 @@ def test_goal_progress_12_vs_36_months(horizon, needed, on_track_after_1):
     g = run_tool("get_goal_progress", {}, sid)
     assert g["months_left"] == horizon and g["monthly_needed"] == pytest.approx(needed, abs=0.01)
     assert g["progress"] == 0.048 and g["remaining"] == 23800
+    # Isolate monthly accounting from independently tested mission choices.
+    pending_session(sid).pending_events.clear()
     client.post("/api/game/advance", json={"session_id": sid})
     g = run_tool("get_goal_progress", {}, sid)
     assert g["months_left"] == horizon - 1 and g["on_track"] is on_track_after_1
@@ -126,6 +129,8 @@ def test_goal_progress_12_vs_36_months(horizon, needed, on_track_after_1):
 
 def test_action_plan_has_3_to_5_actionable_steps():
     sid = start_game(horizon=12)
+    # Isolate monthly accounting from independently tested mission choices.
+    pending_session(sid).pending_events.clear()
     client.post("/api/game/advance", json={"session_id": sid})  # behind on a 12-month goal
     steps = run_tool("create_action_plan", {}, sid)["steps"]
     assert 3 <= len(steps) <= 5

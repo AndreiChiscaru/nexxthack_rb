@@ -251,15 +251,9 @@ func _update() -> void:
 		var state: Dictionary = controller.state
 		hud.update_state(state, controller.profile)
 		city.set_institutions(state.get("institutions", []))
-		var waiting := ""
-		for event: Dictionary in controller.events:
-			var event_id := str(event.get("id", ""))
-			if event_id.begins_with("fiscal_"):
-				waiting = "fiscal"
-			elif event_id.begins_with("taie_") and waiting != "fiscal":
-				waiting = "cut"
-		advance_button.disabled = controller.busy or controller.needs_recovery or waiting != ""
-		advance_button.text = "Alege termenul fiscal" if waiting == "fiscal" else ("Alege sugestia" if waiting == "cut" else "Luna următoare →")
+		var remaining: int = controller.events.size()
+		advance_button.disabled = controller.busy or controller.needs_recovery or remaining > 0
+		advance_button.text = "Rezolvă misiunea rămasă" if remaining == 1 else ("Rezolvă cele %d misiuni" % remaining if remaining > 1 else "Luna următoare →")
 		if not selected.is_empty() and location.visible:
 			_institution(selected)
 

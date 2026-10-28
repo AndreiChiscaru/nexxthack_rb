@@ -91,6 +91,9 @@ func _ready() -> void:
 			return
 		check(c.events.all(func(item): return item.id != event.id), "Resolved event stays removed after server refresh")
 	var month: int = c.state.month
+	for pending: Dictionary in c.events.duplicate(true):
+		c.act(pending.institution, pending.id, {"option_id": pending.options[0].id})
+		await settle(c)
 	c.advance()
 	if not await settle(c):
 		stop()
