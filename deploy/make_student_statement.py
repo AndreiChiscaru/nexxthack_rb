@@ -61,6 +61,8 @@ def month_rows(year: int, month: int) -> list[tuple[str, float]]:
         add(random.randint(1, last), "Superbet", -random.choice((40, 50, 80, 100)))
     add(random.randint(10, 24), "Retragere numerar ATM", -random.choice((100, 150, 200, 250)))
     add(12, "PayPo rata", -random.choice((89, 119)))
+    # Faculty scholarship, paid every month of the statement. Fixed so the monthly average stays 800.
+    add(10, "Bursa facultate UAIC Iasi", 800)
     rows.sort(key=lambda r: (r[0], r[1]))
     return [(d.strftime("%d.%m.%Y"), desc, amount) for d, desc, amount in rows]
 

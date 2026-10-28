@@ -6,7 +6,9 @@ After=network.target
 User=ubuntu
 WorkingDirectory=/opt/extras
 EnvironmentFile=/opt/extras/.env
-ExecStart=/opt/extras/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+# Sessions live in this process. A second worker answers with "Sesiune inexistentă"
+# because it never saw the session created by the first.
+ExecStart=/opt/extras/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
 Restart=always
 RestartSec=3
 

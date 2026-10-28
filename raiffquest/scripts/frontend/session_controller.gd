@@ -16,6 +16,8 @@ var state: Dictionary = {}
 var events: Array = []
 var products: Array = []
 var transcript: Array = []
+var advisor_transcript: Array = []
+var business_transcript: Array = []
 var _id := -1
 var _operation := ""
 var _event_id := ""
@@ -27,10 +29,29 @@ func _ready() -> void:
 	add_child(api)
 	api.request_finished.connect(_response)
 
-func add_message(role: String, text: String) -> void:
-	var message := {"role": role, "text": text}
-	transcript.append(message)
+func add_message(role: String, text: String, channel: String = "onboarding") -> void:
+	var message := {"role": role, "text": text, "channel": channel}
+	if channel == "investments":
+		advisor_transcript.append(message)
+	elif channel == "business":
+		business_transcript.append(message)
+	else:
+		transcript.append(message)
 	message_added.emit(message)
+
+func ask_investments(text: String) -> void:
+	text = text.strip_edges()
+	if busy or session_id.is_empty() or text.is_empty():
+		return
+	add_message("Tu", text, "investments")
+	_track(api.investments_message(session_id, text), "investments")
+
+func ask_business(text: String) -> void:
+	text = text.strip_edges()
+	if busy or session_id.is_empty() or text.is_empty():
+		return
+	add_message("Tu", text, "business")
+	_track(api.business_message(session_id, text), "business")
 
 func _track(id: int, operation: String) -> void:
 	_id = id
@@ -141,14 +162,11 @@ func _response(id: int, response: Dictionary) -> void:
 				phase = "map"
 				if operation == "start":
 					events = data.get("events", []).duplicate(true)
-					add_message("AIngel", "Am pregătit orașul pornind de la profilul confirmat. Alege o clădire pentru a explora evenimentele și opțiunile tale.")
 				elif operation == "advance":
 					for event in data.get("events", []):
 						events.append(event)
-					add_message("Joc", "Ai avansat în luna %d. Bilanțul și evenimentele au fost actualizate de server." % int(state.get("month", 0)))
 				else:
 					events = events.filter(func(e: Dictionary) -> bool: return str(e.get("id", "")) != _event_id)
-					add_message("AIngel", str(data.get("advisor_note", "Decizia a fost înregistrată.")))
 			else:
 				last_error = "Starea jocului lipsește din răspuns."
 		"refresh":
@@ -159,6 +177,10 @@ func _response(id: int, response: Dictionary) -> void:
 				phase = "map"
 		"advisor":
 			add_message("AIngel", str(data.get("reply", "")))
+		"investments":
+			add_message("Consultant de investiții", str(data.get("reply", "")), "investments")
+		"business":
+			add_message("Contabil", str(data.get("reply", "")), "business")
 		"products":
 			products = data.get("products", [])
 	changed.emit()

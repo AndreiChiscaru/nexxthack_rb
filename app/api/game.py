@@ -36,17 +36,28 @@ def _amount(params: dict) -> float:
         raise HTTPException(400, "params.amount trebuie să fie un număr.")
 
 
+def _schedule_cut(session: Session) -> list[Event]:
+    """One suggestion at a time. A category comes back only after the others, plus a gap."""
+    if session.pending_events:
+        return []
+    track = session.used_events.setdefault("_cuts", {"cycle": [], "last": None, "ready_month": 0})
+    if session.month < int(track.get("ready_month") or 0):
+        return []
+    event = cuts.next_suggestion(session.profile, track["cycle"])
+    if event is None:
+        if track["cycle"]:
+            track["ready_month"] = session.month + cuts.REPEAT_GAP
+            track["cycle"] = []
+            track["last"] = None
+        return []
+    track["cycle"].append(event.id.removeprefix("taie_"))
+    track["last"] = event.id
+    return [event]
+
+
 def _schedule(session: Session, count: int | None = None) -> list[Event]:
     if session.cut_mode:
-        track = session.used_events.setdefault("_cuts", {"cycle": [], "last": None})
-        event = cuts.next_suggestion(session.profile, track["cycle"])
-        if event is None and track["cycle"]:
-            track["cycle"] = []
-            event = cuts.next_suggestion(session.profile, track["cycle"])
-        new_events = [event] if event else []
-        if event:
-            track["cycle"].append(event.id.removeprefix("taie_"))
-            track["last"] = event.id
+        new_events = _schedule_cut(session)
     else:
         picked = events.schedule(session.sim, session.profile, session.month, session.rng,
                                  session.pending_events, session.used_events, count=count)
@@ -171,6 +182,8 @@ def action(req: GameActionRequest):
 def advance(req: GameAdvanceRequest):
     session = get_session(req.session_id)
     sim = require_game(session)
+    if session.cut_mode and session.pending_events:
+        raise HTTPException(409, "Alege sugestia de reducere înainte să treci la luna următoare.")
     before = adapter.balance(sim)
     summary = adapter.advance_month(sim, session.month, session.year_rep)
     session.month = int(summary["month"])

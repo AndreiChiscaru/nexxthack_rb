@@ -18,6 +18,8 @@ var tip: Label
 var layout_width := 940.0
 var compact := false
 var portraits: Array[Control] = []
+var heading: Label
+var invest_mode := false
 var _rows: Array[Control] = []
 
 func _ready() -> void:
@@ -27,9 +29,9 @@ func _ready() -> void:
 	add_child(column)
 	var header := HBoxContainer.new()
 	column.add_child(header)
-	var title := Kit.strong("AIngel · ghidul tău", 18)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title)
+	heading = Kit.strong("AIngel · ghidul tău", 18)
+	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(heading)
 	close_button = Kit.button("×", func(): closed.emit())
 	close_button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 	header.add_child(close_button)
@@ -71,6 +73,15 @@ func _ready() -> void:
 	review.hide()
 	actions.add_child(review)
 	resized.connect(_resize_rows)
+
+func set_heading(text: String) -> void:
+	heading.text = text
+
+func clear_messages() -> void:
+	for child in messages.get_children():
+		messages.remove_child(child)
+		child.queue_free()
+	_rows.clear()
 
 func submit() -> void:
 	if send.disabled or input.text.strip_edges().is_empty():
@@ -137,10 +148,11 @@ func show_state(busy: bool, phase: String, error: String) -> void:
 	send.disabled = busy
 	input.editable = not busy
 	attach.disabled = busy
-	attach.visible = phase != "map"
-	tip.visible = phase != "map"
+	var angel := phase != "map" and not invest_mode
+	attach.visible = angel
+	tip.visible = angel
 	sample.disabled = busy
-	sample.visible = phase != "map"
+	sample.visible = angel
 	review.visible = phase == "review"
 	review.disabled = busy
 	close_button.visible = phase == "map"

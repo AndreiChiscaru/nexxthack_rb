@@ -78,7 +78,7 @@ def new_game(profile: dict, seed: int) -> dict:
     if categories:
         for cat in categories:
             monthly = _num(cat.get("monthly"))
-            if monthly <= 0:
+            if monthly <= 0 or str(cat.get("id")) == "bursa":
                 continue
             inst = cat.get("institution") if cat.get("institution") in INSTITUTION_IDS else "market"
             items[inst].append(_item(str(cat["id"]), f"{cat['label']} · medie/lună", -monthly))
