@@ -9,7 +9,7 @@ $ssh = @("-i", $KeyPath, "-o", "StrictHostKeyChecking=accept-new")
 function Check($step) { if ($LASTEXITCODE -ne 0) { throw "$step a esuat (exit $LASTEXITCODE)" } }
 
 ssh @ssh $ServerHost "sudo mkdir -p /opt/extras && sudo chown ubuntu:ubuntu /opt/extras"; Check "mkdir"
-scp @ssh -r "$root\app" "$root\static" "$root\deploy" "$root\requirements.txt" "$root\.env.example" "${ServerHost}:/opt/extras/"; Check "scp"
+scp @ssh -r "$root\app" "$root\static" "$root\data" "$root\deploy" "$root\requirements.txt" "$root\.env.example" "${ServerHost}:/opt/extras/"; Check "scp"
 if (Test-Path "$root\.env") { scp @ssh "$root\.env" "${ServerHost}:/opt/extras/.env"; Check "scp .env" }
 ssh @ssh $ServerHost "sed -i 's/\r$//' /opt/extras/deploy/*.sh /opt/extras/deploy/*.service /opt/extras/deploy/*.conf && bash /opt/extras/deploy/setup_server.sh 2>&1"; Check "setup_server.sh"
 
