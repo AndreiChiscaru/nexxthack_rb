@@ -99,7 +99,12 @@ def _parse_json(raw: str) -> dict:
 
 
 def _request(client, text: str, use_tool: bool) -> dict:
-    kwargs = {"tools": [REPORT_TOOL], "tool_choice": {"type": "tool", "name": REPORT_TOOL["name"]}} if use_tool else {}
+    # Sonnet 5.5 rejects forced tool use; accept either the report tool or JSON text.
+    kwargs = {"tools": [REPORT_TOOL], "tool_choice": {"type": "auto"}} if use_tool else {}
+    # Sonnet 5.5 thinks by default, using the same output budget as the report.
+    # This extraction needs a direct structured response, not up-front thinking.
+    if MODEL == "claude-sonnet-5-5":
+        kwargs.update(thinking={"type": "between_tools"}, output_config={"effort": "medium"})
     message = client.messages.create(
         model=MODEL,
         max_tokens=12000,
