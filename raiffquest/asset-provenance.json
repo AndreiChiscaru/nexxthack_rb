@@ -387,6 +387,32 @@
       "useEvidence": [],
       "used": false,
       "usedBy": []
+    },
+    "assets/raiff/home_flat_isometric.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [],
+      "license": {
+        "note": "Subject to OpenAI terms"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:b540958972e73f750e307575569defa6cf5c73dd8f8742ace96a32b4efe1512c",
+      "shipped": true,
+      "size": 1379719,
+      "source": {
+        "description": "Generated for RaiffQuest on 2026-10-28",
+        "style": "Flat Vector Isometric",
+        "purpose": "Home building for recurring household expenses"
+      },
+      "status": "present",
+      "transformations": [],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
     }
   },
   "discoveries": {},
