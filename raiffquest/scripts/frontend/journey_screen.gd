@@ -314,7 +314,7 @@ func _update() -> void:
 		metric_cash.text = "%.0f lei" % balance.get("cash", 0)
 		metric_savings.text = "%.0f lei" % balance.get("savings", 0)
 		metric_income.text = "%.0f lei" % monthly.get("income", 0)
-		hud.tooltip_text = "Investiții: %.0f lei\nCheltuieli: %.0f lei\nStres: %.0f · Încredere: %.0f" % [balance.get("investments", 0), expense, wellbeing.get("stress", 0), wellbeing.get("confidence", 0)]
+		hud.tooltip_text = "Investiții: %.0f lei\nDatorie: %.0f lei\nPatrimoniu: %.0f lei\nCheltuieli: %.0f lei\nStres: %.0f · Încredere: %.0f" % [balance.get("investments", 0), balance.get("debt", 0), balance.get("net_worth", 0), expense, wellbeing.get("stress", 0), wellbeing.get("confidence", 0)]
 		averages_text.text = ""
 		averages_text.visible = not state.get("categories", []).is_empty()
 		var averages: Array = state.get("categories", [])
@@ -327,7 +327,10 @@ func _update() -> void:
 			averages_text.text = "Medii din extras: " + ", ".join(bits)
 		var goal: Dictionary = state.get("goal", {})
 		progress.value = float(goal.get("progress", 0)) * 100
-		goal_text.text = "Obiectiv: %.0f lei · %.0f%%" % [goal.get("target_amount", 0), progress.value]
+		if str(goal.get("type", "")) == "achitare_datorii":
+			goal_text.text = "Datorie rămasă: %.0f lei · progres %.0f%%" % [balance.get("debt", 0), progress.value]
+		else:
+			goal_text.text = "Obiectiv: %.0f lei · %.0f%%" % [goal.get("target_amount", 0), progress.value]
 		city.set_institutions(state.get("institutions", []))
 		var must_choose := false
 		for event: Dictionary in controller.events:

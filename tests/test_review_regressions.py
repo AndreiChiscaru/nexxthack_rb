@@ -113,3 +113,21 @@ def test_web_engine_debt_goal_also_tracks_repayment():
     assert engine.goal_progress(state) == 0
     state["debts"][0]["balance"] = 7500
     assert engine.goal_progress(state) == .25
+
+
+def test_advisor_debt_goal_uses_repayments_and_partial_target():
+    from app.tools import get_goal_progress, create_action_plan
+    sid = client.post("/api/session").json()["session_id"]
+    profile = ANDREI_PROFILE.model_dump()
+    profile["goal"].update(type="achitare_datorii", target_amount=5000)
+    profile["debts"] = [{"name":"Credit", "remaining":10000, "monthly":500,"apr":0}]
+    client.post("/api/game/start", json={"session_id":sid,"profile":profile})
+    session = get_session(sid)
+    E.prepay(session.sim,1000)
+    session.month = 12
+    progress = get_goal_progress(sid)
+    assert progress["saved"] == 1000
+    assert progress["remaining"] == 4000
+    assert progress["progress"] == .2
+    plan = str(create_action_plan(sid))
+    assert "Pune deoparte automat pentru scop" not in plan
