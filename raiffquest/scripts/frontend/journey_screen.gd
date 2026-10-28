@@ -18,6 +18,9 @@ var mode: Label
 var error_label: Label
 var hud: PanelContainer
 var hud_text: Label
+var metric_cash: Label
+var metric_savings: Label
+var metric_income: Label
 var goal_text: Label
 var progress: ProgressBar
 var advisor_button: Button
@@ -113,14 +116,17 @@ func _ready() -> void:
 		tween.tween_property(hero, "modulate:a", 1.0, 0.6)
 
 func _build_header() -> void:
-	var badge := Kit.text("Q", 24)
+	var badge := Kit.strong("Q", 24)
 	badge.position = Vector2(28, 21)
 	badge.size = Vector2(34, 34)
 	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	badge.add_theme_stylebox_override("normal", Kit.box(Kit.YELLOW, Kit.INK, 0))
+	var badge_surface := Kit.box(Kit.YELLOW, Kit.INK, 0)
+	badge_surface.set_corner_radius_all(0)
+	badge_surface.shadow_offset = Vector2(2,2)
+	badge.add_theme_stylebox_override("normal", badge_surface)
 	badge.rotation = -0.06
 	add_child(badge)
-	var brand := Kit.text("RaiffQuest", 28)
+	var brand := Kit.strong("RaiffQuest", 26)
 	brand.position = Vector2(74, 19)
 	brand.size = Vector2(260, 40)
 	add_child(brand)
@@ -133,12 +139,21 @@ func _build_header() -> void:
 	recovery_button = Kit.button("Verifică starea serverului", controller.refresh, true)
 	add_child(recovery_button)
 	recovery_button.hide()
-	advisor_button = Kit.button("AIngel · Hai să vorbim", _open_chat)
+	advisor_button = Kit.button("AIngel", _open_chat)
+	advisor_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	var aside := Kit.text("Sunt aici dacă ai nevoie.", 11, Kit.MUTED)
+	aside.position = Vector2(70, 57)
+	aside.size = Vector2(200, 22)
+	aside.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	advisor_button.add_child(aside)
+	advisor_button.add_theme_font_override("font", load("res://assets/raiff/fonts/Figtree-Bold.ttf"))
+	for state in ["normal", "hover", "pressed", "focus"]:
+		advisor_button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 	advisor_button.icon = load("res://assets/raiff/consultant/consultant_idle.png")
 	advisor_button.expand_icon = true
-	advisor_button.add_theme_constant_override("icon_max_width", 52)
-	advisor_button.position = Vector2(24, 94)
-	advisor_button.size = Vector2(225, 64)
+	advisor_button.add_theme_constant_override("icon_max_width", 65)
+	advisor_button.position = Vector2(24, 100)
+	advisor_button.size = Vector2(270, 80)
 	add_child(advisor_button)
 	advisor_button.hide()
 
@@ -155,26 +170,49 @@ func _build_welcome() -> void:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 20)
 	greeting.add_child(col)
-	col.add_child(Kit.text("AINGEL · CONSILIERUL TĂU", 13, Kit.MUTED))
-	col.add_child(Kit.text("Hei, bine ai venit!", 30))
-	col.add_child(Kit.text("Sunt aici să te ascult și să te însoțesc în aventura ta financiară. Începem cu tine: ce vis ai vrea să transformăm într-un plan?", 20))
+	col.add_child(Kit.strong("Hei, sunt AIngel!", 28))
+	col.add_child(Kit.text("Ce vis ai vrea să transformăm într-un plan?", 20))
 	start_button = Kit.button("Începe jocul →", controller.begin, true)
+	start_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	col.add_child(start_button)
-	col.add_child(Kit.text("Simulare educațională · tu alegi ce informații împărtășești.", 12, Kit.MUTED))
 
 func _build_hud() -> void:
 	hud = PanelContainer.new()
 	add_child(hud)
 	var col := VBoxContainer.new()
 	hud.add_child(col)
-	hud_text = Kit.text("", 13)
+	var surface := Kit.box(Color("fffbef"), Color("8e9f73"), 16)
+	surface.set_border_width_all(1)
+	surface.shadow_color = Color("7e8f66")
+	surface.shadow_offset = Vector2(0, 3)
+	hud.add_theme_stylebox_override("panel", surface)
+	hud_text = Kit.text("", 10, Kit.MUTED)
 	col.add_child(hud_text)
-	goal_text = Kit.text("", 12, Kit.MUTED)
+	var metrics := HBoxContainer.new()
+	metrics.add_theme_constant_override("separation", 18)
+	col.add_child(metrics)
+	var values: Array[Label] = []
+	for caption in ["Disponibil", "Economii", "Venit lunar"]:
+		var stack := VBoxContainer.new()
+		stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		metrics.add_child(stack)
+		stack.add_child(Kit.text(caption, 11, Kit.MUTED))
+		var value := Kit.strong("0 lei", 19)
+		stack.add_child(value)
+		values.append(value)
+	metric_cash = values[0]
+	metric_savings = values[1]
+	metric_income = values[2]
+	goal_text = Kit.text("", 11)
 	col.add_child(goal_text)
 	progress = ProgressBar.new()
-	progress.custom_minimum_size.y = 8
+	progress.custom_minimum_size.y = 5
 	progress.show_percentage = false
-	progress.add_theme_stylebox_override("fill", Kit.box(Kit.YELLOW, Kit.YELLOW, 0))
+	var fill := Kit.box(Color("cdb800"), Color("cdb800"), 0)
+	fill.shadow_size = 0
+	fill.shadow_offset = Vector2.ZERO
+	progress.add_theme_stylebox_override("fill", fill)
+	progress.add_theme_stylebox_override("background", Kit.box(Color("dce0c7"), Color("dce0c7"), 0))
 	col.add_child(progress)
 	map_controls = HBoxContainer.new()
 	map_controls.add_theme_constant_override("separation", 8)
@@ -190,13 +228,18 @@ func _layout() -> void:
 	var w := size.x
 	var h := size.y
 	landscape.pivot_offset = size * Vector2(0.5, 0.42)
-	hero.position = Vector2(28, 130)
-	greeting.position = Vector2(275, 180)
-	greeting.size = Vector2(maxf(420, minf(700, w - 310)), 320)
+	hero.position = Vector2(48, 170)
+	greeting.position = Vector2(290, 210)
+	greeting.size = Vector2(maxf(400, minf(530, w - 330)), 210)
+	chat.layout_width = 350.0 if controller.phase == "map" else minf(940, w - 40)
+	chat._resize_rows()
 	chat.position = Vector2(maxf(20, (w - 940) / 2), 105)
 	chat.size = Vector2(minf(940, w - 40), maxf(400, h - 155))
-	hud.position = Vector2(400, 20)
-	hud.size = Vector2(maxf(400, w - 425), 90)
+	if controller.phase == "map":
+		chat.position = Vector2(24, 190)
+		chat.size = Vector2(350, maxf(330, h - 280))
+	hud.position = Vector2(w - 355, 20)
+	hud.size = Vector2(330, 134)
 	map_controls.position = Vector2(25, h - 60)
 	map_controls.size = Vector2(400, 40)
 	recovery_button.position = Vector2(25, h - 150)
@@ -219,7 +262,7 @@ func _update() -> void:
 	recovery_button.disabled = controller.busy
 	if phase != "review":
 		profile_panel.hide()
-	mode.text = "Agenți AI conectați · simulare educațională" if controller.agent_mode == "live" else "Mod demonstrativ · răspunsuri de test" if controller.agent_mode == "mock" else "Server neconectat"
+	mode.text = "Agenți AI conectați · simulare educațională" if controller.agent_mode == "live" else "Mod demonstrativ · răspunsuri de test" if controller.agent_mode == "mock" else "UN ORAȘ. ALEGERILE TALE."
 	chat.show_state(controller.busy, phase, controller.last_error)
 	uploader.session_id = controller.session_id
 	welcome.visible = phase == "welcome"
@@ -242,6 +285,7 @@ func _update() -> void:
 				city.modulate.a = 0
 				create_tween().tween_property(city, "modulate:a", 1.0, 0.65)
 		last_phase = phase
+		_layout()
 	if phase == "map":
 		var state: Dictionary = controller.state
 		var balance: Dictionary = state.get("balance", {})
@@ -250,7 +294,11 @@ func _update() -> void:
 		for amount in monthly.get("expenses", {}).values():
 			expense += float(amount)
 		var wellbeing: Dictionary = state.get("wellbeing", {})
-		hud_text.text = "Luna %d  ·  Disponibil: %.0f lei  ·  Economii: %.0f  ·  Investiții: %.0f\nVenit: %.0f  ·  Cheltuieli: %.0f  ·  Stres: %.0f  ·  Încredere: %.0f" % [state.get("month", 0), balance.get("cash", 0), balance.get("savings", 0), balance.get("investments", 0), monthly.get("income", 0), expense, wellbeing.get("stress", 0), wellbeing.get("confidence", 0)]
+		hud_text.text = "LUNA %d · UN NOU ÎNCEPUT     %s" % [state.get("month", 0), "AI LIVE" if controller.agent_mode == "live" else "DEMO"]
+		metric_cash.text = "%.0f lei" % balance.get("cash", 0)
+		metric_savings.text = "%.0f lei" % balance.get("savings", 0)
+		metric_income.text = "%.0f lei" % monthly.get("income", 0)
+		hud.tooltip_text = "Investiții: %.0f lei\nCheltuieli: %.0f lei\nStres: %.0f · Încredere: %.0f" % [balance.get("investments", 0), expense, wellbeing.get("stress", 0), wellbeing.get("confidence", 0)]
 		var goal: Dictionary = state.get("goal", {})
 		progress.value = float(goal.get("progress", 0)) * 100
 		goal_text.text = "Obiectiv: %.0f lei · %.0f%%" % [goal.get("target_amount", 0), progress.value]
@@ -261,6 +309,7 @@ func _update() -> void:
 			_institution(selected)
 
 func _open_chat() -> void:
+	_layout()
 	location.hide()
 	profile_panel.hide()
 	_reveal(chat)

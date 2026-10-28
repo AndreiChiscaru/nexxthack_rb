@@ -51,7 +51,7 @@ var _avatar: MapAvatar
 var _route: Line2D
 var _hint: Label
 var _at := "home"
-const PLAY_ZOOM := 1.38
+const PLAY_ZOOM := 1.10
 var _zoom := PLAY_ZOOM
 var _camera: Tween
 var _pan := Vector2.ZERO
@@ -62,25 +62,33 @@ var _travel: Tween
 var _statuses: Array = []
 
 class MapAvatar extends Node2D:
+	var sprite: AnimatedSprite2D
+	func _ready() -> void:
+		sprite = AnimatedSprite2D.new()
+		var frames := SpriteFrames.new()
+		frames.remove_animation("default")
+		for pose in ["idle", "happy", "thinking", "phone", "talking", "sad", "surprised"]:
+			frames.add_animation(pose)
+			frames.add_frame(pose, load("res://assets/raiff/characters/male/%s.png" % pose))
+		for direction in ["up", "down", "left", "right"]:
+			var anim: String = "walk_" + direction
+			frames.add_animation(anim)
+			frames.set_animation_speed(anim, 6)
+			for i in range(4):
+				frames.add_frame(anim, load("res://assets/raiff/characters/male/walk_%s_%02d.png" % [direction,i]))
+		sprite.sprite_frames = frames
+		sprite.scale = Vector2.ONE * 0.31
+		sprite.position.y = -33
+		add_child(sprite)
+		sprite.play("idle")
+	func face(delta: Vector2) -> void:
+		var direction := ("right" if delta.x > 0 else "left") if absf(delta.x) > absf(delta.y) else ("down" if delta.y > 0 else "up")
+		sprite.play("walk_" + direction)
+	func rest() -> void:
+		sprite.play("idle")
 	func _draw() -> void:
 		draw_set_transform(Vector2.ZERO, 0, Vector2(1.0,0.3))
-		draw_circle(Vector2.ZERO, 12, Color("52633b55"))
-		draw_set_transform(Vector2.ZERO)
-		draw_line(Vector2(-5,-13), Vector2(-6,-2), Color("33422b"), 5, true)
-		draw_line(Vector2(5,-13), Vector2(6,-2), Color("33422b"), 5, true)
-		draw_style_box(_body(), Rect2(-10,-29,20,19))
-		draw_circle(Vector2(0,-36), 9, Color("33422b"))
-		draw_circle(Vector2(0,-35), 7.5, Color("f2c995"))
-		draw_arc(Vector2(0,-36), 8, PI, TAU, 12, Color("33422b"), 5, true)
-		draw_circle(Vector2(-3,-35),1,Color("33422b"))
-		draw_circle(Vector2(3,-35),1,Color("33422b"))
-	func _body() -> StyleBoxFlat:
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color("fee600")
-		style.border_color = Color("33422b")
-		style.set_border_width_all(2)
-		style.set_corner_radius_all(5)
-		return style
+		draw_circle(Vector2.ZERO, 15, Color("52633b40"))
 
 func _ready() -> void:
 	theme = preload("res://scripts/frontend/journey_theme.gd").theme()
@@ -118,8 +126,8 @@ func _ready() -> void:
 	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	_hint.offset_top = -33
-	_hint.offset_bottom = -8
+	_hint.offset_top = -60
+	_hint.offset_bottom = -30
 	add_child(_hint)
 	var controls := HBoxContainer.new()
 	controls.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -148,9 +156,9 @@ func _ready() -> void:
 func _label_style(selected: bool) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color("fee600") if selected else Color("fffbef")
-	style.border_color = INK
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(8)
+	style.border_color = Color("8f977c")
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
 	style.shadow_color = Color("303a2830")
 	style.shadow_size = 1
 	style.shadow_offset = Vector2(0,3)
@@ -177,7 +185,8 @@ func _add_building(id: String) -> void:
 	button.mouse_exited.connect(_hover.bind(id, false))
 	var label := Button.new()
 	label.text = PLACES[id].name
-	label.add_theme_font_size_override("font_size",13)
+	label.add_theme_font_size_override("font_size",12)
+	label.add_theme_font_override("font",load("res://assets/raiff/fonts/Figtree-Bold.ttf"))
 	label.add_theme_color_override("font_color",INK)
 	label.add_theme_stylebox_override("normal",_label_style(false))
 	label.add_theme_stylebox_override("hover",_label_style(false))
@@ -271,10 +280,12 @@ func navigate_to(id: String) -> void:
 	_travel = create_tween()
 	for index in range(1, points.size()):
 		var duration := 0.001 if _reduced_motion else points[index - 1].distance_to(points[index]) / 350.0
+		_travel.tween_callback(_avatar.face.bind(points[index] - points[index - 1]))
 		_travel.tween_property(_avatar, "position", points[index], duration)
 	_travel.tween_callback(func():
 		_at = id
 		_walking = false
+		_avatar.rest()
 		_route.clear_points()
 		_hint.text = "Ai ajuns la %s." % PLACES[id].name
 		institution_selected.emit(id)
@@ -282,7 +293,7 @@ func navigate_to(id: String) -> void:
 
 func enter_map() -> void:
 	_pan = Vector2.ZERO
-	_zoom = 1.15
+	_zoom = 0.88
 	_transform_world()
 	_zoom = PLAY_ZOOM
 	_transform_world(true)
@@ -301,7 +312,7 @@ func _transform_world(animated: bool = false) -> void:
 		return
 	var fit := maxf(0.05, minf(size.x / 1560.0, (size.y - 40) / 960.0))
 	var target_scale := Vector2.ONE * fit * _zoom
-	var target_position := size * 0.5 + _pan - Vector2(550,330) * target_scale
+	var target_position := size * 0.5 + Vector2(45,35) + _pan - Vector2(550,390) * target_scale
 	if _camera:
 		_camera.kill()
 	if animated and not _reduced_motion:

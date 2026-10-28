@@ -29,6 +29,8 @@ func _ready() -> void:
 	check(not city.badges["bank"].visible, "Stale badges clear on refresh")
 	city.focus_all()
 	check(city.world.scale.x > 0, "Map fits viewport")
+	for direction in ["up", "down", "left", "right"]:
+		check(city._avatar.sprite.sprite_frames.get_frame_count("walk_" + direction) == 4, "Teammate walking frames available in every direction")
 	city._reduced_motion = true
 	var arrivals: Array = []
 	city.institution_selected.connect(func(id: String): arrivals.append(id))
