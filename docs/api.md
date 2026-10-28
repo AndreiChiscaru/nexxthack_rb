@@ -1,7 +1,8 @@
-# Raiff Quest API (mock skeleton)
+# Raiff Quest API
 
-All endpoints below return **mock** data so the Godot frontend can integrate now. Shapes follow
-`docs/implementation-plan.md` §4. Each mock in the code is marked `# TODO(real): ...`.
+Shapes follow `docs/implementation-plan.md` §4. `/api/game/*` runs on the real financial engine
+(`app/sim/engine.py`, port of `finance_sim.gd`). Events, onboarding, advisor, business and products are
+still **mock**; each mock in the code is marked `# TODO(real): ...`.
 
 - Base URL: same origin as the game (`/joc`). CORS is open (`*`) for local dev.
 - Swagger: `GET /docs`. Raw schema: `GET /openapi.json`.
@@ -16,7 +17,7 @@ All endpoints below return **mock** data so the Godot frontend can integrate now
 | POST | `/api/game/start` | JSON `{session_id, profile?}` | `{state, events[]}` |
 | GET | `/api/game/state` | `?session_id=` | `GameState` (§4.2) |
 | POST | `/api/game/action` | JSON `{session_id, institution, action_id, params}` | `{state, delta, advisor_note}` |
-| POST | `/api/game/advance` | JSON `{session_id}` | `{state, events[]}` |
+| POST | `/api/game/advance` | JSON `{session_id}` | `{state, delta, events[]}` |
 | POST | `/api/advisor/message` | JSON `{session_id, text}` | `{reply, tool_calls[]}` |
 | POST | `/api/business/message` | multipart `session_id`, `text`, optional `file` | `{reply, tool_calls[]}` |
 | GET | `/api/products` | `?category=` (optional) | `{products[]}` |
@@ -31,9 +32,50 @@ Shared shapes:
 Mock behaviour:
 
 - **Onboarding.** The 3rd message returns `done: true` with the Andrei profile.
-- **Game start.** Without a `profile` in the body, it uses the profile saved during onboarding, or Andrei if there is none.
-- **Advance.** `month + 1`, `cash += income - all expenses`, `debt -= bank` expense, plus 0–2 new events (deterministic per session and month).
-- **Action.** Either answer a pending event with `action_id = <event id>` and `params.option_id`, or use a free action: `save`, `invest` or `repay` with `params.amount`.
+- **Events.** Two opening events at start, then 0–2 new ones per month (still mock, real library in task 4).
+
+## Game loop (engine)
+
+- **Start.** Builds the engine state from the profile in the body, else the one saved during onboarding, else Andrei.
+  - `debts[]` become loans that keep the profile's real monthly payment.
+  - All randomness comes from a `random.Random` seeded with `session_id`, so the same session gives the same game.
+- **Advance = one month.**
+  - Loan payments with interest, overdraft interest, `cash += income - living - payments - insurance`.
+  - Automatic contributions, interest on savings and a return on the fund (shock of the current 3-year period).
+  - Every 12 months: age +1, salary +4%, living costs +4%, car value −12%, and a stress/confidence update.
+  - One `"Luna N: ..."` log line per month.
+- **`delta`** (advance and action): change in `cash`, `savings`, `investments`, `debt`, `net_worth`.
+
+How the engine maps onto `GameState` (§4.2):
+
+| `GameState` field | Engine source |
+|---|---|
+| `balance.savings` | `emergency + deposit` |
+| `balance.investments` | `fund` |
+| `balance.debt` | `total_debt` (loans + overdraft) |
+| `balance.net_worth` | `net_worth`, which also includes car, home and business value, so it isn't always cash + savings + investments − debt |
+| `goal.progress` | `(savings + investments) / target_amount`, clamped to 0..1 |
+| `goal.on_track` | `progress >= month / profile.goal.horizon_months` |
+| `monthly.expenses.home` / `.market` / `.education` | `living`, split by the profile's starting proportions (rent + utilities + subscriptions / food + leisure + transport / tuition) |
+| `monthly.expenses.health` | `insurance_premium` |
+| `monthly.expenses.business` | `0` for now |
+| `monthly.expenses.bank` | loan payments |
+| `products` | `cont_economii` = emergency, `depozit` = deposit, `fond_diversificat` = fund (only if > 0) |
+
+The six expense keys always add up to what the month deducts.
+
+### Actions (`POST /api/game/action`)
+
+| `action_id` | `params` | Effect | 400 when |
+|---|---|---|---|
+| `<pending event id>` | `{option_id}` | applies the option's `ops` through the engine; mood applies immediately | unknown `option_id` |
+| `save` | `{amount}` | one-off transfer cash → savings (emergency fund) | `amount <= 0` or `> cash` |
+| `invest` | `{amount}` | one-off transfer cash → investments (fund) | `amount <= 0` or `> cash` |
+| `repay` | `{amount}` | early repayment: overdraft first, then highest-APR loan; any leftover returns to cash | `amount <= 0` or `> cash` |
+| `set_monthly_saving` | `{amount}` | automatic monthly amount into savings; **replaces** the previous value, `0` stops it | `amount < 0` or `>` monthly income |
+| `set_monthly_invest` | `{amount}` | automatic monthly amount into the fund; **replaces**, `0` stops it | `amount < 0` or `>` monthly income |
+
+Any other `action_id` returns 400.
 
 ## Errors
 
@@ -43,7 +85,7 @@ Every error uses FastAPI's default body, `{"detail": "<message>"}`. Validation e
 |---|---|---|
 | **404** | `session_id` doesn't exist (any route that takes it, including `/api/onboarding/*`, `/api/advisor/*` and `/api/business/*`) | `"Sesiune inexistentă."` |
 | **409** | `GET /api/game/state`, `POST /api/game/action` or `POST /api/game/advance` before `POST /api/game/start` | `"Jocul nu a pornit încă (POST /api/game/start)."` |
-| 400 | unknown `action_id`, invalid `option_id`, `amount <= 0`, empty uploaded file | `"Acțiune necunoscută: teleport."` |
+| 400 | unknown `action_id`, invalid `option_id`, `amount` out of range (see the actions table), empty uploaded file | `"Acțiune necunoscută: teleport."` |
 | 413 | upload over 25 MB | `"Fișierul depășește 25 MB."` |
 | 422 | body or query fails validation (e.g. `institution` not one of the 7 ids, missing `session_id`) | `[{"type": "literal_error", "loc": ["body", "institution"], ...}]` |
 
@@ -98,7 +140,7 @@ curl -F session_id=c3db... -F file=@extras.pdf http://localhost:8000/api/onboard
            "goal": {"type": "avans_casa", "target_amount": 25000, "progress": 0.048, "on_track": true},
            "balance": {"cash": 4000, "savings": 1200, "investments": 0, "debt": 11000, "net_worth": -5800},
            "monthly": {"income": 4300, "expenses": {"home": 1970, "market": 1800, "education": 0, "health": 0, "business": 0, "bank": 650}},
-           "wellbeing": {"stress": 40, "confidence": 50},
+           "wellbeing": {"stress": 35, "confidence": 45},
            "institutions": [{"id": "home", "pending_events": 0}, "...", {"id": "hospital", "pending_events": 1}, {"id": "bank", "pending_events": 1}],
            "products": [{"id": "cont_economii", "balance": 1200}],
            "log": [{"month": 0, "institution": "home", "text": "Andrei începe aventura."}]},
@@ -115,21 +157,26 @@ Returns the same `GameState` object as `state` above.
 ```json
 // request: answer a pending event
 {"session_id": "c3db...", "institution": "hospital", "action_id": "dentist", "params": {"option_id": "installments"}}
-// request: free action
+// request: one-off transfer / monthly contribution
 {"session_id": "c3db...", "institution": "bank", "action_id": "save", "params": {"amount": 500}}
+{"session_id": "c3db...", "institution": "bank", "action_id": "set_monthly_saving", "params": {"amount": 300}}
 // response (event example)
 {"state": { "...": "GameState" },
- "delta": {"debt": 1200, "net_worth": -1200},
+ "delta": {"cash": 0, "savings": 0, "investments": 0, "debt": 1200, "net_worth": -1200},
  "advisor_note": "Atenție: datoria a crescut, verifică dobânda."}
 ```
-Errors: unknown `action_id` or `option_id` returns 400. An invalid `institution` returns 422.
+Errors: see the actions table above. An invalid `institution` returns 422.
 
 ### POST /api/game/advance
 ```json
 // request
 {"session_id": "c3db..."}
 // response
-{"state": {"month": 1, "balance": {"cash": 3880, "...": "..."}, "...": "..."},
+{"state": {"month": 1, "age": 22,
+           "balance": {"cash": 3880, "savings": 1203, "investments": 0, "debt": 10478.33, "net_worth": -5395.33},
+           "log": [..., {"month": 1, "institution": "bank", "text": "Luna 1: venit 4.300 lei, cheltuieli 4.420 lei, sold 3.880 lei"}],
+           "...": "..."},
+ "delta": {"cash": -120, "savings": 3, "investments": 0, "debt": -521.67, "net_worth": 404.67},
  "events": [{"id": "promovare", "institution": "work", "title": "Ofertă de promovare", "...": "..."}]}
 ```
 
@@ -140,7 +187,7 @@ Errors: unknown `action_id` or `option_id` returns 400. An invalid `institution`
 // response
 {"reply": "Îți recomand să pui întâi deoparte un fond de urgență de 3 luni, apoi să accelerezi plata creditului.",
  "tool_calls": [
-   {"name": "get_player_profile", "args": {}, "summary": "Luna 0, cash 4000 lei, stres 40/100."},
+   {"name": "get_player_profile", "args": {}, "summary": "Luna 0, cash 4000 lei, stres 35/100."},
    {"name": "search_products", "args": {"category": "savings"}, "summary": "2 produse demo: Cont de Economii Automat Demo, Depozit Flexibil Demo."},
    {"name": "simulate_decision", "args": {"option": "A", "months": 36}, "summary": "Varianta A: dobândă totală plătită 2.310 lei, rată 650 lei/lună."}]}
 ```

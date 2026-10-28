@@ -1,19 +1,5 @@
 """Mock fixtures so the frontend can work before the real engine/agents exist."""
-from .schemas import (
-    INSTITUTIONS,
-    Balance,
-    Event,
-    GameState,
-    GoalProgress,
-    InstitutionStatus,
-    LogEntry,
-    Monthly,
-    MonthlyExpenses,
-    Product,
-    ProductHolding,
-    Profile,
-    Wellbeing,
-)
+from .schemas import Event, Product, Profile
 
 # TODO(real): produced by the onboarding agent's submit_profile tool.
 ANDREI_PROFILE = Profile.model_validate({
@@ -35,51 +21,6 @@ ANDREI_PROFILE = Profile.model_validate({
 
 # Order in which the mock onboarding "collects" required fields (§4.1).
 REQUIRED_FIELDS = ["goal", "age", "income.salary", "recurring", "savings", "debts", "risk_tolerance"]
-
-
-def recompute(state: GameState, horizon_months: int) -> None:
-    """Refresh derived fields (net worth, goal progress) after any change.
-
-    `horizon_months` comes from the session profile (goal.horizon_months); GameState doesn't carry it.
-    """
-    # TODO(real): app/sim/engine.py owns these formulas (port of finance_sim.gd).
-    b = state.balance
-    b.net_worth = round(b.cash + b.savings + b.investments - b.debt, 2)
-    state.goal.progress = round(min(1.0, max(0.0, b.savings / state.goal.target_amount)), 3)
-    state.goal.on_track = state.goal.progress >= state.month / max(1, horizon_months)
-    state.products = [ProductHolding(id="cont_economii", balance=b.savings)] if b.savings > 0 else []
-
-
-def initial_state(session_id: str, profile: Profile) -> GameState:
-    # TODO(real): built by app/sim/engine.py from the profile.
-    r, s = profile.recurring, profile.spending
-    state = GameState(
-        session_id=session_id,
-        month=0,
-        age=profile.age,
-        goal=GoalProgress(type=profile.goal.type, target_amount=profile.goal.target_amount, progress=0, on_track=True),
-        balance=Balance(
-            cash=profile.cash, savings=profile.savings, investments=profile.investments,
-            debt=sum(d.remaining for d in profile.debts), net_worth=0,
-        ),
-        monthly=Monthly(
-            income=profile.income.salary + profile.income.other,
-            expenses=MonthlyExpenses(
-                home=r.rent + r.utilities + r.subscriptions,
-                market=s.food + s.leisure + r.transport,
-                education=profile.education.tuition_monthly,
-                health=0,
-                business=0,
-                bank=sum(d.monthly for d in profile.debts),
-            ),
-        ),
-        wellbeing=Wellbeing(stress=40, confidence=50),
-        institutions=[InstitutionStatus(id=i, pending_events=0) for i in INSTITUTIONS],
-        products=[],
-        log=[LogEntry(month=0, institution="home", text=f"{profile.name or 'Jucătorul'} începe aventura.")],
-    )
-    recompute(state, profile.goal.horizon_months)
-    return state
 
 
 # TODO(real): data/events.json + scheduler; 2-4 events per institution.
