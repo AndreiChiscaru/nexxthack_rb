@@ -2,7 +2,8 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from ..schemas import ChatResponse, ToolCall
 from ..sessions import get_session
-from .advisor import _search_products
+from ..tools import run_tool
+from .advisor import calls_since
 
 router = APIRouter(prefix="/api/business", tags=["business"])
 
@@ -15,12 +16,11 @@ async def business_message(
     text: str = Form(...),
     file: UploadFile | None = File(None),
 ):
-    get_session(session_id)
-    tool_calls = [
-        _search_products("credit"),
-        ToolCall(name="simulate_decision", args={"principal": 20000, "apr": 0.099, "months": 36},
-                 summary="Rată estimată 644 lei/lună, dobândă totală 3.190 lei."),
-    ]
+    session = get_session(session_id)
+    start = len(session.tool_log)
+    run_tool("search_products", {"category": "credit"}, session.id)
+    run_tool("compare_products", {"ids": ["credit_nevoi"], "amount": 20000, "months": 36}, session.id)
+    tool_calls = calls_since(session, start)
     if file is not None:
         # Read into memory only; uploads are never written to disk.
         data = await file.read()

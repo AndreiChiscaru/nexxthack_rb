@@ -3,7 +3,8 @@
 Shapes follow `docs/implementation-plan.md` §4. `/api/game/*` runs on the real financial engine
 (`app/sim/engine.py`, port of `finance_sim.gd`) with events from `data/events.json`. Onboarding runs the real
 agent when an API key is set (see [Onboarding](#onboarding)). Products come from `data/products.json`
-(see [Products & campaigns](#products--campaigns)). Advisor and business are still **mock**;
+(see [Products & campaigns](#products--campaigns)). Advisor and business reply with fixed text, but their `tool_calls` are real tool runs
+(see [Tools for agents](#tools-for-agents));
 each mock in the code is marked `# TODO(real): ...`.
 
 - Base URL: same origin as the game (`/joc`). CORS is open (`*`) for local dev.
@@ -253,6 +254,95 @@ python -m tools.ingest_products oferta_raiffeisen.pdf --as-of 2026-11-15  # writ
 3. **Review file.** It writes `data/products.from_pdf.json` and prints a review report: `added`, `changed` and `missing_from_pdf` ids.
 4. **Manual merge.** It **never** writes `data/products.json` and refuses `--out` pointing at it. A person reviews the file and copies over what's correct.
 
+## Tools for agents
+
+`app/tools.py` exposes the engine (`app/sim/`) and the catalog (`app/catalog.py`) as tools for the agents.
+- **What a tool is:** a plain Python function that returns a JSON-safe dict with a short Romanian `summary`.
+- **`TOOL_SCHEMAS`:** a list of `{name, description, input_schema}`, ready for Claude tool use.
+- **`run_tool(name, args, session_id)`** is the only entry point. It validates the arguments and runs the tool. Unknown tool or bad arguments → `ToolError`, also logged.
+- **`llm_tools(session_id)`** returns the same tools as `app/agents/llm.py` `Tool` objects, ready for `chat_turn()`.
+- **Logging:** every call goes into `session.tool_log` as `{name, args, summary, duration_ms}`, the `ToolCall` shape plus the duration. Server logs get only the name, status and duration, never arguments or results.
+- **Simulations:** they run on a **deep copy** of the session's engine state (and rng), so they never change the game. Random events aren't simulated.
+
+| Tool | Arguments | Returns |
+|---|---|---|
+| `get_state` | — | the current `GameState` (§4.2) |
+| `get_goal_progress` | — | `target_amount, saved, remaining, progress, on_track, months_elapsed, months_left, monthly_needed, monthly_contributions` |
+| `simulate_decision` | `ops` (engine ops, as in events), `months` 1–120 (default 12) | `before` (now), `after` (with the decision), `baseline` (no change), `delta` = after − before, `impact_vs_no_change` = after − baseline |
+| `compare_scenarios` | `scenarios: {name: ops}` (1–5), `months` | one row per scenario plus `"fără schimbări"`, and `best` (highest goal progress, then net worth) |
+| `search_products` | `category?`, `query?` (accent-insensitive words in name/terms/best_for) | catalog products |
+| `compare_products` | `ids[]` (1–6), `amount` (lei), `months` | loans (`credit`, `locuinta`): `monthly_payment` (engine `pmt`), `total_paid`, `total_interest`. Savings (`economii`): `gross_interest`, `tax` (10%), `net_interest`. Each row has `notes` and the product `disclaimer` |
+| `create_action_plan` | — | 3–5 `steps: [{title, why, action?, product_id?}]`. Rule-based priority: overdraft → budget deficit → expensive debt (APR ≥ 15%) → emergency fund (< 3 months) → life insurance (dependents) → goal savings → investing. `action` is a ready `/api/game/action` body |
+
+**Limits of `compare_products`:**
+- **The rate is the first percentage in `terms`.** The catalog is text, so for tiered rates or several variants, the first one is used (a note says so).
+- **Mortgages:** the calculation uses the initial fixed rate for the whole term (a note says the rate later follows IRCC).
+- **Deposits:** simple interest over the requested months, even if the deposit has its own term.
+
+Examples (Andrei, month 0):
+
+```json
+// run_tool("get_goal_progress", {}, sid)
+{"goal_type": "avans_casa", "target_amount": 25000.0, "saved": 1200.0, "remaining": 23800.0, "progress": 0.048, "on_track": true,
+ "months_elapsed": 0, "months_left": 36, "monthly_needed": 661.11, "monthly_contributions": 0.0,
+ "summary": "Progres 5% (1.200 lei din 25.000 lei); mai sunt 36 luni, ai nevoie de ~661 lei/lună; pui deoparte automat 0 lei/lună."}
+
+// run_tool("simulate_decision", {"ops": {"emergency_contrib": 300}, "months": 12}, sid)  (shortened)
+{"impact_vs_no_change": {"cash": -2560.0, "savings": 2614.38, "investments": 0.0, "debt": 0.0, "net_worth": 54.38, "goal_progress": 0.1},
+ "summary": "În 12 luni: patrimoniu +54 lei față de fără schimbare, datorii 0 lei, progres scop 15% (fără schimbare 5%)."}
+
+// run_tool("compare_scenarios", {"scenarios": {"economisesc": {"emergency_contrib": 500}, "cheltui mai mult": {"living_add": 300}}, "months": 12}, sid)
+{"best": "economisesc", "scenarios": [{"scenario": "fără schimbări", "...": "..."}, "..."],
+ "summary": "3 scenarii pe 12 luni; cel mai bun progres spre scop: „economisesc” (16%, patrimoniu -456 lei)."}
+
+// run_tool("search_products", {"category": "economii", "query": "depozit"}, sid)
+{"products": ["..."], "summary": "4 produse (economii) pentru „depozit”: Depozit Fresh Money, Flexidepozit, Depozit la termen până la 1 an, Depozit la 24 de luni"}
+
+// run_tool("compare_products", {"ids": ["credit_nevoi", "fresh_money"], "amount": 10000, "months": 12}, sid)  (shortened)
+{"products": [
+   {"id": "credit_nevoi", "rate": 0.0595, "kind": "loan", "monthly_payment": 860.43, "total_paid": 10325.21, "total_interest": 325.21,
+    "notes": ["dobândă „de la”; costul final îl stabilește banca"], "disclaimer": "..."},
+   {"id": "fresh_money", "rate": 0.062, "kind": "deposit", "gross_interest": 620.0, "tax": 62.0, "net_interest": 558.0, "notes": ["..."], "disclaimer": "..."}],
+ "summary": "10.000 lei pe 12 luni. Credit de nevoi personale: 860 lei/lună, dobândă totală 325 lei; Depozit Fresh Money: dobândă netă 558 lei"}
+
+// run_tool("create_action_plan", {}, sid)
+{"steps": [
+   {"title": "Echilibrează bugetul lunar", "why": "Cheltuielile și ratele depășesc venitul cu 120 lei/lună; diferența se ia din economii sau din descoperit.", "action": null, "product_id": null},
+   {"title": "Construiește fondul de urgență", "why": "Acoperă 0,3 luni de cheltuieli; ținta e 3-6 luni.",
+    "action": {"action_id": "set_monthly_saving", "params": {"amount": 100.0}}, "product_id": "super_acces_plus"},
+   {"title": "Caută un venit suplimentar", "why": "...", "action": null, "product_id": null}],
+ "summary": "3 pași: Echilibrează bugetul lunar; Construiește fondul de urgență; Caută un venit suplimentar"}
+```
+
+### Status: consultant agent
+
+`app/agents/consultant.py` **can't take these tools yet**:
+- **Fixed tool list:** `user_turn(session_id, convo, text)` builds its own list with `_tools(session_id)`.
+- **Its own copy of the game:** the profile, statement and game come from the SQLite store, in the `app/demo/engine.py` format.
+- **Prompt:** it names its own tools (`get_financial_state`, `simulate_event_options`, `simulate_plan`).
+
+Until that changes, `/api/advisor/message` returns a fixed reply, but its `tool_calls` are real `run_tool` calls: `get_goal_progress`, `search_products`, then `compare_products` (if the message mentions a loan) or `create_action_plan`.
+
+Proposed change for the agents owner, backwards compatible, so the demo keeps working:
+
+```python
+# app/agents/consultant.py
+def user_turn(session_id: str, convo: dict, text: str, tools: list[Tool] | None = None,
+              profile: dict | None = None, statement: dict | None = None):
+    profile = profile if profile is not None else store.load(session_id, "profile", {}).get("data", {})
+    statement = statement if statement is not None else (store.load(session_id, "statement") or {}).get("analysis")
+    ...
+    yield from chat_turn(convo, system, tools if tools is not None else _tools(session_id))
+```
+
+The backend would then call:
+```python
+consultant.user_turn(session.id, convo, text, tools=llm_tools(session.id),
+                     profile=session.profile.model_dump(), statement=session.statement)
+```
+
+The `SYSTEM` prompt should then name the tools generically, or accept the tool list as a parameter, instead of hard-coding the demo's three names.
+
 ## Data & privacy
 
 - **Uploaded files** are read into memory and never written to disk. Neither the file nor its extracted text is kept in the session; the session keeps only `{score, risk_signals}` from the analysis.
@@ -377,10 +467,11 @@ Errors: see the actions table and [Events](#events). An `institution` outside th
 // response
 {"reply": "Îți recomand să pui întâi deoparte un fond de urgență de 3 luni, apoi să accelerezi plata creditului.",
  "tool_calls": [
-   {"name": "get_player_profile", "args": {}, "summary": "Luna 0, cash 4000 lei, stres 35/100."},
+   {"name": "get_goal_progress", "args": {}, "summary": "Progres 5% (1.200 lei din 25.000 lei); mai sunt 36 luni, ai nevoie de ~661 lei/lună; pui deoparte automat 0 lei/lună."},
    {"name": "search_products", "args": {"category": "economii"}, "summary": "6 produse (economii): Cont de economii Super Acces Plus, Plătești și economisești, Depozit Fresh Money, Flexidepozit, Depozit la termen până la 1 an, Depozit la 24 de luni"},
-   {"name": "simulate_decision", "args": {"option": "A", "months": 36}, "summary": "Varianta A: dobândă totală plătită 2.310 lei, rată 650 lei/lună."}]}
+   {"name": "compare_products", "args": {"ids": ["credit_nevoi", "refinantare"], "amount": 10000, "months": 36}, "summary": "10.000 lei pe 36 luni. Credit de nevoi personale: 304 lei/lună, dobândă totală 944 lei; Refinanțare fără ipotecă: 304 lei/lună, dobândă totală 944 lei"}]}
 ```
+The reply is still fixed; the tool calls are real (see [Tools for agents](#tools-for-agents)).
 
 ### POST /api/business/message
 ```bash
@@ -391,7 +482,7 @@ curl -F session_id=c3db... -F text="Vreau o cafenea" -F file=@plan.pdf http://lo
  "tool_calls": [
    {"name": "read_document", "args": {"filename": "plan.pdf"}, "summary": "Document primit (9 octeți), analiză mock."},
    {"name": "search_products", "args": {"category": "credit"}, "summary": "4 produse (credit): Credit de nevoi personale, Refinanțare fără ipotecă, Refinanțare cu ipotecă – Flexicredit Integral, Overdraft"},
-   {"name": "simulate_decision", "args": {"principal": 20000, "apr": 0.099, "months": 36}, "summary": "Rată estimată 644 lei/lună, dobândă totală 3.190 lei."}]}
+   {"name": "compare_products", "args": {"ids": ["credit_nevoi"], "amount": 20000, "months": 36}, "summary": "20.000 lei pe 36 luni. Credit de nevoi personale: 608 lei/lună, dobândă totală 1.887 lei"}]}
 ```
 
 ### GET /api/products?category=economii

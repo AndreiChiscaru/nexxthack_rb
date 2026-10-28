@@ -10,7 +10,6 @@ from fastapi.testclient import TestClient
 
 from app import catalog
 from app.agents import consultant
-from app.api.advisor import _search_products
 from app.catalog import (
     CAMPAIGNS,
     CATALOG_CATEGORIES,
@@ -159,8 +158,10 @@ def test_consultant_reads_the_same_catalog():
 def test_every_product_id_the_backend_references_exists():
     referenced = set(HOLDING_PRODUCTS.values()) | {c.product_id for c in CAMPAIGNS.values() if c.product_id}
     assert referenced <= set(PRODUCTS), referenced - set(PRODUCTS)
-    for category in ("economii", "credit"):  # mock advisor/business tool calls
-        assert _search_products(category).summary.startswith(f"{len(catalog.catalog_products(category))} produse")
+    sid = client.post("/api/session").json()["session_id"]
+    calls = client.post("/api/advisor/message", json={"session_id": sid, "text": "Vreau un credit"}).json()["tool_calls"]
+    compared = [c for c in calls if c["name"] == "compare_products"]
+    assert compared and set(compared[0]["args"]["ids"]) <= set(PRODUCTS)
 
 
 def test_game_state_products_use_catalog_ids():
