@@ -32,8 +32,7 @@ func _ready() -> void:
 	heading = Kit.strong("AIngel · ghidul tău", 18)
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(heading)
-	close_button = Kit.button("×", func(): closed.emit())
-	close_button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	close_button = Kit.close_button(func(): closed.emit())
 	header.add_child(close_button)
 	scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
