@@ -1,0 +1,15 @@
+[
+  {"id": "cont_curent", "category": "cont", "name": "Cont curent cu card de debit (demo)", "terms": "Fără comision de administrare pentru încasarea salariului.", "best_for": "plata cheltuielilor zilnice, încasarea salariului"},
+  {"id": "cont_economii", "category": "economii", "name": "Cont de economii cu acces oricând (demo)", "terms": "Dobândă 4%/an, retrageri oricând.", "best_for": "fond de urgență, economii pentru scopuri pe termen scurt"},
+  {"id": "economisire_automata", "category": "economii", "name": "Economisire automată lunară (demo)", "terms": "Transfer automat la data salariului spre contul de economii.", "best_for": "disciplina de a economisi „primul”"},
+  {"id": "depozit_termen", "category": "economii", "name": "Depozit la termen 6/12 luni (demo)", "terms": "Dobândă 5,5%/an la 12 luni; retragerea înainte de termen pierde dobânda.", "best_for": "bani de care nu ai nevoie înainte de termen"},
+  {"id": "fond_diversificat", "category": "investitii", "name": "Fond de investiții diversificat (demo)", "terms": "Randament istoric orientativ 5–7%/an, fără garanție; risc mediu.", "best_for": "scopuri peste 3 ani, după ce ai fond de urgență"},
+  {"id": "pilon3", "category": "pensie", "name": "Pensie facultativă – Pilon III (demo)", "terms": "Contribuții deductibile fiscal până la 400 euro/an.", "best_for": "economisire pe termen lung pentru pensie"},
+  {"id": "credit_nevoi", "category": "credit", "name": "Credit de nevoi personale (demo)", "terms": "Dobândă fixă 12–14%/an, 12–60 luni.", "best_for": "cheltuieli mari planificate, refinanțarea datoriilor scumpe"},
+  {"id": "credit_ipotecar", "category": "credit", "name": "Credit ipotecar (demo)", "terms": "Avans minim 15%, dobândă 6–7%/an, până la 30 de ani.", "best_for": "cumpărarea unei locuințe"},
+  {"id": "card_credit", "category": "card", "name": "Card de credit cu perioadă de grație (demo)", "terms": "Până la 55 de zile fără dobândă, apoi 24%/an.", "best_for": "plăți pe termen scurt achitate integral în perioada de grație"},
+  {"id": "asigurare_sanatate", "category": "asigurare", "name": "Asigurare de sănătate privată (demo)", "terms": "~110 lei/lună, acoperă 70% din costurile medicale.", "best_for": "protecție împotriva cheltuielilor medicale neprevăzute"},
+  {"id": "asigurare_locuinta", "category": "asigurare", "name": "Asigurare facultativă de locuință (demo)", "terms": "~40 lei/lună pentru apartament.", "best_for": "protecția locuinței și a bunurilor"},
+  {"id": "cont_firma", "category": "afaceri", "name": "Pachet cont curent pentru PFA/SRL (demo)", "terms": "Cont în lei, internet banking, POS și link de plată.", "best_for": "separarea banilor firmei de cei personali"},
+  {"id": "credit_afaceri", "category": "afaceri", "name": "Credit pentru afaceri mici (demo)", "terms": "Până la 100.000 lei, dobândă 9–11%/an.", "best_for": "capital de lucru sau echipamente pentru afaceri noi"}
+]
