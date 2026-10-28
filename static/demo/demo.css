@@ -71,6 +71,14 @@ h3 { margin: 0 0 10px; font-size: 15px; }
 .tool { font-size: 11px; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 3px 7px; color: var(--muted); }
 .tool b { color: var(--blue); font-weight: 600; }
 .typing { align-self: flex-start; color: var(--muted); font-size: 13px; font-style: italic; }
+.tool.running { color: var(--ink); border-color: var(--yellow); background: #fffbe6; display: inline-flex; align-items: center; gap: 6px; }
+.spin { width: 10px; height: 10px; border: 2px solid var(--line); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.caret { display: inline-block; width: 7px; height: 14px; background: var(--blue); margin-left: 2px; vertical-align: text-bottom; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.memory-box { height: auto; max-height: min(720px, calc(100vh - 60px)); }
+.memory-list { flex-direction: column; overflow-y: auto; font-size: 13px; }
+.memory-list li { padding: 4px 0 4px 8px; }
 .composer { display: flex; gap: 8px; align-items: center; border-top: 1px solid var(--line); padding-top: 10px; }
 .composer input { flex: 1; }
 .attach { font-size: 20px; cursor: pointer; padding: 4px 6px; border-radius: 8px; }

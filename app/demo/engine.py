@@ -2,6 +2,7 @@
 This is the single source of truth for money; agents only read it or run projections on copies."""
 import copy
 import random
+from datetime import date
 
 SAVINGS_APR = 0.04
 INVEST_APR = 0.06
@@ -22,6 +23,11 @@ INSTITUTIONS = [
     {"id": "bank", "name": "Bancă", "icon": "🏦", "desc": "Conturi, economii, investiții, credite"},
 ]
 INSTITUTION_IDS = [i["id"] for i in INSTITUTIONS]
+MONTHS_RO = ["Ianuarie", "Februarie", "Martie", "Aprilie", "Mai", "Iunie", "Iulie", "August", "Septembrie",
+             "Octombrie", "Noiembrie", "Decembrie"]
+LATE_DAYS = 30
+LATE_DAY_RATE = 0.0003       # dobândă 0,02%/zi + penalitate 0,01%/zi (Codul de procedură fiscală art. 174, 176)
+LATE_FINE = {"pfa": 50.0, "srl": 500.0}  # minimul amenzii pentru nedepunere (CPF art. 336)
 
 
 class GameError(Exception):
@@ -108,6 +114,8 @@ def new_game(profile: dict, seed: int) -> dict:
         "insured": bool(_get(profile, "health.insured")),
         "student": str(_get(profile, "education.status") or "").lower().startswith(("elev", "student", "master")),
         "business": None,
+        "calendar_start": _next_month(date.today()),
+        "fiscal_arrears": [],
         "pending_event": None,
         "used_events": [],
         "log": [],
@@ -115,6 +123,22 @@ def new_game(profile: dict, seed: int) -> dict:
     }
     state["history"].append(snapshot(state))
     return state
+
+
+def _next_month(today: date) -> list[int]:
+    return [today.year + today.month // 12, today.month % 12 + 1]
+
+
+def calendar(state: dict, month: int | None = None) -> tuple[int, int]:
+    """Calendar (year, month) of a game month; game month 0 is the month after the game was created."""
+    start_year, start_month = state.get("calendar_start") or _next_month(date.today())
+    index = start_month - 1 + (state["month"] if month is None else month)
+    return start_year + index // 12, index % 12 + 1
+
+
+def calendar_label(state: dict, month: int | None = None) -> str:
+    year, m = calendar(state, month)
+    return f"{MONTHS_RO[m - 1]} {year}"
 
 
 # ---------------------------------------------------------------- derived values
@@ -133,7 +157,17 @@ def debt_payments(state: dict) -> float:
 
 
 def business_net(state: dict) -> float:
-    return state["business"]["monthly_net"] if state.get("business") else 0.0
+    """Cash the business brings each month. Taxes are not deducted here: they accrue and are paid at the deadlines."""
+    business = state.get("business")
+    if not business:
+        return 0.0
+    return business.get("monthly_cash", business["monthly_net"])
+
+
+def taxes_due(state: dict) -> float:
+    business = state.get("business") or {}
+    accrued = sum(o["accrued"] for o in business.get("obligations", []))
+    return accrued + sum(a["amount"] for a in state.get("fiscal_arrears", []))
 
 
 def monthly_income(state: dict) -> float:
@@ -149,7 +183,7 @@ def total_debt(state: dict) -> float:
 
 
 def net_worth(state: dict) -> float:
-    return state["cash"] + state["savings"] + state["investments"] - total_debt(state)
+    return state["cash"] + state["savings"] + state["investments"] - total_debt(state) - taxes_due(state)
 
 
 def goal_progress(state: dict) -> float:
@@ -171,6 +205,7 @@ def snapshot(state: dict) -> dict:
         "savings": round(state["savings"], 2),
         "investments": round(state["investments"], 2),
         "debt": round(total_debt(state), 2),
+        "taxes_due": round(taxes_due(state), 2),
         "net_worth": round(net_worth(state), 2),
         "goal_progress": round(goal_progress(state), 4),
         "income": round(monthly_income(state), 2),
@@ -187,7 +222,9 @@ def institutions_view(state: dict) -> list[dict]:
             items += [_item(f"debt_{i}", f"Rată: {d['name']}", -min(d["payment"], d["balance"] * (1 + d["apr"] / 12)))
                       for i, d in enumerate(state["debts"])]
         if inst["id"] == "business" and state.get("business"):
-            items.append(_item("business_net", f"{state['business']['name']} (net după taxe)", business_net(state)))
+            business = state["business"]
+            label = f"{business['name']} (înainte de taxe)" if business.get("obligations") else f"{business['name']} (net după taxe)"
+            items.append(_item("business_net", label, business_net(state)))
         out.append({
             **inst,
             "items": items,
@@ -204,6 +241,8 @@ def public_view(state: dict) -> dict:
     expected = min(state["month"] / max(goal["horizon_months"], 1), 1.0)
     return {
         "month": state["month"],
+        "calendar": calendar_label(state),
+        "fiscal": fiscal_view(state),
         "name": state["name"],
         "goal": {**goal, "progress": round(goal_progress(state), 4), "months_left": months_left,
                  "on_track": goal_progress(state) >= expected * 0.9},
@@ -220,6 +259,22 @@ def public_view(state: dict) -> dict:
         "log": state["log"][-15:],
         "history": state["history"],
     }
+
+
+def _next_due(state: dict, months: list[int]) -> str | None:
+    for ahead in range(1, 13):
+        year, m = calendar(state, state["month"] + ahead)
+        if m in months:
+            return f"25 {MONTHS_RO[m - 1].lower()} {year}"
+    return None
+
+
+def fiscal_view(state: dict) -> dict:
+    business = state.get("business") or {}
+    obligations = [{"name": o["name"], "declaration": o["declaration"], "accrued": round(o["accrued"], 2),
+                    "monthly": o["monthly"], "next_due": _next_due(state, o["months"]), "when": o["when"]}
+                   for o in business.get("obligations", [])]
+    return {"obligations": obligations, "arrears": state.get("fiscal_arrears", []), "taxes_due": round(taxes_due(state), 2)}
 
 
 # ---------------------------------------------------------------- operations
@@ -293,9 +348,55 @@ def apply_ops(state: dict, ops: dict) -> list[str]:
         for key in ("savings", "investments"):
             if key in ops["auto"]:
                 state["auto"][key] = max(float(ops["auto"][key]), 0.0)
+    if "fiscal_pay" in ops:
+        _spend(state, float(ops["fiscal_pay"]))
+    if "fiscal_late" in ops:
+        late = ops["fiscal_late"]
+        extra = late["amount"] * LATE_DAY_RATE * LATE_DAYS + late["fine"]
+        state["fiscal_arrears"].append({"label": late["label"], "amount": round(late["amount"] + extra, 2),
+                                        "principal": late["amount"], "extra": round(extra, 2)})
+        notes.append(f"Restanță la ANAF: {money(late['amount'])} + {money(extra)} dobânzi, penalități și amendă.")
     if "note" in ops:
         notes.append(ops["note"])
     return notes
+
+
+def _accrue_taxes(state: dict) -> None:
+    for obligation in (state.get("business") or {}).get("obligations", []):
+        obligation["accrued"] = round(obligation["accrued"] + obligation["monthly"], 2)
+
+
+def _fiscal_event(state: dict) -> dict | None:
+    """Deadline event for the calendar month that just started: arrears first, then the obligations due now."""
+    if state.get("fiscal_arrears"):
+        total = sum(a["amount"] for a in state["fiscal_arrears"])
+        labels = "; ".join(a["label"] for a in state["fiscal_arrears"])
+        extra = sum(a["extra"] for a in state["fiscal_arrears"])
+        state["fiscal_arrears"] = []
+        return _ev("fiscal_arrears", "business", "Restanță la ANAF",
+                   f"Ai amânat: {labels}. Acum datorezi {money(total)}, din care {money(extra)} dobânzi (0,02%/zi), "
+                   "penalități (0,01%/zi) și amendă pentru depunerea cu întârziere.", [
+                       ("Plătesc restanța", f"Plătești {money(total)} acum.", {"fiscal_pay": total}),
+                   ])
+    business = state.get("business") or {}
+    _, month = calendar(state)
+    due = [o for o in business.get("obligations", []) if month in o["months"] and o["accrued"] > 0.5]
+    if not due:
+        return None
+    total = round(sum(o["accrued"] for o in due), 2)
+    lines = ", ".join(f"{o['declaration']} ({money(o['accrued'])})" for o in due)
+    label = " + ".join(o["declaration"] for o in due) + f" din {calendar_label(state).lower()}"
+    form = due[0].get("form", "srl")
+    fine = LATE_FINE.get(form, 500.0)
+    for o in due:
+        o["accrued"] = 0.0
+    late_extra = total * LATE_DAY_RATE * LATE_DAYS + fine
+    return _ev("fiscal_deadline", "business", f"Termen fiscal: 25 {calendar_label(state).lower()}",
+               f"Trebuie depuse și plătite: {lines}. Total {money(total)}.", [
+                   ("Depun și plătesc la timp", f"Plătești {money(total)}.", {"fiscal_pay": total}),
+                   ("Amân o lună", f"Luna viitoare plătești în plus ~{money(late_extra)} (dobânzi, penalități, amendă minimă).",
+                    {"fiscal_late": {"amount": total, "label": label, "fine": fine}}),
+               ])
 
 
 def _run_month(state: dict, invest_return: float) -> None:
@@ -335,12 +436,16 @@ def advance(state: dict) -> dict:
     rng = random.Random(state["seed"] * 7919 + state["month"])
     before = snapshot(state)
     _run_month(state, INVEST_APR + rng.uniform(-INVEST_VOLATILITY, INVEST_VOLATILITY))
+    _accrue_taxes(state)
     state["month"] += 1
     after = snapshot(state)
     state["history"].append(after)
-    _log(state, "bank", f"Luna {state['month']}: venituri {money(before['income'])}, cheltuieli {money(before['expenses'])}.",
-         after["net_worth"] - before["net_worth"])
-    if rng.random() < EVENT_CHANCE:
+    _log(state, "bank", f"Luna {state['month']} ({calendar_label(state)}): venituri {money(before['income'])}, "
+                        f"cheltuieli {money(before['expenses'])}.", after["net_worth"] - before["net_worth"])
+    fiscal = _fiscal_event(state)
+    if fiscal:
+        state["pending_event"] = fiscal
+    elif rng.random() < EVENT_CHANCE:
         state["pending_event"] = _pick_event(state, rng)
     return {"before": before, "after": after}
 
@@ -399,11 +504,33 @@ def set_business(state: dict, business: dict) -> None:
 
 # ---------------------------------------------------------------- projections (for the consultant)
 
-def project(state: dict, months: int, ops: dict | None = None) -> dict:
+def _sim_copy(state: dict) -> dict:
+    """Projection copy: the business counts after taxes and taxes already owed are paid upfront."""
     sim = copy.deepcopy(state)
     sim["pending_event"] = None
+    if sim.get("business"):
+        sim["business"]["monthly_cash"] = sim["business"]["monthly_net"]
+        owed = taxes_due(sim)
+        for o in sim["business"].get("obligations", []):
+            o["accrued"] = 0.0
+        sim["fiscal_arrears"] = []
+        if owed:
+            _spend(sim, owed)
+    return sim
+
+
+def _settle_arrears(sim: dict) -> None:
+    owed = sum(a["amount"] for a in sim.get("fiscal_arrears", []))
+    sim["fiscal_arrears"] = []
+    if owed:
+        _spend(sim, owed)
+
+
+def project(state: dict, months: int, ops: dict | None = None) -> dict:
+    sim = _sim_copy(state)
     if ops:
         apply_ops(sim, ops)
+    _settle_arrears(sim)
     min_cash = sim["cash"]
     for _ in range(months):
         _run_month(sim, INVEST_APR)
@@ -424,10 +551,10 @@ def project(state: dict, months: int, ops: dict | None = None) -> dict:
 
 
 def months_to_goal(state: dict, ops: dict | None = None) -> int | None:
-    sim = copy.deepcopy(state)
-    sim["pending_event"] = None
+    sim = _sim_copy(state)
     if ops:
         apply_ops(sim, ops)
+    _settle_arrears(sim)
     for month in range(MAX_PROJECTION_MONTHS + 1):
         if goal_progress(sim) >= 1.0:
             return month

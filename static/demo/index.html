@@ -10,6 +10,7 @@
   <header class="topbar">
     <div class="brand"><span class="logo">RQ</span> Raiff Quest <small>demo agenți AI</small></div>
     <div id="hud" class="hud hidden"></div>
+    <button class="ghost" data-open-memory title="Ce știu agenții despre tine">🧠 Fișa comună (<span class="memory-count">0</span>)</button>
     <button id="reset" class="ghost" title="Începe o sesiune nouă">↺ Sesiune nouă</button>
   </header>
 
@@ -78,6 +79,15 @@
         <input id="biz-input" autocomplete="off" placeholder="Descrie afacerea sau întreabă despre taxe…">
         <button type="submit">Trimite</button>
       </form>
+    </section>
+  </div>
+
+  <!-- Shared memory written by all agents -->
+  <div id="memory" class="modal hidden">
+    <section class="modal-box memory-box">
+      <header><strong>🧠 Fișa utilizatorului · memorie comună a agenților</strong><button class="ghost close" data-close="memory">✕</button></header>
+      <p class="hint">Ce notează onboarding-ul, analiza extrasului, consultantul și contabilul. Fiecare agent citește fișa la fiecare răspuns.</p>
+      <ul class="log memory-list"></ul>
     </section>
   </div>
 
