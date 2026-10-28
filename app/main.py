@@ -7,10 +7,12 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 from fastapi import FastAPI, File, HTTPException, UploadFile  # noqa: E402
 from fastapi.concurrency import run_in_threadpool  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from .analyzer import MODEL, AnalysisError, analyze_statement  # noqa: E402
+from .api import advisor, business, game, onboarding, products, session  # noqa: E402
 from .extraction import extract_text  # noqa: E402
 from .game_profile import to_game_profile  # noqa: E402
 
@@ -22,6 +24,10 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 GAME_DIR = Path(__file__).resolve().parent.parent / "game"
 
 app = FastAPI(title="Analiză extras de cont")
+# TODO(real): restrict origins to the deployed game domain.
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+for module in (session, onboarding, game, advisor, business, products):
+    app.include_router(module.router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 if GAME_DIR.is_dir():
     app.mount("/joc", StaticFiles(directory=GAME_DIR, html=True), name="joc")
