@@ -121,15 +121,13 @@ func _ready() -> void:
 		tween.tween_property(hero, "modulate:a", 1.0, 0.6)
 
 func _build_header() -> void:
-	var badge := Kit.strong("Q", 24)
+	var badge := TextureRect.new()
+	badge.texture = load("res://assets/raiff/raiffeisen_logo.png")
+	badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	badge.position = Vector2(28, 21)
-	badge.size = Vector2(34, 34)
-	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var badge_surface := Kit.box(Kit.YELLOW, Kit.INK, 0)
-	badge_surface.set_corner_radius_all(0)
-	badge_surface.shadow_offset = Vector2(2,2)
-	badge.add_theme_stylebox_override("normal", badge_surface)
-	badge.rotation = -0.06
+	badge.size = Vector2(36, 36)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(badge)
 	var brand := Kit.strong("RaiffQuest", 26)
 	brand.position = Vector2(74, 19)
