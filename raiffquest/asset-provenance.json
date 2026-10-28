@@ -547,6 +547,34 @@
       "useEvidence": [],
       "used": false,
       "usedBy": []
+    },
+    "assets/raiff/consultant/consultant_avatar.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [],
+      "license": {
+        "note": "Subject to OpenAI terms and third-party trademark rights"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:5ef097a94dac3571aec306b1e46dabf9a5f04b96cccaa120e57e4624f2afd1ef",
+      "shipped": true,
+      "size": 788971,
+      "source": {
+        "description": "RaiffQuest AI Financial Consultant",
+        "style": "Minimalist Flat Vector",
+        "purpose": "Permanent financial AI assistant avatar",
+        "palette": "Raiffeisen yellow, white and black",
+        "branding": "AI-generated emblem; trademark permission requires verification"
+      },
+      "status": "present",
+      "transformations": [],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
     }
   },
   "discoveries": {},
