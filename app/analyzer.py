@@ -3,6 +3,8 @@ import os
 
 import anthropic
 
+from .statement_spend import summarize
+
 MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5-5")
 MAX_INPUT_CHARS = 180_000
 
@@ -125,6 +127,25 @@ def _as_text(value):
     return value
 
 
+def _as_amount(value) -> float:
+    """The model sometimes returns amounts as text. Comparisons must stay numeric."""
+    if isinstance(value, bool) or value is None:
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        text = value.strip().replace(" ", "")
+        if "," in text and "." in text:
+            text = text.replace(".", "").replace(",", ".")
+        else:
+            text = text.replace(",", ".")
+        try:
+            return float(text)
+        except ValueError:
+            return 0.0
+    return 0.0
+
+
 def _normalize(result: dict) -> dict:
     """Smaller models occasionally leave derived fields empty or inconsistent; fill them from the detail lists."""
     for key in ("rezumat", "observatii_calitate_date"):
@@ -134,11 +155,50 @@ def _normalize(result: dict) -> dict:
         if not isinstance(result.get(key), list):
             result[key] = []
     if not result.get("venit_lunar_estimat"):
-        regular = [v.get("suma_totala") or 0 for v in result["venituri"] if v.get("tip") in ("salariu", "pensie")]
+        regular = [
+            _as_amount(v.get("suma_totala"))
+            for v in result["venituri"]
+            if isinstance(v, dict) and v.get("tip") in ("salariu", "pensie")
+        ]
         result["venit_lunar_estimat"] = sum(regular) or None
-    by_category = sum(c.get("suma") or 0 for c in result["cheltuieli_pe_categorii"])
-    if (result.get("cheltuieli_lunare_estimate") or 0) < 50 and by_category >= 50:
+    by_category = sum(
+        _as_amount(c.get("suma")) for c in result["cheltuieli_pe_categorii"] if isinstance(c, dict)
+    )
+    estimate = _as_amount(result.get("cheltuieli_lunare_estimate"))
+    if isinstance(result.get("cheltuieli_lunare_estimate"), str):
+        result["cheltuieli_lunare_estimate"] = estimate or None
+    if estimate < 50 and by_category >= 50:
         result["cheltuieli_lunare_estimate"] = by_category
+    return result
+
+
+def _apply_parsed(result: dict, text: str) -> dict:
+    """Replaces category totals with monthly averages counted from the statement lines."""
+    stats = summarize(text)
+    if not stats:
+        return result
+    result["medii_lunare"] = stats["categorii"]
+    result["luni_analizate"] = stats["luni"]
+    result["cheltuieli_pe_categorii"] = [
+        {"categorie": c["label"], "suma": c["medie_lunara"], "procent": c["procent"]} for c in stats["categorii"]
+    ]
+    result["cheltuieli_lunare_estimate"] = stats["cheltuieli_medii"]
+    if stats.get("venit_mediu"):
+        result["venit_lunar_estimat"] = stats["venit_mediu"]
+    if stats.get("titular"):
+        result["titular"] = stats["titular"]
+    if stats.get("sold_final") is not None:
+        result["sold_final"] = stats["sold_final"]
+    if "depozit" not in text.lower() and "cont de economii" not in text.lower():
+        result["economii_identificate"] = 0
+    result["profil_din_extras"] = {
+        k: stats[k] for k in ("varsta", "ocupatie", "locuinta", "alte_intrari_medii") if stats.get(k) is not None
+    }
+    known = set(stats["semnale"])
+    result["semnale_de_risc"] = stats["semnale"] + [s for s in result.get("semnale_de_risc") or [] if s not in known]
+    note = (f" Mediile pe categorii sunt calculate din tranzacții, pe {stats['luni']} luni"
+            " (sumă împărțită la numărul de luni), nu estimate de model.")
+    result["observatii_calitate_date"] = ((result.get("observatii_calitate_date") or "") + note).strip()
     return result
 
 
@@ -155,7 +215,7 @@ def analyze_statement(text: str) -> dict:
             result = _request(client, text[:MAX_INPUT_CHARS], use_tool=False)
         except json.JSONDecodeError as exc:
             raise AnalysisError(f"JSON invalid de la model: {exc}") from exc
-    result = _normalize(result)
+    result = _apply_parsed(_normalize(result), text)
 
     if truncated:
         note = result.get("observatii_calitate_date") or ""

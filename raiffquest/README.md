@@ -29,6 +29,10 @@ Codul principal se află în `scripts/raiff/`; conținutul deciziilor și simula
 Pe ecranul de titlu, „Încarcă extrasul tău de cont” trimite fișierul la serverul de analiză (`POST /api/analyze`: extragere text PDF, OCR Tesseract ca rezervă, analiză Claude). Răspunsul conține `game_profile` (venit, cheltuieli, sold, economii, credite existente, stres/încredere), iar `Sim.new_state(seed, profile)` pornește simularea de la situația reală; prima decizie (bugetul) e adaptată cu `Events.personalize()`.
 
 - Web: fișierul se trimite la `/api/analyze` pe același domeniu (jocul e servit la `/joc/`). Exportul web cere HTTPS.
-- Desktop/editor: serverul implicit este `http://158.180.47.250:8787`; se poate schimba cu variabila de mediu `RAIFF_API`.
+- Desktop/editor: serverul implicit este `http://127.0.0.1:8000`; se poate schimba cu variabila de mediu `RAIFF_API` înainte de pornirea Godot.
+
+## Integrarea frontend cu agenții și backend-ul
+
+Clientul comun din `scripts/frontend/` urmează contractele din planul echipei. Configurarea, metodele API, limitele etapei curente și comenzile de test sunt în [ghidul de integrare](../docs/frontend-integration.md). Ecranele existente folosesc încă simulatorul local; migrarea la starea furnizată de backend se face în etapele următoare.
 
 **Notă:** „Consilier AI” este o simulare locală explicabilă; nu apelează un model AI și nu se conectează la bănci sau la internet. Jocul nu oferă recomandări financiare reale.

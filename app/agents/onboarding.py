@@ -8,7 +8,7 @@ from .llm import Tool, add_user_text, chat_turn
 GREETING = (
     "Salut! Îți construiesc parcursul în Raiff Quest. Ce scop financiar ai? De exemplu: „avans pentru apartament în 3 ani”. "
     "Dacă nu ai unul, te ajut eu.\n\n"
-    "Poți încărca și un extras de cont (📎), ca să-ți pun mai puține întrebări."
+    "Poți încărca un extras (📎) sau apăsa „Pornește cu extrasul de student”, ca să-ți pun mai puține întrebări."
 )
 
 SYSTEM = """Ești agentul de onboarding din Raiff Quest, un joc educațional despre bani (tema: Raiffeisen Bank).
@@ -28,10 +28,10 @@ Cum lucrezi:
   apoi propune 2-3 scopuri concrete potrivite, cu sumă și termen, și lasă-l să aleagă.
 - Toleranța la risc: întreabă simplu („Dacă investiția ta scade 10%: vinzi, aștepți sau cumperi mai mult?”) și mapează la scazuta/medie/ridicata.
 - Când primești un mesaj <raport_agent_extras>, el vine de la agentul care a analizat extrasul de cont, nu de la utilizator.
-  Câmpurile sigure din el (nume, venit, sold, economii, credite) sunt deja salvate. Folosește categoriile de cheltuieli din raport ca să propui
-  valori pentru chirie, utilități, abonamente, mâncare, transport, ieșiri: spune-i utilizatorului pe scurt ce ai înțeles din extras,
-  cere-i confirmarea pentru estimări, salvează-le cu update_profile și menționează 1-2 semnale de risc importante, fără să-l judeci.
-  Aici poți folosi până la ~80 de cuvinte, ca listă scurtă.
+  Câmpurile sigure din el (nume, venit, sold, economii, credite) sunt deja salvate. Dacă raportul are medii_lunare, acele medii
+  (lei/lună, pe toată perioada) sunt deja salvate în profil: transport, mâncare, ieșiri, abonamente, iar chiria și utilitățile sunt 0
+  dacă stă cu părinții. Nu le modifica și nu cere confirmarea sumelor. Spune-i media pe categorii, în lei pe lună, și 1-2 semnale
+  din obiceiurile lui (Uber, restaurante, pariuri, rate, numerar), fără să-l judeci. Aici poți folosi până la ~80 de cuvinte, ca listă scurtă.
 - Nu da sfaturi de investiții sau recomandări de produse: de asta se ocupă consultantul financiar din joc.
 - Când nu mai lipsește niciun câmp obligatoriu: fă un rezumat de 2-3 rânduri scurte (scop, venit, cheltuieli, economii)
   și apelează finish_onboarding. Apoi spune-i că poate apăsa „Începe jocul”.
@@ -93,27 +93,52 @@ def user_turn(session_id: str, profile: dict, convo: dict, text: str):
 
 
 def statement_patch(analysis: dict, game_profile: dict) -> dict:
-    """Fields the statement agent knows with confidence; the onboarding agent confirms the rest with the user."""
-    patch: dict = {"income": {}, "bank": {}}
+    """Fields the statement knows with confidence. Category averages are counted from the transactions."""
+    patch: dict = {"income": {}, "bank": {}, "market": {}, "home": {}}
+    persona = analysis.get("profil_din_extras") or {}
     if analysis.get("titular"):
         patch["name"] = game_profile.get("name")
+    if persona.get("varsta"):
+        patch["age"] = int(persona["varsta"])
+    if persona.get("ocupatie"):
+        patch["occupation"] = persona["ocupatie"]
     if analysis.get("venit_lunar_estimat") is not None:
         patch["income"]["salary"] = analysis["venit_lunar_estimat"]
+    if persona.get("alte_intrari_medii"):
+        patch["income"]["other"] = persona["alte_intrari_medii"]
     if analysis.get("sold_final") is not None:
-        patch["bank"]["cash"] = max(float(analysis["sold_final"]), 0.0)
+        patch["bank"]["cash"] = float(analysis["sold_final"])
     if analysis.get("economii_identificate") is not None:
         patch["bank"]["savings"] = analysis["economii_identificate"]
+    elif analysis.get("medii_lunare"):
+        patch["bank"]["savings"] = 0
     loans = game_profile.get("loans") or []
     if loans:
         patch["bank"]["debts"] = [{"name": l["name"], "monthly_payment": l["payment"], "remaining": l["principal"], "apr": l["apr"]}
                                   for l in loans]
+    cats = analysis.get("medii_lunare") or []
+    if cats:
+        by_id = {c["id"]: c["medie_lunara"] for c in cats}
+        patch["categories"] = [{"id": c["id"], "label": c["label"], "institution": c["institution"], "monthly": c["medie_lunara"]}
+                               for c in cats]
+        patch["statement_months"] = int(analysis.get("luni_analizate") or 0)
+        patch["market"]["transport"] = by_id.get("uber", 0)
+        patch["market"]["food"] = by_id.get("alimente", 0)
+        patch["market"]["leisure"] = round(sum(by_id.get(k, 0) for k in (
+            "restaurante", "livrari", "cafea", "cumparaturi", "pariuri", "rate", "numerar")), 2)
+        patch["home"]["subscriptions"] = round(by_id.get("abonamente", 0) + by_id.get("telefon", 0), 2)
+    if persona.get("locuinta") == "parinti":
+        patch["home"]["housing"] = 0
+        patch["home"]["utilities"] = 0
+        patch["education"] = {"status": "student"}
     return patch
 
 
 def statement_report(analysis: dict) -> dict:
     keys = ["titular", "banca", "perioada", "moneda", "sold_initial", "sold_final", "total_intrari", "total_iesiri",
             "venit_lunar_estimat", "cheltuieli_lunare_estimate", "economii_identificate", "venituri",
-            "cheltuieli_pe_categorii", "obligatii_recurente", "grad_indatorare_procent", "semnale_de_risc",
+            "cheltuieli_pe_categorii", "medii_lunare", "luni_analizate", "obligatii_recurente",
+            "grad_indatorare_procent", "semnale_de_risc",
             "puncte_forte", "scor_stabilitate_financiara", "nivel_risc", "rezumat", "observatii_calitate_date"]
     return {k: analysis.get(k) for k in keys}
 
@@ -121,8 +146,12 @@ def statement_report(analysis: dict) -> dict:
 def statement_turn(session_id: str, profile: dict, convo: dict, filename: str, analysis: dict, game_profile: dict):
     saved = prof.merge(profile, statement_patch(analysis, game_profile), "extras")
     score = analysis.get("scor_stabilitate_financiara")
+    averages = analysis.get("medii_lunare") or []
+    months = analysis.get("luni_analizate")
+    listed = ", ".join(f"{c['label']} {c['medie_lunara']:.0f} lei" for c in averages[:6])
     convo["display"].append({"role": "system", "text": f"📄 Agentul de analiză a citit „{filename}”: scor de stabilitate {score}/100, "
-                                                        f"risc {analysis.get('nivel_risc', '-')}. A completat automat {len(saved)} câmpuri."})
+                                                        f"risc {analysis.get('nivel_risc', '-')}. A completat automat {len(saved)} câmpuri."
+                                                        + (f" Medii pe {months} luni: {listed}." if listed else "")})
     memory.add(session_id, "statement", "risc",
                f"Extras „{filename}”: scor {score}/100, risc {analysis.get('nivel_risc', '-')}. "
                + "; ".join((analysis.get("semnale_de_risc") or [])[:3]))

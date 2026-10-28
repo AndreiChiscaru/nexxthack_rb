@@ -361,6 +361,352 @@
       "useEvidence": [],
       "used": false,
       "usedBy": []
+    },
+    "assets/raiff/bank_flat_isometric.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [],
+      "license": {
+        "note": "Subject to OpenAI terms and third-party trademark rights"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:7405b48dfdf6975b409ad6a32567b3532987ee34f176ec6b07b27a742a1c4495",
+      "shipped": true,
+      "size": 941203,
+      "source": {
+        "description": "Generated for RaiffQuest on 2026-10-28",
+        "style": "Flat Vector Isometric",
+        "branding": "AI-generated Raiffeisen-like signage; permission required before public use"
+      },
+      "status": "present",
+      "transformations": [],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/home_flat_isometric.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [],
+      "license": {
+        "note": "Subject to OpenAI terms"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:b540958972e73f750e307575569defa6cf5c73dd8f8742ace96a32b4efe1512c",
+      "shipped": true,
+      "size": 1379719,
+      "source": {
+        "description": "Generated for RaiffQuest on 2026-10-28",
+        "style": "Flat Vector Isometric",
+        "purpose": "Home building for recurring household expenses"
+      },
+      "status": "present",
+      "transformations": [],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/market_flat_isometric.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [],
+      "license": {
+        "note": "Subject to OpenAI terms"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:cdc63879e166ceeb7320471fbf767f9bd4ee84af05407d484e1d309d85e54107",
+      "shipped": true,
+      "size": 1781375,
+      "source": {
+        "description": "Generated for RaiffQuest on 2026-10-28",
+        "style": "Flat Vector Isometric",
+        "purpose": "Marketplace for variable expenses"
+      },
+      "status": "present",
+      "transformations": [],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/education_flat_isometric.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [],
+      "license": {
+        "note": "Subject to OpenAI terms"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:411d3fd93d7d8f501931c57c62e16819f18b44fae500aec7221debfa00091025",
+      "shipped": true,
+      "size": 1704989,
+      "source": {
+        "description": "Generated for RaiffQuest on 2026-10-28",
+        "style": "Flat Vector Isometric",
+        "purpose": "Education building for scholarships, tuition, courses and career development",
+        "palette": "Cream, purple, charcoal, green and yellow accents"
+      },
+      "status": "present",
+      "transformations": [],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/work_flat_isometric.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [],
+      "license": {
+        "note": "Subject to OpenAI terms"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:e0490bb2dd34a945abd08e53106dff287ff51fcc891d98948b095214fe4a3eae",
+      "shipped": true,
+      "size": 2085776,
+      "source": {
+        "description": "Generated for RaiffQuest on 2026-10-28",
+        "style": "Flat Vector Isometric",
+        "purpose": "Workplace building for salary, employment and career progression",
+        "palette": "Charcoal, blue glass, cream, green and yellow accents"
+      },
+      "status": "present",
+      "transformations": [],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/business_flat_isometric.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [],
+      "license": {
+        "note": "Subject to OpenAI terms"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:a850ae4ed0e44028d17980a566d3420aa8764d998d9b9890aa71d93c10bef9af",
+      "shipped": true,
+      "size": 2060201,
+      "source": {
+        "description": "Generated for RaiffQuest on 2026-10-28",
+        "style": "Flat Vector Isometric",
+        "purpose": "Entrepreneurship hub for business creation, financial planning and AI guidance",
+        "palette": "Purple, cream, charcoal, green and yellow accents"
+      },
+      "status": "present",
+      "transformations": [],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/hospital_flat_isometric.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [],
+      "license": {
+        "note": "Subject to OpenAI terms"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:2268c105abcf795a67ca60fd44433760fddd1a25eb9ba027965059aca729142d",
+      "shipped": true,
+      "size": 2034426,
+      "source": {
+        "description": "Generated for RaiffQuest on 2026-10-28",
+        "style": "Flat Vector Isometric",
+        "purpose": "Hospital building for medical expenses, health events and insurance",
+        "palette": "White, teal, coral, charcoal and green"
+      },
+      "status": "present",
+      "transformations": [],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/consultant/consultant_avatar.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [],
+      "license": {
+        "note": "Subject to OpenAI terms and third-party trademark rights"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:5ef097a94dac3571aec306b1e46dabf9a5f04b96cccaa120e57e4624f2afd1ef",
+      "shipped": true,
+      "size": 788971,
+      "source": {
+        "description": "RaiffQuest AI Financial Consultant",
+        "style": "Minimalist Flat Vector",
+        "purpose": "Permanent financial AI assistant avatar",
+        "palette": "Raiffeisen yellow, white and black",
+        "branding": "AI-generated emblem; trademark permission requires verification"
+      },
+      "status": "present",
+      "transformations": [],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/consultant/consultant_idle.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated consultant expression sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms and trademark rights"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:a6382ea4dbdae3b5d5f7c95d5c129a589deda917ecf10fa12257d8b9394158b7",
+      "shipped": true,
+      "size": 172387,
+      "source": {
+        "description": "RaiffQuest AI Consultant expression",
+        "style": "Minimalist Flat Vector",
+        "transformation": "Cropped and normalized to 512x512",
+        "branding": "AI-generated emblem; review trademark use"
+      },
+      "status": "present",
+      "transformations": [
+        "Crop",
+        "Resize",
+        "Transparent canvas"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/consultant/consultant_thinking.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated consultant expression sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms and trademark rights"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:50eaef2d01387f39548fe38a66111773e2085c4bdd1f4dcabf602fdcc61ba3f0",
+      "shipped": true,
+      "size": 158107,
+      "source": {
+        "description": "RaiffQuest AI Consultant expression",
+        "style": "Minimalist Flat Vector",
+        "transformation": "Cropped and normalized to 512x512",
+        "branding": "AI-generated emblem; review trademark use"
+      },
+      "status": "present",
+      "transformations": [
+        "Crop",
+        "Resize",
+        "Transparent canvas"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/consultant/consultant_explaining.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated consultant expression sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms and trademark rights"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:20ad6e6e8c206570a22f99f7a2519619e9f0380f7f57cb987e8b109fcba14eba",
+      "shipped": true,
+      "size": 175874,
+      "source": {
+        "description": "RaiffQuest AI Consultant expression",
+        "style": "Minimalist Flat Vector",
+        "transformation": "Cropped and normalized to 512x512",
+        "branding": "AI-generated emblem; review trademark use"
+      },
+      "status": "present",
+      "transformations": [
+        "Crop",
+        "Resize",
+        "Transparent canvas"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/consultant/consultant_happy.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated consultant expression sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms and trademark rights"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:97d853717c82c608df4a43dca3c116ca85b6edf6b5953f478c0122741b298c7c",
+      "shipped": true,
+      "size": 180099,
+      "source": {
+        "description": "RaiffQuest AI Consultant expression",
+        "style": "Minimalist Flat Vector",
+        "transformation": "Cropped and normalized to 512x512",
+        "branding": "AI-generated emblem; review trademark use"
+      },
+      "status": "present",
+      "transformations": [
+        "Crop",
+        "Resize",
+        "Transparent canvas"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
     }
   },
   "discoveries": {},

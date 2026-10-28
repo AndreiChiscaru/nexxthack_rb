@@ -48,7 +48,8 @@ def demo():
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "model": MODEL, "agent_model": AGENT_MODEL}
+    return {"status": "ok", "model": MODEL, "agent_model": AGENT_MODEL,
+            "agent_mode": "live" if onboarding.llm_enabled() else "mock"}
 
 
 @app.post("/api/analyze")

@@ -51,8 +51,15 @@ def _view(session_id: str) -> dict:
         "session_id": session_id,
         "profile": {"fields": prof.fields_view(profile), "missing": prof.missing(profile)},
         "onboarding": {"chat": _chat(convo), "done": bool(convo and convo["done"]), "scenario": convo and convo["scenario"]},
-        "statement": statement and {"filename": statement["filename"], "score": statement["analysis"].get("scor_stabilitate_financiara"),
-                                    "risk": statement["analysis"].get("nivel_risc"), "summary": statement["analysis"].get("rezumat")},
+        "statement": statement and {
+            "filename": statement["filename"],
+            "score": statement["analysis"].get("scor_stabilitate_financiara"),
+            "risk": statement["analysis"].get("nivel_risc"),
+            "summary": statement["analysis"].get("rezumat"),
+            "months": statement["analysis"].get("luni_analizate"),
+            "categories": [{"label": c["label"], "monthly": c["medie_lunara"]}
+                           for c in (statement["analysis"].get("medii_lunare") or [])],
+        },
         "game": engine.public_view(game) if game else None,
         "consultant": _chat(store.load(session_id, "consultant")),
         "business": _chat(store.load(session_id, "business")),

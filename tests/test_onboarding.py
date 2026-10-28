@@ -279,6 +279,18 @@ def test_real_statement_unreadable_is_422(real_mode):
     assert r.status_code == 422
 
 
+def test_normalize_accepts_amount_strings():
+    from app.analyzer import _normalize
+
+    result = _normalize({
+        "cheltuieli_lunare_estimate": "12",
+        "cheltuieli_pe_categorii": [{"categorie": "uber", "suma": "670,92"}],
+        "venituri": [{"tip": "salariu", "suma_totala": "1.858,33"}],
+    })
+    assert result["cheltuieli_lunare_estimate"] == pytest.approx(670.92)
+    assert result["venit_lunar_estimat"] == pytest.approx(1858.33)
+
+
 def test_llm_enabled_needs_key_and_no_mock(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
     monkeypatch.setenv("MOCK_LLM", "true")
