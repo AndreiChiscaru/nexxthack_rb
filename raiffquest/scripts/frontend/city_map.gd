@@ -137,7 +137,6 @@ func _ready() -> void:
 	for item in [["−", "Micșorează harta"], ["+", "Mărește harta"], ["⌂", "Arată toată harta"], ["◌", "Redu animațiile"]]:
 		var control := Button.new()
 		control.text = item[0]
-		control.tooltip_text = item[1]
 		control.custom_minimum_size = Vector2(36,36)
 		control.add_theme_stylebox_override("normal", _label_style(false))
 		control.add_theme_color_override("font_color", INK)
@@ -177,7 +176,6 @@ func _add_building(id: String) -> void:
 	button.position = center - Vector2(80,143)
 	button.size = Vector2(160,123)
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	button.tooltip_text = "Vizitează " + PLACES[id].name
 	world.add_child(button)
 	buttons[id] = button
 	button.pressed.connect(navigate_to.bind(id))

@@ -12,14 +12,17 @@ func _ready() -> void:
 		push_error("Session initialization failed")
 		get_tree().quit(1)
 		return
+	var channel_ok: bool = not screen.advisor_button.visible
 	screen.chat.sample.pressed.emit()
+	screen._toggle_investments()
+	channel_ok = channel_ok and screen.channel == "onboarding"
 	var deadline := Time.get_ticks_msec() + 240000
 	while c.busy and Time.get_ticks_msec() < deadline:
 		await get_tree().process_frame
 	for i in range(10):
 		await get_tree().process_frame
 	print("[statement-flow] controller busy=", c.busy, " uploader busy=", screen.uploader.busy, " editable=",screen.chat.input.editable," disabled=",screen.chat.send.disabled," messages=",c.transcript.size())
-	var ok: bool = not c.busy and not screen.uploader.busy and screen.chat.input.editable and not screen.chat.send.disabled and c.last_error.is_empty() and c.transcript.size() >= 2
+	var ok: bool = channel_ok and not c.busy and not screen.uploader.busy and screen.chat.input.editable and not screen.chat.send.disabled and c.last_error.is_empty() and c.transcript.size() >= 2
 	if not c.last_error.is_empty():
 		print("[statement-flow] error=", c.last_error)
 	if ok:

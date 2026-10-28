@@ -36,7 +36,7 @@ def test_json_retry_does_not_send_tools_or_forced_choice():
 
 def test_truncated_report_is_rejected():
     client = client_with(SimpleNamespace(type="text", text='{"moneda":"RON"}'), stop_reason="max_tokens")
-    with pytest.raises(AnalysisError, match="trunchiat"):
+    with pytest.raises(AnalysisError, match="limita modelului"):
         _request(client, "extras fictiv", use_tool=True)
 
 
@@ -55,3 +55,13 @@ def test_other_models_keep_their_default_thinking(monkeypatch):
     client = client_with(SimpleNamespace(type="text", text='{"moneda":"RON"}'))
     _request(client, "extras fictiv", use_tool=False)
     assert "thinking" not in client.messages.create.call_args.kwargs
+
+
+@pytest.mark.parametrize("use_tool", [True, False])
+def test_haiku_55_reserves_output_for_the_report(monkeypatch, use_tool):
+    monkeypatch.setattr("app.analyzer.MODEL", "claude-haiku-5-5")
+    client = client_with(SimpleNamespace(type="text", text='{"moneda":"RON"}'))
+    _request(client, "extras fictiv", use_tool=use_tool)
+    request = client.messages.create.call_args.kwargs
+    assert request["thinking"] == {"type": "disabled"}
+    assert request["output_config"] == {"effort": "medium"}

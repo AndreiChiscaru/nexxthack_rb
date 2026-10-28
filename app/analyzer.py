@@ -105,6 +105,8 @@ def _request(client, text: str, use_tool: bool) -> dict:
     # This extraction needs a direct structured response, not up-front thinking.
     if MODEL == "claude-sonnet-5-5":
         kwargs.update(thinking={"type": "between_tools"}, output_config={"effort": "medium"})
+    elif MODEL == "claude-haiku-5-5":
+        kwargs.update(thinking={"type": "disabled"}, output_config={"effort": "medium"})
     message = client.messages.create(
         model=MODEL,
         max_tokens=12000,
@@ -113,7 +115,7 @@ def _request(client, text: str, use_tool: bool) -> dict:
         **kwargs,
     )
     if message.stop_reason == "max_tokens":
-        raise AnalysisError("Răspunsul modelului a fost trunchiat (extras prea lung).")
+        raise AnalysisError("Răspunsul analizei a atins limita modelului. Conversația poate continua; extrasul nu a fost importat.")
     for block in message.content:
         if block.type == "tool_use" and isinstance(block.input, dict):
             return block.input

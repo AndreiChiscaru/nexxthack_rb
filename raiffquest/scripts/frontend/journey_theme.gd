@@ -111,5 +111,4 @@ void fragment() {
 	material.set_shader_parameter("backdrop", Color("fff19a") if user else Color("e7edcd"))
 	material.set_shader_parameter("crop", Vector4(0.18,0.02,0.64,0.55) if user else Vector4(0.08,0.0,0.84,0.65))
 	image.material = material
-	image.tooltip_text = "Tu" if user else "AIngel"
 	return image

@@ -25,7 +25,7 @@ var metric_income: Label
 var goal_text: Label
 var progress: ProgressBar
 var advisor_button: Button
-var invest_button: Button
+var _advisor_hover_tween: Tween
 var channel := "onboarding"
 var map_controls: HBoxContainer
 var advance_button: Button
@@ -144,28 +144,23 @@ func _build_header() -> void:
 	recovery_button = Kit.button("Verifică starea serverului", controller.refresh, true)
 	add_child(recovery_button)
 	recovery_button.hide()
-	advisor_button = Kit.button("AIngel", _show_onboarding_chat)
-	advisor_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	var aside := Kit.text("Sunt aici dacă ai nevoie.", 11, Kit.MUTED)
-	aside.position = Vector2(70, 57)
-	aside.size = Vector2(200, 22)
-	aside.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	advisor_button.add_child(aside)
-	advisor_button.add_theme_font_override("font", load("res://assets/raiff/fonts/Figtree-Bold.ttf"))
-	for state in ["normal", "hover", "pressed", "focus"]:
-		advisor_button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	advisor_button = Kit.button("", _show_onboarding_chat)
+	advisor_button.position = Vector2(24, 100)
 	advisor_button.icon = load("res://assets/raiff/consultant/consultant_idle.png")
 	advisor_button.expand_icon = true
-	advisor_button.add_theme_constant_override("icon_max_width", 65)
-	advisor_button.position = Vector2(24, 100)
-	advisor_button.size = Vector2(270, 80)
+	advisor_button.add_theme_constant_override("icon_max_width", 68)
+	advisor_button.custom_minimum_size = Vector2(80, 80)
+	advisor_button.size = Vector2(80, 80)
+	advisor_button.pivot_offset = Vector2(40, 40)
+	advisor_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	for state in ["normal", "disabled", "pressed", "hover", "hover_pressed", "focus"]:
+		advisor_button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	advisor_button.mouse_entered.connect(func(): _animate_advisor_icon(true))
+	advisor_button.mouse_exited.connect(func(): _animate_advisor_icon(false))
+	advisor_button.focus_entered.connect(func(): _animate_advisor_icon(true))
+	advisor_button.focus_exited.connect(func(): _animate_advisor_icon(false))
 	add_child(advisor_button)
 	advisor_button.hide()
-	invest_button = Kit.button("Consultant de investiții", _toggle_investments)
-	invest_button.position = Vector2(24, 166)
-	invest_button.size = Vector2(250, 48)
-	add_child(invest_button)
-	invest_button.hide()
 
 func _build_welcome() -> void:
 	welcome = Control.new()
@@ -282,9 +277,7 @@ func _update() -> void:
 	hud.visible = phase == "map"
 	map_controls.visible = phase == "map"
 	advisor_button.visible = phase == "map"
-	invest_button.visible = phase != "welcome"
-	invest_button.position = Vector2(24, 166 if phase == "map" else 94)
-	invest_button.text = "Înapoi la AIngel" if channel == "investments" else "Consultant de investiții"
+	advisor_button.disabled = controller.busy
 	city.visible = phase == "map"
 	if phase != last_phase:
 		if phase in ["onboarding", "review"]:
@@ -314,7 +307,6 @@ func _update() -> void:
 		metric_cash.text = "%.0f lei" % balance.get("cash", 0)
 		metric_savings.text = "%.0f lei" % balance.get("savings", 0)
 		metric_income.text = "%.0f lei" % monthly.get("income", 0)
-		hud.tooltip_text = "Investiții: %.0f lei\nDatorie: %.0f lei\nPatrimoniu: %.0f lei\nCheltuieli: %.0f lei\nStres: %.0f · Încredere: %.0f" % [balance.get("investments", 0), balance.get("debt", 0), balance.get("net_worth", 0), expense, wellbeing.get("stress", 0), wellbeing.get("confidence", 0)]
 		averages_text.text = ""
 		averages_text.visible = not state.get("categories", []).is_empty()
 		var averages: Array = state.get("categories", [])
@@ -357,7 +349,16 @@ func _on_message(message: Dictionary) -> void:
 	if incoming == current:
 		chat.append(message)
 
+func _animate_advisor_icon(raised: bool) -> void:
+	if _advisor_hover_tween:
+		_advisor_hover_tween.kill()
+	var target := Vector2.ONE * (1.1 if raised and not advisor_button.disabled else 1.0)
+	_advisor_hover_tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_advisor_hover_tween.tween_property(advisor_button, "scale", target, 0.18 if not reduced_motion else 0.0)
+
 func _toggle_investments() -> void:
+	if controller.busy or controller.phase != "map":
+		return
 	if channel == "investments":
 		_show_onboarding_chat()
 	else:
@@ -429,6 +430,8 @@ func _show_business() -> void:
 	_open_chat()
 
 func _show_investments() -> void:
+	if controller.busy or controller.phase != "map":
+		return
 	channel = "investments"
 	chat.invest_mode = true
 	chat.set_heading("Consultant de investiții\nFonduri și orizont, din catalog")
