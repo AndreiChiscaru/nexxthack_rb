@@ -55,7 +55,7 @@ def test_live_reply_uses_real_readonly_tools_and_retains_tool_history(live, monk
     assert set(response.json()["tool_calls"][0]) == {"name", "args", "summary"}
     assert seen[0][2] == {"get_state", "get_goal_progress", "simulate_decision", "compare_scenarios",
                           "search_products", "compare_products", "create_action_plan", "remember",
-                          "simulate_event_options"}
+                          "simulate_event_options", "add_to_score"}
     assert any(block["type"] == "tool_result" for turn in get_session(sid).advisor_history for block in turn["content"])
     assert client.get("/api/game/state", params={"session_id": sid}).json() == before
 

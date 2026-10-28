@@ -12,6 +12,7 @@ from .agents import onboarding as onboarding_agent
 from .agents import profile as prof
 from .schemas import Event, GameState, LogEntry, Profile
 from .sim import adapter
+from .sim import score as player_score
 from .sim.engine import SimState
 
 
@@ -50,6 +51,10 @@ class Session:
     used_events: dict[str, dict] = field(default_factory=dict)
     # Every agent tool call ({name, args, summary, duration_ms}); see app/tools.py run_tool().
     tool_log: list[dict] = field(default_factory=list)
+    # Choice score. score_initial is the opening resilience (0-100); choices and agent notes move it, still 0-100.
+    score_initial: int | None = None
+    choices: list[dict] = field(default_factory=list)
+    score_adjustments: list[dict] = field(default_factory=list)
 
 
 _SESSIONS: dict[str, Session] = {}
@@ -81,4 +86,4 @@ def require_game(session: Session) -> SimState:
 def game_state(session: Session) -> GameState:
     sim = require_game(session)
     return adapter.to_game_state(session.id, sim, session.profile, session.month,
-                                 session.pending_events, session.log)
+                                 session.pending_events, session.log, score=player_score.current(session))
