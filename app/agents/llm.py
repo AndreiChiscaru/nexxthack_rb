@@ -42,6 +42,7 @@ def run_agent(system: str, history: list, tools: list[Tool], max_tokens: int = 1
     client = anthropic.Anthropic()
     by_name = {tool.name: tool for tool in tools}
     calls: list[dict] = []
+    texts: list[str] = []
     for _ in range(MAX_STEPS):
         kwargs = {"tools": [tool.spec() for tool in tools]} if tools else {}
         response = client.messages.create(model=AGENT_MODEL, max_tokens=max_tokens, system=system,
@@ -54,10 +55,13 @@ def run_agent(system: str, history: list, tools: list[Tool], max_tokens: int = 1
                 content.append({"type": "tool_use", "id": block.id, "name": block.name, "input": block.input})
         history.append({"role": "assistant", "content": content or [{"type": "text", "text": "..."}]})
 
+        texts += [c["text"].strip() for c in content if c["type"] == "text" and c["text"].strip()]
         uses = [c for c in content if c["type"] == "tool_use"]
+        if not uses and not texts:
+            add_user_text(history, "(Scrie acum răspunsul final pentru utilizator, pe baza rezultatelor uneltelor.)")
+            continue
         if not uses:
-            text = "\n".join(c["text"] for c in content if c["type"] == "text").strip()
-            return {"text": text, "tool_calls": calls}
+            return {"text": "\n\n".join(texts), "tool_calls": calls}
 
         results = []
         for use in uses:
@@ -73,4 +77,4 @@ def run_agent(system: str, history: list, tools: list[Tool], max_tokens: int = 1
 
     fallback = "Am folosit prea mulți pași pentru această întrebare. Poți reformula mai concret?"
     history.append({"role": "assistant", "content": [{"type": "text", "text": fallback}]})
-    return {"text": fallback, "tool_calls": calls}
+    return {"text": "\n\n".join(texts + [fallback]), "tool_calls": calls}
