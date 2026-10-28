@@ -6,6 +6,10 @@ const NEGATIVE := Color("ad5939")
 var month_label: Label
 var horizon_label: Label
 var score_label: Label
+var score_box: VBoxContainer
+var score_bar: ProgressBar
+var score_pace: ColorRect
+var score_hint: Label
 var cash_value: Label
 var savings_value: Label
 var surplus_value: Label
@@ -93,8 +97,38 @@ func _ready() -> void:
 	cashflow_label = label("", 10, false, Kit.MUTED)
 	cashflow_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	col.add_child(cashflow_label)
-	score_label = label("", 10, true)
-	col.add_child(score_label)
+	score_box = VBoxContainer.new()
+	score_box.add_theme_constant_override("separation", 3)
+	col.add_child(score_box)
+	var score_row := HBoxContainer.new()
+	score_box.add_child(score_row)
+	score_row.add_child(label("Scor alegeri", 11, true))
+	score_label = label("", 15, true)
+	score_label.size_flags_horizontal = Control.SIZE_FILL
+	score_label.custom_minimum_size.x = 80
+	score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	score_row.add_child(score_label)
+	score_bar = ProgressBar.new()
+	score_bar.custom_minimum_size.y = 10
+	score_bar.show_percentage = false
+	for key in ["background", "fill"]:
+		var paint := Kit.box(Kit.YELLOW if key == "fill" else Color("d3d8b9"), Kit.INK if key == "fill" else Color("84906e"), 0)
+		paint.set_corner_radius_all(5)
+		paint.set_border_width_all(1)
+		paint.shadow_size = 0
+		paint.shadow_offset = Vector2.ZERO
+		score_bar.add_theme_stylebox_override(key, paint)
+	score_box.add_child(score_bar)
+	# Where the score should be this month to reach 100 by the deadline.
+	score_pace = ColorRect.new()
+	score_pace.color = Kit.INK
+	score_pace.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	score_pace.anchor_bottom = 1
+	score_pace.offset_top = -4
+	score_pace.offset_bottom = 4
+	score_bar.add_child(score_pace)
+	score_hint = label("", 10)
+	score_box.add_child(score_hint)
 	var secondary := PanelContainer.new()
 	var inset := Kit.box(Color("ecefd6"), Color.TRANSPARENT, 7)
 	inset.set_border_width_all(0)
@@ -147,6 +181,16 @@ func _ready() -> void:
 	percentage.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	bar.add_child(percentage)
 
+## pace: the score the player should have this month (negative hides the marker); hint: one line under the bar.
+func set_score_pace(pace: float, hint: String, tint: Color) -> void:
+	score_pace.visible = pace >= 0
+	score_pace.anchor_left = clampf(pace, 0, 100) / 100.0
+	score_pace.anchor_right = score_pace.anchor_left
+	score_pace.offset_left = -1
+	score_pace.offset_right = 1
+	score_hint.text = hint
+	score_hint.add_theme_color_override("font_color", tint)
+
 static func number(value: float) -> String:
 	var digits := str(int(round(absf(value))))
 	var formatted := ""
@@ -177,8 +221,9 @@ func update_state(state: Dictionary, profile: Dictionary) -> void:
 	debt_value.text = money(float(balance.get("debt", 0)))
 	investments_value.text = money(float(balance.get("investments", 0)))
 	cashflow_label.text = "Venit %s · Cheltuieli %s" % [money(income), money(expenses)]
-	score_label.text = "Scor alegeri: %d / 100" % int(state.get("score", 0))
-	score_label.visible = state.has("score")
+	score_label.text = "%d / 100" % int(state.get("score", 0))
+	score_bar.value = clampf(float(state.get("score", 0)), 0, 100)
+	score_box.visible = state.has("score")
 	var debt_goal: bool = goal.get("type", "") == "achitare_datorii"
 	goal_label.text = "Achitare datorii" if debt_goal else str(confirmed.get("description", "Obiectivul tău"))
 	if goal_label.text.strip_edges().is_empty():
