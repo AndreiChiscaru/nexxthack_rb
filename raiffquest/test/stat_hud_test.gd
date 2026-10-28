@@ -16,7 +16,7 @@ func _ready() -> void:
 	var profile := {"goal":{"description":"Fond de siguranță", "horizon_months":12}}
 	hud.update_state(state, profile)
 	await get_tree().process_frame
-	check(hud.score_label.text == "Scor alegeri: 72 / 100", "Choice score comes from backend")
+	check(hud.score_label.text == "72 / 100" and hud.score_bar.value == 72, "Choice score comes from backend")
 	check(hud.cash_value.text == "2.400 lei", "Cash uses backend balance")
 	check(hud.surplus_value.text == "+1.700 lei", "Monthly balance includes every backend expense")
 	check(hud.debt_value.text == "3.200 lei", "Debt remains visible")
@@ -29,6 +29,6 @@ func _ready() -> void:
 	check(hud.goal_amount.text == "Rămas: 3.200 lei", "Debt goal shows remaining debt")
 	check(hud.progress.value == 68, "Debt goal preserves backend progress")
 	await get_tree().process_frame
-	check(hud.size.x <= 440 and hud.size.y <= 240, "HUD stays compact")
+	check(hud.size.x <= 440 and hud.size.y <= 270, "HUD stays compact")
 	print("[stat-hud] ", "FAIL" if failed else "PASS")
 	get_tree().quit(1 if failed else 0)

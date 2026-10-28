@@ -126,7 +126,6 @@ var labels: Dictionary = {}
 var _hover_tweens: Dictionary = {}
 var _avatar: MapAvatar
 var _route: Line2D
-var _hint: Label
 var _at := "home"
 const PLAY_ZOOM := 1.0
 var _zoom := PLAY_ZOOM
@@ -196,16 +195,6 @@ func _ready() -> void:
 	_avatar = MapAvatar.new()
 	_avatar.position = park_position(_at)
 	world.add_child(_avatar)
-	_hint = Label.new()
-	_hint.text = "Alege o clădire. Avatarul te conduce acolo."
-	_hint.add_theme_font_size_override("font_size", 13)
-	_hint.add_theme_color_override("font_color", INK)
-	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	_hint.offset_top = -28
-	_hint.offset_bottom = -4
-	add_child(_hint)
 	var controls := HBoxContainer.new()
 	controls.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	controls.position = Vector2(-180,-52)
@@ -349,7 +338,6 @@ func navigate_to(id: String) -> void:
 		institution_selected.emit(id)
 		return
 	_walking = true
-	_hint.text = "În drum spre %s…" % PLACES[id].name
 	for key in labels:
 		labels[key].add_theme_stylebox_override("normal", _label_style(key == id))
 	var points := path_to(_at, id)
@@ -364,7 +352,6 @@ func navigate_to(id: String) -> void:
 		_walking = false
 		_avatar.rest()
 		_route.clear_points()
-		_hint.text = "Ai ajuns la %s." % PLACES[id].name
 		institution_selected.emit(id)
 	)
 
