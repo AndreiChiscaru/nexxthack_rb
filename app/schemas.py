@@ -57,6 +57,14 @@ class ProfileSource(BaseModel):
     risk_signals: list[str] = Field(default_factory=list)
 
 
+class SpendingCategory(BaseModel):
+    """Monthly average counted from a statement. Accepting a cut removes it from expenses."""
+    id: str
+    label: str
+    institution: Institution
+    monthly: float
+
+
 class Profile(BaseModel):
     name: str = ""
     age: int
@@ -74,6 +82,7 @@ class Profile(BaseModel):
     risk_tolerance: str
     dependents: int = 0
     source: ProfileSource = Field(default_factory=ProfileSource)
+    categories: list[SpendingCategory] = Field(default_factory=list)
 
 
 # --- §4.2 Game state --------------------------------------------------------
@@ -139,6 +148,7 @@ class GameState(BaseModel):
     institutions: list[InstitutionStatus]
     products: list[ProductHolding]
     log: list[LogEntry]
+    categories: list[SpendingCategory] = Field(default_factory=list)
 
 
 # --- §4.4 Events ------------------------------------------------------------

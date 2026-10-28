@@ -37,6 +37,19 @@ def _r2(x: float) -> float:
 
 def _base_categories(profile: Profile) -> dict[str, float]:
     """Profile spending grouped by institution; their sum is the engine's `living`."""
+    if profile.categories:
+        # Statement lines already include transport, food, leisure and subscriptions.
+        # Rent, utilities, tuition and medical costs stay beside them.
+        base = {
+            "home": profile.recurring.rent + profile.recurring.utilities,
+            "market": 0.0,
+            "education": profile.education.tuition_monthly,
+            "health": profile.health.monthly_costs,
+        }
+        for cat in profile.categories:
+            bucket = cat.institution if cat.institution in ("home", "market", "education") else "market"
+            base[bucket] += cat.monthly
+        return base
     r, s = profile.recurring, profile.spending
     return {
         "home": r.rent + r.utilities + r.subscriptions,
@@ -178,4 +191,5 @@ def to_game_state(session_id: str, sim: E.SimState, profile: Profile, month: int
                       for i in INSTITUTIONS],
         products=products(sim),
         log=list(log),
+        categories=list(profile.categories),
     )

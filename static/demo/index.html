@@ -18,7 +18,8 @@
   <main id="view-onboarding" class="view hidden">
     <section class="panel chat-panel">
       <h2>1 · Hai să-ți construim parcursul</h2>
-      <p class="hint">Agentul de onboarding îți pune câteva întrebări. Încarcă un extras de cont (📎) și agentul de analiză îi trimite datele.</p>
+      <p class="hint">Agentul de onboarding îți pune câteva întrebări. Încarcă un extras (📎) sau pornește cu extrasul de student, pe 12 luni.</p>
+      <button type="button" id="use-sample" class="ghost">Pornește cu extrasul de student</button>
       <div id="onb-chat" class="chat"></div>
       <form id="onb-form" class="composer">
         <label class="attach" title="Încarcă extras de cont (PDF / imagine)">📎<input id="onb-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.webp,.txt,.csv" hidden></label>
@@ -43,6 +44,7 @@
         <div class="goal-title" id="goal-title"></div>
         <div class="progress big" id="goal-progress"><div></div></div>
         <div class="hint" id="goal-meta"></div>
+        <div id="averages" class="averages"></div>
       </div>
       <button id="next-month" class="primary">Luna următoare ▶</button>
     </section>

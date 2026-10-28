@@ -18,6 +18,7 @@ var mode: Label
 var error_label: Label
 var hud: PanelContainer
 var hud_text: Label
+var averages_text: Label
 var metric_cash: Label
 var metric_savings: Label
 var metric_income: Label
@@ -76,6 +77,7 @@ func _ready() -> void:
 	chat.hide()
 	chat.sent.connect(controller.send_message)
 	chat.upload_requested.connect(_pick_statement)
+	chat.sample_requested.connect(_load_sample)
 	chat.review_requested.connect(_show_profile)
 	chat.closed.connect(func(): _dismiss(chat))
 	location = PanelContainer.new()
@@ -105,6 +107,7 @@ func _ready() -> void:
 	chat.minimum_size_changed.connect(_layout.call_deferred)
 	greeting.minimum_size_changed.connect(_layout.call_deferred)
 	profile_panel.minimum_size_changed.connect(_layout.call_deferred)
+	hud.minimum_size_changed.connect(_layout.call_deferred)
 	_layout()
 	_update()
 	if not reduced_motion:
@@ -205,6 +208,9 @@ func _build_hud() -> void:
 	metric_income = values[2]
 	goal_text = Kit.text("", 11)
 	col.add_child(goal_text)
+	averages_text = Kit.text("", 10, Kit.MUTED)
+	averages_text.hide()
+	col.add_child(averages_text)
 	progress = ProgressBar.new()
 	progress.custom_minimum_size.y = 5
 	progress.show_percentage = false
@@ -246,7 +252,7 @@ func _layout() -> void:
 	recovery_button.size = Vector2(270, 40)
 	error_label.position = Vector2(25, h - 105)
 	error_label.size = Vector2(maxf(400, w - 470), 40)
-	location.position = Vector2(w - 365, 178)
+	location.position = Vector2(w - 365, maxf(178, hud.position.y + hud.size.y + 18))
 	location.size = Vector2(340, maxf(260, h - 245))
 	profile_panel.position = Vector2(maxf(15, (w - 670) / 2), 95)
 	profile_panel.size = Vector2(minf(670, w - 30), maxf(430, h - 125))
@@ -299,6 +305,16 @@ func _update() -> void:
 		metric_savings.text = "%.0f lei" % balance.get("savings", 0)
 		metric_income.text = "%.0f lei" % monthly.get("income", 0)
 		hud.tooltip_text = "Investiții: %.0f lei\nCheltuieli: %.0f lei\nStres: %.0f · Încredere: %.0f" % [balance.get("investments", 0), expense, wellbeing.get("stress", 0), wellbeing.get("confidence", 0)]
+		averages_text.text = ""
+		averages_text.visible = not state.get("categories", []).is_empty()
+		var averages: Array = state.get("categories", [])
+		if not averages.is_empty():
+			var bits: PackedStringArray = []
+			for cat: Dictionary in averages:
+				if bits.size() == 4:
+					break
+				bits.append("%s %.0f" % [cat.get("label", ""), float(cat.get("monthly", 0))])
+			averages_text.text = "Medii din extras: " + ", ".join(bits)
 		var goal: Dictionary = state.get("goal", {})
 		progress.value = float(goal.get("progress", 0)) * 100
 		goal_text.text = "Obiectiv: %.0f lei · %.0f%%" % [goal.get("target_amount", 0), progress.value]
@@ -314,6 +330,11 @@ func _open_chat() -> void:
 	profile_panel.hide()
 	_reveal(chat)
 	chat.input.grab_focus()
+
+func _load_sample() -> void:
+	if controller.busy or controller.phase == "map":
+		return
+	uploader.load_sample()
 
 func _pick_statement() -> void:
 	if controller.busy or controller.phase == "map":
@@ -364,6 +385,10 @@ func _show_profile() -> void:
 		col.add_child(row)
 		profile_fields[field[0]] = entry
 	col.add_child(Kit.text("Toleranță la risc: %s\nCredite: %d · Pentru detalii sau corectarea creditelor, revino la conversație." % [p.get("risk_tolerance", ""), p.get("debts", []).size()], 13, Kit.MUTED))
+	if not p.get("categories", []).is_empty():
+		col.add_child(Kit.text("Medii lunare din extras", 16))
+		for cat: Dictionary in p.get("categories", []):
+			col.add_child(Kit.text("%s: %.0f lei/lună" % [cat.get("label", ""), float(cat.get("monthly", 0))], 14))
 	col.add_child(Kit.button("Confirmă și deschide harta →", _confirm_profile, true))
 	col.add_child(Kit.button("Înapoi la conversație", func(): profile_panel.hide()))
 	profile_panel.show()
@@ -402,11 +427,17 @@ func _institution(id: String) -> void:
 		location_contents.add_child(Kit.text("Venit lunar: %.0f lei" % controller.state.get("monthly", {}).get("income", 0), 16))
 	else:
 		location_contents.add_child(Kit.text("Cheltuieli lunare: %.0f lei" % expenses.get("health" if id == "hospital" else id, 0), 16))
+	for cat: Dictionary in controller.state.get("categories", []):
+		if str(cat.get("institution", "")) != id:
+			continue
+		location_contents.add_child(Kit.text("%s · medie %.0f lei/lună" % [cat.get("label", ""), float(cat.get("monthly", 0))], 14))
 	var pending := 0
 	for event: Dictionary in controller.events:
 		if event.get("institution") != id:
 			continue
 		pending += 1
+		if str(event.get("id", "")).begins_with("taie_"):
+			location_contents.add_child(Kit.text("Sugestie de reducere", 12, Kit.MUTED))
 		location_contents.add_child(Kit.text(str(event.title), 18))
 		location_contents.add_child(Kit.text(str(event.text), 14))
 		for option: Dictionary in event.get("options", []):
