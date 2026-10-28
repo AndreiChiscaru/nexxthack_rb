@@ -707,6 +707,843 @@
       "useEvidence": [],
       "used": false,
       "usedBy": []
+    },
+    "assets/raiff/characters/male/happy.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:244b88b556168e370fc1ad63b9bfd85830bcb4236032c5e454ecc60e27efac4e",
+      "shipped": true,
+      "size": 48122,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/idle.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:878320a035c13f22226cb07b5bae14122348f53ccd5bf6f25653e9de3e03c9cf",
+      "shipped": true,
+      "size": 38348,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/phone.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:8cbc48e84f0890342fad5fe74279eefda2b1fe12785ee23195ff26c2fa81e168",
+      "shipped": true,
+      "size": 42476,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/sad.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:eb571c17bdef8d48fb281729b6142e8413bc46f8042612457e89d156486cb34d",
+      "shipped": true,
+      "size": 35733,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/surprised.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:c65b465fdcaabf8cf9a9e6fe63a652ae089c38c7226a58ffcfa2e9a02fef366b",
+      "shipped": true,
+      "size": 43825,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/talking.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:cd4ca3068780ccd6341a3ab9553d0d9dc3c5a135fdd8eb862ef45bb583033600",
+      "shipped": true,
+      "size": 42985,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/thinking.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:be8949e021db52c73a21b039a9b35d7f4e398003eb41c8015f6b54677101b947",
+      "shipped": true,
+      "size": 38449,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_down_00.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:987dfcd01639aadbeb7ebe1b1b9ccd39e962c17554bfdf213f59ffd5bf8c46b1",
+      "shipped": true,
+      "size": 37164,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_down_01.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:02444cd838f048f83e8f895aa5b2488d99bfc2f82225c2312b7dbfebde044e6c",
+      "shipped": true,
+      "size": 36637,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_down_02.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:353e15049ce4b6d228bd84434a40e39cd5254947ac61fa4d57dcf52f7fff2b18",
+      "shipped": true,
+      "size": 37703,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_down_03.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:e1dffaafc52f840b33254a069d4cc9cd806074b8c0ca67e839a756653a2b6be7",
+      "shipped": true,
+      "size": 33448,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_down_sheet.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:97097f5014c7a2e3a54183f71c80cbee1066c5643513414938ed222e29af3aca",
+      "shipped": true,
+      "size": 142512,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_left_00.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:c2b62ca39a35c641a14fa642c7128302ff52a35bc1ade2b15a91f64c676af746",
+      "shipped": true,
+      "size": 32954,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_left_01.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:2239283546565fcd5e2fdd97389dca1c805bd6b45ae3be471167e5ce2d02ccd4",
+      "shipped": true,
+      "size": 31936,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_left_02.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:1833dbc655382d3567cf565acc6143cf40a260e2de22fbaad1d669a3bc3f9ee6",
+      "shipped": true,
+      "size": 31786,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_left_03.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:7143c0488d2bb8bf71d32c0961d0dba1e222c0740e7a5a0dfa9494bcee95020b",
+      "shipped": true,
+      "size": 32849,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_left_sheet.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:828dfa4f40741b113ec7b324d873aba1e03faf708d5cc1716456517ba33897ce",
+      "shipped": true,
+      "size": 127009,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_right_00.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:701703fc4a5cee36ed20d7742116fa68ae6b5d91c35bccc185ca910876df31e2",
+      "shipped": true,
+      "size": 30469,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_right_01.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:b3db0d6532e1742175f68cf82ba5dc050f9238e3c9a17a5a8de4bf2e146a3b73",
+      "shipped": true,
+      "size": 29206,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_right_02.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:b81cf5415d279a7c4f4b398c7ebdcbd4b2c4d157c951559dd2bb6ae606645d83",
+      "shipped": true,
+      "size": 29876,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_right_03.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:306ab762a07ea88e3e748990c394d526c5ec589eef354abd6eb4284ed7fdfbff",
+      "shipped": true,
+      "size": 30278,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_right_sheet.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:9e81f3653563afd215ba4ad629b7c3c09639a3eaba4dbb8156f74a9822c29365",
+      "shipped": true,
+      "size": 117236,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_up_00.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:292de3ed693438261e5da289d6e8b6d6e36cbd1396a583dc03980413c676f0ab",
+      "shipped": true,
+      "size": 28215,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_up_01.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:b769d17f6360a17409e04bd7d50f616f0a0cedd72f90e4a2482ed571fb294afa",
+      "shipped": true,
+      "size": 28784,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_up_02.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:1bb53e05cb20e3881d7a600f52ab308247559736b00385594529dd14606af83a",
+      "shipped": true,
+      "size": 29475,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_up_03.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:6f57b2eef4ed79f5db9325ca007b8febbfab4f828652876614c1cf10d87fd729",
+      "shipped": true,
+      "size": 28102,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/characters/male/walk_up_sheet.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated male character sprite sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms; original reference rights must be verified"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:eeed161bca4a073331abb43abebd597e5dd313bf71535bc42510b94243ac13f5",
+      "shipped": true,
+      "size": 111985,
+      "source": {
+        "description": "RaiffQuest male player avatar sprite",
+        "style": "Flat Vector Cartoon",
+        "purpose": "Player movement and interaction animations"
+      },
+      "status": "present",
+      "transformations": [
+        "Cropped from AI-generated sprite sheet",
+        "Normalized for Godot"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
     }
   },
   "discoveries": {},
