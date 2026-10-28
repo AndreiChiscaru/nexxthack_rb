@@ -24,7 +24,6 @@ var channel := "onboarding"
 var map_controls: HBoxContainer
 var advance_button: Button
 var recovery_button: Button
-var refresh_button: Button
 var location: PanelContainer
 var location_contents: VBoxContainer
 var profile_panel: PanelContainer
@@ -35,7 +34,7 @@ var reduced_motion := false
 var landscape: TextureRect
 var _panel_tweens: Dictionary = {}
 var _landscape_tween: Tween
-var month_dialog: ConfirmationDialog
+var month_dialog: Control
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -90,26 +89,9 @@ func _ready() -> void:
 	profile_panel = PanelContainer.new()
 	add_child(profile_panel)
 	profile_panel.hide()
-	month_dialog = ConfirmationDialog.new()
-	month_dialog.title = "Închei luna curentă?"
-	month_dialog.dialog_text = "Veniturile și cheltuielile se aplică o singură dată. Sugestia de reducere trebuie aleasă înainte."
-	month_dialog.ok_button_text = "Luna următoare"
-	month_dialog.cancel_button_text = "Mai rămân"
-	month_dialog.confirmed.connect(controller.advance)
-	month_dialog.add_theme_font_size_override("title_font_size", 22)
-	month_dialog.add_theme_color_override("title_color", Color.WHITE)
-	var dialog_label := month_dialog.get_label()
-	dialog_label.add_theme_font_size_override("font_size", 20)
-	dialog_label.add_theme_color_override("font_color", Color.WHITE)
-	dialog_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	dialog_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	for dialog_button in [month_dialog.get_ok_button(), month_dialog.get_cancel_button()]:
-		dialog_button.add_theme_font_size_override("font_size", 18)
-		dialog_button.custom_minimum_size = Vector2(170, 46)
-	var confirm_style := Kit.box(Kit.YELLOW, Kit.INK, 12)
-	month_dialog.get_ok_button().add_theme_stylebox_override("normal", confirm_style)
-	month_dialog.get_ok_button().add_theme_stylebox_override("focus", Kit.box(Color("ffffff00"), Color.WHITE, 0))
+	month_dialog = preload("res://scripts/frontend/month_dialog.gd").new()
 	add_child(month_dialog)
+	month_dialog.confirmed.connect(controller.advance)
 	controller.changed.connect(_update)
 	get_window().files_dropped.connect(_files_dropped)
 	resized.connect(_layout)
@@ -146,7 +128,7 @@ func _build_header() -> void:
 	add_child(mode)
 	error_label = Kit.text("", 13, Color("963b2b"))
 	add_child(error_label)
-	recovery_button = Kit.button("Verifică starea serverului", controller.refresh, true)
+	recovery_button = Kit.button("Reîncearcă sincronizarea", controller.refresh, true)
 	add_child(recovery_button)
 	recovery_button.hide()
 	advisor_button = Kit.button("", _show_onboarding_chat)
@@ -192,9 +174,7 @@ func _build_hud() -> void:
 	map_controls = HBoxContainer.new()
 	map_controls.add_theme_constant_override("separation", 8)
 	add_child(map_controls)
-	refresh_button = Kit.button("Actualizează", controller.refresh)
-	map_controls.add_child(refresh_button)
-	advance_button = Kit.button("Luna următoare →", func(): month_dialog.popup_centered(Vector2i(620, 260)), true)
+	advance_button = Kit.button("Luna următoare →", func(): month_dialog.popup_centered(), true)
 	map_controls.add_child(advance_button)
 	hud.hide()
 	map_controls.hide()
@@ -238,7 +218,7 @@ func _update() -> void:
 	if not controller.last_error.is_empty():
 		start_button.text = "Reîncearcă conectarea →"
 	error_label.text = controller.last_error
-	recovery_button.visible = controller.needs_recovery
+	recovery_button.visible = controller.needs_recovery or (phase == "map" and not controller.last_error.is_empty())
 	recovery_button.disabled = controller.busy
 	if phase != "review":
 		profile_panel.hide()
@@ -280,7 +260,6 @@ func _update() -> void:
 				waiting = "cut"
 		advance_button.disabled = controller.busy or controller.needs_recovery or waiting != ""
 		advance_button.text = "Alege termenul fiscal" if waiting == "fiscal" else ("Alege sugestia" if waiting == "cut" else "Luna următoare →")
-		refresh_button.disabled = controller.busy
 		if not selected.is_empty() and location.visible:
 			_institution(selected)
 

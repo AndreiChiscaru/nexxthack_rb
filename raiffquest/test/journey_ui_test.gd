@@ -52,6 +52,23 @@ func _ready() -> void:
 	scene.controller.confirm_profile(scene.controller.profile)
 	await wait_for(scene.controller)
 	check(scene.city.visible, "map visible after confirmed profile")
+	check(scene.map_controls.get_child_count() == 1 and not scene.recovery_button.visible, "Healthy map has no manual refresh button")
+	var original_state: Dictionary = scene.controller.state.duplicate(true)
+	scene.controller._track(99999, "advance")
+	scene.controller._response(99999, {"ok":false,"status":0,"error":{"code":"timeout","message":"Conexiune întreruptă"}})
+	check(scene.recovery_button.visible and scene.controller.needs_recovery, "Ambiguous failure offers synchronization")
+	check(scene.advance_button.disabled, "Recovery blocks repeated mutations")
+	scene.recovery_button.pressed.emit()
+	check(scene.recovery_button.disabled, "Synchronization cannot be submitted twice")
+	await wait_for(scene.controller)
+	check(not scene.recovery_button.visible and not scene.controller.needs_recovery, "Successful synchronization hides recovery option")
+	check(scene.controller.state == original_state, "Synchronization does not replay the failed action")
+	scene.controller.last_error = "Cererea nu a reușit."
+	scene.controller.changed.emit()
+	check(scene.recovery_button.visible, "Other map errors also offer synchronization")
+	scene.recovery_button.pressed.emit()
+	await wait_for(scene.controller)
+	check(not scene.recovery_button.visible, "Recovery disappears after other errors clear")
 	check(not scene.map_controls.get_global_rect().intersects(Rect2(scene.size.x-200,scene.size.y-62,180,52)),"map controls do not overlap navigation")
 	await get_tree().create_timer(0.7).timeout
 	var fountain_screen: Vector2 = scene.city.world.position + scene.city.FOUNTAIN_CENTER * scene.city.world.scale
@@ -59,6 +76,15 @@ func _ready() -> void:
 	for building in scene.city.buttons.values():
 		check(not building.get_global_rect().intersects(scene.hud.get_global_rect()), "Buildings are visible outside the HUD")
 	await capture("map")
+	var month_before: int = scene.controller.state.month
+	scene.month_dialog.popup_centered()
+	await get_tree().create_timer(0.3).timeout
+	check(scene.month_dialog.visible, "Monthly confirmation opens")
+	check(scene.month_dialog.panel.get_theme_stylebox("panel").bg_color == scene.Kit.PAPER, "Monthly confirmation uses cream game surface")
+	await capture("month-confirmation")
+	scene.month_dialog.cancel_button.pressed.emit()
+	check(not scene.month_dialog.visible and scene.controller.state.month == month_before, "Cancel closes confirmation without advancing")
+
 	scene._open_chat()
 	await wait_for(scene.controller)
 	check(scene.chat.size.x <= 360, "map chat stays a compact left drawer")
@@ -112,5 +138,12 @@ func _ready() -> void:
 	check(scene.selected == "entertainment" and scene.location.visible, "Entertainment arrival opens its panel")
 	check(scene.city.buttons.has("entertainment"), "Entertainment texture button exists")
 	await capture("entertainment")
+	scene.month_dialog.confirmed.disconnect(scene.controller.advance)
+	var confirmations := [0]
+	scene.month_dialog.confirmed.connect(func(): confirmations[0] += 1)
+	scene.month_dialog.popup_centered()
+	scene.month_dialog.confirm_button.pressed.emit()
+	scene.month_dialog.confirm_button.pressed.emit()
+	check(confirmations[0] == 1 and not scene.month_dialog.visible, "Confirmation submits once and closes immediately")
 	print("[journey-ui] ","FAIL" if failed else "PASS")
 	get_tree().quit(1 if failed else 0)

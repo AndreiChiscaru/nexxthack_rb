@@ -142,7 +142,7 @@ func _response(id: int, response: Dictionary) -> void:
 			last_error += " Sesiunea poate fi expirată. Repornește aplicația pentru o sesiune nouă; conversația curentă rămâne vizibilă aici."
 		if operation in ["start", "action", "advance"] and (response.get("status", 0) == 0 or response.get("status", 0) >= 500):
 			needs_recovery = true
-			last_error += " Nu repeta tranzacția înainte să verifici starea prin «Actualizează»."
+			last_error += " Nu repeta tranzacția înainte să verifici starea prin «Reîncearcă sincronizarea»."
 		changed.emit()
 		return
 	if not response.get("data") is Dictionary:
