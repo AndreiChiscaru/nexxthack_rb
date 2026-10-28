@@ -94,7 +94,7 @@ func _run() -> void:
 	response = await _wait(_api.get_game_state("nonexistent-frontend-test-session"))
 	_check(not response.ok and response.status == 404 and response.error.code == "http", "missing session is a recoverable HTTP error")
 	response = await _wait(_api.perform_action(session_id, "bank", "unknown-test-action"))
-	_check(not response.ok and response.status == 400, "invalid action is not treated as success")
+	_check(not response.ok and response.status == 404 and response.error.code == "http", "unknown action is a recoverable HTTP 404")
 	response = await _wait(_api.request_json("/api/game/start", HTTPClient.METHOD_POST, {"session_id": session_id, "profile": {}}))
 	_check(not response.ok and response.status == 422 and response.error.message is String, "FastAPI schema validation is displayed safely")
 	_api.queue_free()

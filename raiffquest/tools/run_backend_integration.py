@@ -28,6 +28,8 @@ def main():
 
 
 def run_test(godot):
+    # The real onboarding now calls Claude when credentials are configured.
+    os.environ["MOCK_LLM"] = "true"
     import uvicorn
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:

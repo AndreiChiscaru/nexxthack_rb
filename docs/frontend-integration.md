@@ -126,3 +126,14 @@ Acest test porneste automat backend-ul pe un port local liber si il opreste la f
 - Aplicatia desktop porneste; `/api/health`, `/docs` si `/demo` raspund local.
 
 Apelurile LLM reale si exportul web complet nu au fost verificate in acest checkpoint. Verificarea utilizatoarei si push-ul sunt urmatorul pas al fluxului convenit.
+
+### Integrare backend — 28 octombrie 2026
+
+Integrate `backend/gabi` la `311e64c` (include `main` la `035a542`) si grafica `feature/ui-ux` la `99ab40c`.
+
+- `/api/onboarding/message` foloseste acum agentul real cand exista cheia configurata si `MOCK_LLM` nu este `true`. Contractul frontend ramane compatibil.
+- `/api/onboarding/statement` analizeaza documentul si poate returna suplimentar `reply`; profilul agentului este convertit la contractul comun.
+- Evenimentele sunt planificate din biblioteca noua; o actiune inexistenta returneaza 404. Testul clientului verifica acest comportament.
+- Runnerul de integrare seteaza explicit `MOCK_LLM=true` pentru a evita apelurile externe chiar daca exista credentiale in mediu.
+- Verificari dupa merge: 148 teste backend, 26 verificari Godot–FastAPI si 59 verificari transport frontend, toate trecute. Un avertisment de depreciere pytest/anyio.
+- Apelurile reale Claude nu au fost testate. Onboardingul Godot nu este implementat in acest checkpoint; macheta vizuala V2 este un prototip separat, cu dialog demonstrativ si avatar provizoriu, aflat in evaluare.
