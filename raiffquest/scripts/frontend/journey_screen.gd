@@ -247,9 +247,13 @@ func _layout() -> void:
 	var w := size.x
 	var h := size.y
 	landscape.pivot_offset = size * Vector2(0.5, 0.42)
-	hero.position = Vector2(48, 170)
-	greeting.position = Vector2(290, 210)
-	greeting.size = Vector2(maxf(400, minf(530, w - 330)), 210)
+	# AIngel and the greeting move as one group, centred on screen.
+	var greeting_width := maxf(400, minf(530, w - 330))
+	var group := Vector2(242 + greeting_width, 265)
+	var origin := Vector2(maxf(24, (w - group.x) / 2 - 60), maxf(110, (h - group.y) / 2))
+	hero.position = origin
+	greeting.position = origin + Vector2(242, 40)
+	greeting.size = Vector2(greeting_width, 210)
 	chat.layout_width = 350.0 if controller.phase == "map" else minf(940, w - 40)
 	chat._resize_rows()
 	chat.position = Vector2(maxf(20, (w - 940) / 2), 105)
@@ -464,12 +468,18 @@ func _close_chat() -> void:
 	channel = "onboarding"
 	chat.invest_mode = false
 	chat.attach_kind = "statement"
+	_dismiss(chat)
+	# Refill only once the panel is hidden, so fresh portraits never flash over the map.
+	_panel_tweens[chat].chain().tween_callback(_refill_onboarding_chat)
+
+func _refill_onboarding_chat() -> void:
+	if chat.visible:
+		return
 	chat.set_agent("")
 	chat.set_heading("AIngel\nConsilierul tău · pas cu pas")
 	chat.clear_messages()
 	for message: Dictionary in controller.transcript:
 		chat.append(message)
-	_dismiss(chat)
 
 func _open_chat() -> void:
 	_layout()
@@ -612,6 +622,7 @@ func _institution(id: String) -> void:
 	if pending == 0:
 		location_contents.add_child(Kit.text("Nu ai evenimente de rezolvat aici în această lună. Poți discuta opțiunile cu AIngel.", 14, Kit.MUTED))
 	if id == "bank":
+		_bank_stats()
 		_bank_actions()
 	if id == "business":
 		var contabil := Kit.button("Contabil", _show_business, true)
@@ -619,13 +630,107 @@ func _institution(id: String) -> void:
 		contabil.expand_icon = true
 		contabil.add_theme_constant_override("icon_max_width", 40)
 		location_contents.add_child(contabil)
-	location_contents.add_child(Kit.button("Întreabă-l pe AIngel", func():
-		var question := "Ce opțiuni am la %s pentru obiectivul meu?" % NAMES.get(id, id)
-		_show_onboarding_chat()
-		chat.input.text = question
-	))
+	if id != "bank":
+		location_contents.add_child(Kit.button("Întreabă-l pe AIngel", func():
+			var question := "Ce opțiuni am la %s pentru obiectivul meu?" % NAMES.get(id, id)
+			_show_onboarding_chat()
+			chat.input.text = question
+		))
 	if not location.visible:
 		_reveal(location)
+
+# AIngel opens on the Raiffeisen offer and immediately asks the agent, which picks products from the catalog.
+func _ask_raiffeisen_offer() -> void:
+	if controller.busy:
+		return
+	_show_onboarding_chat()
+	chat.append({"role": "AIngel", "text": "Hai să vedem ce îți poate oferi Raiffeisen: conturi și economii, depozite, carduri, credite, investiții, pensie și asigurări. Mă uit în oferta băncii și îți spun ce ți se potrivește acum."})
+	controller.send_message("Ce produse și servicii Raiffeisen mi se potrivesc acum, pentru obiectivul și cheltuielile mele? Dă-mi câteva recomandări și explică-mi beneficiile lor.")
+
+const EXPENSE_LABELS := {"home": "Locuință", "market": "Cumpărături", "education": "Educație", "health": "Sănătate", "business": "Firmă", "bank": "Rate la bancă"}
+const GOOD := Color("3f7d3a")
+const BAD := Color("963b2b")
+
+# Read-only summary of the server state; every figure comes from the snapshot, nothing is recomputed here
+# except sums and the monthly difference.
+func _bank_stats() -> void:
+	var state: Dictionary = controller.state
+	var balance: Dictionary = state.get("balance", {})
+	var monthly: Dictionary = state.get("monthly", {})
+	var expenses: Dictionary = monthly.get("expenses", {})
+	var income := float(monthly.get("income", 0))
+	var spent := 0.0
+	for amount in expenses.values():
+		spent += float(amount)
+	var left := income - spent
+	var panel := PanelContainer.new()
+	var surface := Kit.box(Color("f4f1dc"), Color("8e9f73"), 12)
+	surface.set_border_width_all(1)
+	surface.shadow_size = 0
+	surface.shadow_offset = Vector2.ZERO
+	panel.add_theme_stylebox_override("panel", surface)
+	location_contents.add_child(panel)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 6)
+	panel.add_child(col)
+	col.add_child(Kit.strong("Statistica ta · luna %d" % int(state.get("month", 0)), 17))
+	col.add_child(_stat_row("Venit lunar", income))
+	col.add_child(_stat_row("Cheltuieli lunare", spent))
+	col.add_child(_stat_row("Îți rămân pe lună", left, GOOD if left >= 0 else BAD))
+	col.add_child(HSeparator.new())
+	col.add_child(Kit.text("Pe ce se duc banii", 13, Kit.MUTED))
+	var rows: Array = []
+	for key in expenses.keys():
+		if float(expenses[key]) > 0.5:
+			rows.append([str(key), float(expenses[key])])
+	rows.sort_custom(func(a, b): return a[1] > b[1])
+	for row in rows:
+		col.add_child(_expense_bar(EXPENSE_LABELS.get(row[0], row[0]), row[1], spent))
+	if rows.is_empty():
+		col.add_child(Kit.text("Nu ai cheltuieli lunare înregistrate.", 13, Kit.MUTED))
+	col.add_child(HSeparator.new())
+	col.add_child(Kit.text("Ce ai acum", 13, Kit.MUTED))
+	col.add_child(_stat_row("Disponibil", float(balance.get("cash", 0))))
+	col.add_child(_stat_row("Economii", float(balance.get("savings", 0))))
+	col.add_child(_stat_row("Investiții", float(balance.get("investments", 0))))
+	col.add_child(_stat_row("Datorii", float(balance.get("debt", 0)), BAD if float(balance.get("debt", 0)) > 0.5 else Kit.INK))
+	var worth := float(balance.get("net_worth", 0))
+	col.add_child(_stat_row("Avere netă", worth, GOOD if worth >= 0 else BAD))
+	var wellbeing: Dictionary = state.get("wellbeing", {})
+	col.add_child(Kit.text("Stres %.0f · Încredere %.0f" % [float(wellbeing.get("stress", 0)), float(wellbeing.get("confidence", 0))], 13, Kit.MUTED))
+	var averages: Array = state.get("categories", [])
+	if not averages.is_empty():
+		col.add_child(HSeparator.new())
+		col.add_child(Kit.text("Medii din extras", 13, Kit.MUTED))
+		for cat: Dictionary in averages:
+			col.add_child(_stat_row(str(cat.get("label", "")), float(cat.get("monthly", 0))))
+
+func _stat_row(caption: String, amount: float, color: Color = Kit.INK) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	var name_label := Kit.text(caption, 14)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(name_label)
+	var value := Kit.strong("%.0f lei" % amount, 14, color)
+	value.autowrap_mode = TextServer.AUTOWRAP_OFF
+	row.add_child(value)
+	return row
+
+func _expense_bar(caption: String, amount: float, total: float) -> VBoxContainer:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 2)
+	var share := amount / total * 100.0 if total > 0 else 0.0
+	box.add_child(_stat_row("%s · %.0f%%" % [caption, share], amount))
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size.y = 6
+	bar.show_percentage = false
+	bar.value = share
+	var fill := Kit.box(Color("cdb800"), Color("cdb800"), 0)
+	fill.shadow_size = 0
+	fill.shadow_offset = Vector2.ZERO
+	bar.add_theme_stylebox_override("fill", fill)
+	bar.add_theme_stylebox_override("background", Kit.box(Color("dce0c7"), Color("dce0c7"), 0))
+	box.add_child(bar)
+	return box
 
 func _bank_actions() -> void:
 	location_contents.add_child(Kit.text("Transfer în simulare", 17))
@@ -635,6 +740,10 @@ func _bank_actions() -> void:
 	amount.value = 100
 	amount.suffix = " lei"
 	location_contents.add_child(amount)
+	var offer_button := Kit.button("Întreabă-l pe AIngel de serviciile Raiffeisen", _ask_raiffeisen_offer, true)
+	offer_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	offer_button.disabled = controller.busy or controller.needs_recovery
+	location_contents.add_child(offer_button)
 	for spec in [["save", "Mută în economii"], ["invest", "Investește"], ["repay", "Rambursează datorii"], ["set_monthly_saving", "Economisire lunară automată"], ["set_monthly_invest", "Investiție lunară automată"]]:
 		var button := Kit.button(spec[1], func(): controller.act("bank", spec[0], {"amount": amount.value}))
 		button.disabled = controller.busy or controller.needs_recovery
