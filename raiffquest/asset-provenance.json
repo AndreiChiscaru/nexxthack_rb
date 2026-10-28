@@ -520,6 +520,33 @@
       "useEvidence": [],
       "used": false,
       "usedBy": []
+    },
+    "assets/raiff/hospital_flat_isometric.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [],
+      "license": {
+        "note": "Subject to OpenAI terms"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:2268c105abcf795a67ca60fd44433760fddd1a25eb9ba027965059aca729142d",
+      "shipped": true,
+      "size": 2034426,
+      "source": {
+        "description": "Generated for RaiffQuest on 2026-10-28",
+        "style": "Flat Vector Isometric",
+        "purpose": "Hospital building for medical expenses, health events and insurance",
+        "palette": "White, teal, coral, charcoal and green"
+      },
+      "status": "present",
+      "transformations": [],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
     }
   },
   "discoveries": {},
