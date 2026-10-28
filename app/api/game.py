@@ -102,7 +102,7 @@ def action(req: GameActionRequest):
         raise HTTPException(400, f"Acțiune necunoscută: {req.action_id}.")
 
     state.log.append(LogEntry(month=state.month, institution=req.institution, text=text))
-    recompute(state)
+    recompute(state, session.profile.goal.horizon_months)
     _sync_pending(session)
     after = _snapshot(state)
     delta = {k: round(after[k] - before[k], 2) for k in after if after[k] != before[k]}
@@ -136,6 +136,6 @@ def advance(req: GameAdvanceRequest):
     for e in new_events:
         state.log.append(LogEntry(month=state.month, institution=e.institution, text=e.title))
 
-    recompute(state)
+    recompute(state, session.profile.goal.horizon_months)
     _sync_pending(session)
     return GameAdvanceResponse(state=state, events=new_events)

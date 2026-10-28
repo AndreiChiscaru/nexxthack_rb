@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.mock_data import ANDREI_PROFILE
 
 client = TestClient(app)
 
@@ -147,6 +148,18 @@ def test_products():
     assert all(p["mock"] is True for p in all_products)
     savings = client.get("/api/products", params={"category": "savings"}).json()["products"]
     assert {p["id"] for p in savings} == {"cont_economii", "depozit"}
+
+
+@pytest.mark.parametrize(("horizon", "on_track"), [(12, False), (36, True)])
+def test_on_track_uses_profile_horizon(horizon, on_track):
+    # Savings 1200 / target 25000 = 0.048 progress after month 1: behind 1/12, ahead of 1/36.
+    profile = ANDREI_PROFILE.model_dump()
+    profile["goal"]["horizon_months"] = horizon
+    sid = new_session()
+    client.post("/api/game/start", json={"session_id": sid, "profile": profile})
+    state = client.post("/api/game/advance", json={"session_id": sid}).json()["state"]
+    assert state["goal"]["progress"] == 0.048
+    assert state["goal"]["on_track"] is on_track
 
 
 def test_existing_routes_still_work():
