@@ -2,7 +2,9 @@
 
 Shapes follow `docs/implementation-plan.md` §4. `/api/game/*` runs on the real financial engine
 (`app/sim/engine.py`, port of `finance_sim.gd`) with events from `data/events.json`. Onboarding runs the real
-agent when an API key is set (see [Onboarding](#onboarding)). Advisor, business and products are still **mock**;
+agent when an API key is set (see [Onboarding](#onboarding)). Products come from `data/products.json`
+(see [Products & campaigns](#products--campaigns)). Advisor and business reply with fixed text, but their `tool_calls` are real tool runs
+(see [Tools for agents](#tools-for-agents));
 each mock in the code is marked `# TODO(real): ...`.
 
 - Base URL: same origin as the game (`/joc`). CORS is open (`*`) for local dev.
@@ -22,12 +24,14 @@ each mock in the code is marked `# TODO(real): ...`.
 | POST | `/api/advisor/message` | JSON `{session_id, text}` | `{reply, tool_calls[]}` |
 | POST | `/api/business/message` | multipart `session_id`, `text`, optional `file` | `{reply, tool_calls[]}` |
 | GET | `/api/products` | `?category=` (optional) | `{products[]}` |
+| GET | `/api/products/{id}` | none | `Product` (404 if unknown) |
+| GET | `/api/campaigns` | none | `{campaigns[]}`, only the ones not expired |
 
 Shared shapes:
 
 - `ToolCall = {name, args, summary}`
 - `Event` uses the §4.4 format: `{id, institution, title, text, options: [{id, label, ops}]}`
-- `Product = {id, category, name, apr, min_months, max_months, note, mock}`, the same fields as `catalog.gd`
+- `Product = {id, category, name, terms, conditions, best_for, cautions, as_of_date, disclaimer}`; see [Products & campaigns](#products--campaigns)
 - Institutions: `home | market | education | work | business | hospital | bank`
 
 Mock behaviour:
@@ -61,7 +65,7 @@ How the engine maps onto `GameState` (§4.2):
 | `monthly.income` | `salary + side_income`; side income starts as `income.other + education.scholarship` |
 | `monthly.expenses.business` | `0` for now |
 | `monthly.expenses.bank` | loan payments |
-| `products` | `cont_economii` = emergency, `depozit` = deposit, `fond_diversificat` = fund (only if > 0) |
+| `products` | catalog ids: `super_acces_plus` = emergency, `depozit_1_an` = deposit, `fonduri_smartinvest` = fund (only if > 0) |
 
 The six expense keys always add up to what the month deducts.
 
@@ -198,6 +202,147 @@ Mapping from the agent profile (`app/agents/profile.py`) to §4.1, in one place 
 
 Same names in both: `name`, `age`, `goal.description/target_amount/horizon_months`, `income.salary/other`, `education.status/tuition_monthly`, `health.insured`, `risk_tolerance` (`scazuta|medie|ridicata`), `dependents`.
 
+## Products & campaigns
+
+The catalog is `data/products.json`: the public Raiffeisen offer as of 28 October 2026, the same file the consultant agent (`app/agents/consultant.py`) searches. `app/catalog.py` validates it once at startup. The server refuses to start on:
+- a duplicate id or an id that isn't `snake_case`
+- a missing required field
+- an unknown category
+
+### Product schema
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string | `snake_case`, unique |
+| `category` | string | `credit`, `locuinta`, `economii`, `cont`, `card`, `investitii`, `pensie`, `asigurare` |
+| `name` | string | commercial name |
+| `terms` | string | rates, amounts, terms, as published |
+| `conditions` | string | eligibility (may be empty) |
+| `best_for` | string | who it suits |
+| `cautions` | string | what to watch out for |
+| `as_of_date` | date | **optional in the file**, defaults to `2026-10-28`; always present in the API |
+| `disclaimer` | string | **optional in the file**, defaults to the standard text; always present in the API |
+
+**Rates are not guaranteed.** Loan rates are "de la" (minimums, checked by a test for `credit`/`locuinta`) and the final cost is set by the bank. Savings rates are gross and can change. The `disclaimer` says this on every product.
+
+Unknown extra keys in the file are ignored, so a teammate's additions don't block startup.
+
+### Campaigns
+
+Time-limited campaigns are in `data/campaigns.json`: the same text fields plus `start_date?`, `end_date` (required), `product_id?` (must exist in the catalog), `as_of_date` and `disclaimer`. `GET /api/campaigns` returns only campaigns whose `end_date` hasn't passed (the end date itself still counts), soonest-ending first.
+
+The 4 old `category: "campanie"` entries stay in `products.json` for now, because the consultant searches them there. `/api/products` hides them: `?category=campanie` returns 400 pointing to `/api/campaigns`, and `/api/products/campanie_*` returns 404.
+
+### Endpoints
+
+| Request | Response |
+|---|---|
+| `GET /api/products` | every catalog product |
+| `GET /api/products?category=economii` | one category; an unknown category returns **400** |
+| `GET /api/products/{id}` | one product; **404** if unknown |
+| `GET /api/campaigns` | active campaigns |
+
+### Updating the catalog from the bank's PDF
+
+```bash
+python -m tools.ingest_products oferta_raiffeisen.pdf --dry-run          # print the result, write nothing
+python -m tools.ingest_products oferta_raiffeisen.pdf --as-of 2026-11-15  # write data/products.from_pdf.json
+```
+
+1. **Read and extract.** The script reads the PDF with `app/extraction.py` (OCR fallback) and asks Claude for a JSON list in the catalog's shape. Structured output is used, the model is `INGEST_MODEL` (default `claude-opus-5-5`), and `ANTHROPIC_API_KEY` must be set.
+2. **Validate.** It validates the list with the same `Product` model used at startup.
+3. **Review file.** It writes `data/products.from_pdf.json` and prints a review report: `added`, `changed` and `missing_from_pdf` ids.
+4. **Manual merge.** It **never** writes `data/products.json` and refuses `--out` pointing at it. A person reviews the file and copies over what's correct.
+
+## Tools for agents
+
+`app/tools.py` exposes the engine (`app/sim/`) and the catalog (`app/catalog.py`) as tools for the agents.
+- **What a tool is:** a plain Python function that returns a JSON-safe dict with a short Romanian `summary`.
+- **`TOOL_SCHEMAS`:** a list of `{name, description, input_schema}`, ready for Claude tool use.
+- **`run_tool(name, args, session_id)`** is the only entry point. It validates the arguments and runs the tool. Unknown tool or bad arguments → `ToolError`, also logged.
+- **`llm_tools(session_id)`** returns the same tools as `app/agents/llm.py` `Tool` objects, ready for `chat_turn()`.
+- **Logging:** every call goes into `session.tool_log` as `{name, args, summary, duration_ms}`, the `ToolCall` shape plus the duration. Server logs get only the name, status and duration, never arguments or results.
+- **Simulations:** they run on a **deep copy** of the session's engine state (and rng), so they never change the game. Random events aren't simulated.
+
+| Tool | Arguments | Returns |
+|---|---|---|
+| `get_state` | — | the current `GameState` (§4.2) |
+| `get_goal_progress` | — | `target_amount, saved, remaining, progress, on_track, months_elapsed, months_left, monthly_needed, monthly_contributions` |
+| `simulate_decision` | `ops` (engine ops, as in events), `months` 1–120 (default 12) | `before` (now), `after` (with the decision), `baseline` (no change), `delta` = after − before, `impact_vs_no_change` = after − baseline |
+| `compare_scenarios` | `scenarios: {name: ops}` (1–5), `months` | one row per scenario plus `"fără schimbări"`, and `best` (highest goal progress, then net worth) |
+| `search_products` | `category?`, `query?` (accent-insensitive words in name/terms/best_for) | catalog products |
+| `compare_products` | `ids[]` (1–6), `amount` (lei), `months` | loans (`credit`, `locuinta`): `monthly_payment` (engine `pmt`), `total_paid`, `total_interest`. Savings (`economii`): `gross_interest`, `tax` (10%), `net_interest`. Each row has `notes` and the product `disclaimer` |
+| `create_action_plan` | — | 3–5 `steps: [{title, why, action?, product_id?}]`. Rule-based priority: overdraft → budget deficit → expensive debt (APR ≥ 15%) → emergency fund (< 3 months) → life insurance (dependents) → goal savings → investing. `action` is a ready `/api/game/action` body |
+
+**Limits of `compare_products`:**
+- **The rate is the first percentage in `terms`.** The catalog is text, so for tiered rates or several variants, the first one is used (a note says so).
+- **Mortgages:** the calculation uses the initial fixed rate for the whole term (a note says the rate later follows IRCC).
+- **Deposits:** simple interest over the requested months, even if the deposit has its own term.
+
+Examples (Andrei, month 0):
+
+```json
+// run_tool("get_goal_progress", {}, sid)
+{"goal_type": "avans_casa", "target_amount": 25000.0, "saved": 1200.0, "remaining": 23800.0, "progress": 0.048, "on_track": true,
+ "months_elapsed": 0, "months_left": 36, "monthly_needed": 661.11, "monthly_contributions": 0.0,
+ "summary": "Progres 5% (1.200 lei din 25.000 lei); mai sunt 36 luni, ai nevoie de ~661 lei/lună; pui deoparte automat 0 lei/lună."}
+
+// run_tool("simulate_decision", {"ops": {"emergency_contrib": 300}, "months": 12}, sid)  (shortened)
+{"impact_vs_no_change": {"cash": -2560.0, "savings": 2614.38, "investments": 0.0, "debt": 0.0, "net_worth": 54.38, "goal_progress": 0.1},
+ "summary": "În 12 luni: patrimoniu +54 lei față de fără schimbare, datorii 0 lei, progres scop 15% (fără schimbare 5%)."}
+
+// run_tool("compare_scenarios", {"scenarios": {"economisesc": {"emergency_contrib": 500}, "cheltui mai mult": {"living_add": 300}}, "months": 12}, sid)
+{"best": "economisesc", "scenarios": [{"scenario": "fără schimbări", "...": "..."}, "..."],
+ "summary": "3 scenarii pe 12 luni; cel mai bun progres spre scop: „economisesc” (16%, patrimoniu -456 lei)."}
+
+// run_tool("search_products", {"category": "economii", "query": "depozit"}, sid)
+{"products": ["..."], "summary": "4 produse (economii) pentru „depozit”: Depozit Fresh Money, Flexidepozit, Depozit la termen până la 1 an, Depozit la 24 de luni"}
+
+// run_tool("compare_products", {"ids": ["credit_nevoi", "fresh_money"], "amount": 10000, "months": 12}, sid)  (shortened)
+{"products": [
+   {"id": "credit_nevoi", "rate": 0.0595, "kind": "loan", "monthly_payment": 860.43, "total_paid": 10325.21, "total_interest": 325.21,
+    "notes": ["dobândă „de la”; costul final îl stabilește banca"], "disclaimer": "..."},
+   {"id": "fresh_money", "rate": 0.062, "kind": "deposit", "gross_interest": 620.0, "tax": 62.0, "net_interest": 558.0, "notes": ["..."], "disclaimer": "..."}],
+ "summary": "10.000 lei pe 12 luni. Credit de nevoi personale: 860 lei/lună, dobândă totală 325 lei; Depozit Fresh Money: dobândă netă 558 lei"}
+
+// run_tool("create_action_plan", {}, sid)
+{"steps": [
+   {"title": "Echilibrează bugetul lunar", "why": "Cheltuielile și ratele depășesc venitul cu 120 lei/lună; diferența se ia din economii sau din descoperit.", "action": null, "product_id": null},
+   {"title": "Construiește fondul de urgență", "why": "Acoperă 0,3 luni de cheltuieli; ținta e 3-6 luni.",
+    "action": {"action_id": "set_monthly_saving", "params": {"amount": 100.0}}, "product_id": "super_acces_plus"},
+   {"title": "Caută un venit suplimentar", "why": "...", "action": null, "product_id": null}],
+ "summary": "3 pași: Echilibrează bugetul lunar; Construiește fondul de urgență; Caută un venit suplimentar"}
+```
+
+### Status: consultant agent
+
+`app/agents/consultant.py` **can't take these tools yet**:
+- **Fixed tool list:** `user_turn(session_id, convo, text)` builds its own list with `_tools(session_id)`.
+- **Its own copy of the game:** the profile, statement and game come from the SQLite store, in the `app/demo/engine.py` format.
+- **Prompt:** it names its own tools (`get_financial_state`, `simulate_event_options`, `simulate_plan`).
+
+Until that changes, `/api/advisor/message` returns a fixed reply, but its `tool_calls` are real `run_tool` calls: `get_goal_progress`, `search_products`, then `compare_products` (if the message mentions a loan) or `create_action_plan`.
+
+Proposed change for the agents owner, backwards compatible, so the demo keeps working:
+
+```python
+# app/agents/consultant.py
+def user_turn(session_id: str, convo: dict, text: str, tools: list[Tool] | None = None,
+              profile: dict | None = None, statement: dict | None = None):
+    profile = profile if profile is not None else store.load(session_id, "profile", {}).get("data", {})
+    statement = statement if statement is not None else (store.load(session_id, "statement") or {}).get("analysis")
+    ...
+    yield from chat_turn(convo, system, tools if tools is not None else _tools(session_id))
+```
+
+The backend would then call:
+```python
+consultant.user_turn(session.id, convo, text, tools=llm_tools(session.id),
+                     profile=session.profile.model_dump(), statement=session.statement)
+```
+
+The `SYSTEM` prompt should then name the tools generically, or accept the tool list as a parameter, instead of hard-coding the demo's three names.
+
 ## Data & privacy
 
 - **Uploaded files** are read into memory and never written to disk. Neither the file nor its extracted text is kept in the session; the session keeps only `{score, risk_signals}` from the analysis.
@@ -277,7 +422,7 @@ curl -F session_id=c3db... -F file=@extras.pdf http://localhost:8000/api/onboard
            "monthly": {"income": 4300, "expenses": {"home": 1970, "market": 1800, "education": 0, "health": 0, "business": 0, "bank": 650}},
            "wellbeing": {"stress": 35, "confidence": 45},
            "institutions": [{"id": "home", "pending_events": 0}, "...", {"id": "hospital", "pending_events": 1}, {"id": "bank", "pending_events": 1}],
-           "products": [{"id": "cont_economii", "balance": 1200}],
+           "products": [{"id": "super_acces_plus", "balance": 1200}],
            "log": [{"month": 0, "institution": "home", "text": "Andrei începe aventura."}]},
  "events": [{"id": "dentist", "institution": "hospital", "title": "Urgență stomatologică", "text": "...",
              "options": [{"id": "pay_cash", "label": "Plătesc din economii", "ops": {"spend": 1200}},
@@ -322,10 +467,11 @@ Errors: see the actions table and [Events](#events). An `institution` outside th
 // response
 {"reply": "Îți recomand să pui întâi deoparte un fond de urgență de 3 luni, apoi să accelerezi plata creditului.",
  "tool_calls": [
-   {"name": "get_player_profile", "args": {}, "summary": "Luna 0, cash 4000 lei, stres 35/100."},
-   {"name": "search_products", "args": {"category": "savings"}, "summary": "2 produse demo: Cont de Economii Automat Demo, Depozit Flexibil Demo."},
-   {"name": "simulate_decision", "args": {"option": "A", "months": 36}, "summary": "Varianta A: dobândă totală plătită 2.310 lei, rată 650 lei/lună."}]}
+   {"name": "get_goal_progress", "args": {}, "summary": "Progres 5% (1.200 lei din 25.000 lei); mai sunt 36 luni, ai nevoie de ~661 lei/lună; pui deoparte automat 0 lei/lună."},
+   {"name": "search_products", "args": {"category": "economii"}, "summary": "6 produse (economii): Cont de economii Super Acces Plus, Plătești și economisești, Depozit Fresh Money, Flexidepozit, Depozit la termen până la 1 an, Depozit la 24 de luni"},
+   {"name": "compare_products", "args": {"ids": ["credit_nevoi", "refinantare"], "amount": 10000, "months": 36}, "summary": "10.000 lei pe 36 luni. Credit de nevoi personale: 304 lei/lună, dobândă totală 944 lei; Refinanțare fără ipotecă: 304 lei/lună, dobândă totală 944 lei"}]}
 ```
+The reply is still fixed; the tool calls are real (see [Tools for agents](#tools-for-agents)).
 
 ### POST /api/business/message
 ```bash
@@ -335,16 +481,31 @@ curl -F session_id=c3db... -F text="Vreau o cafenea" -F file=@plan.pdf http://lo
 {"reply": "Ideea pare viabilă dacă poți acoperi 6 luni de costuri fixe. Hai să vedem un plan de finanțare.",
  "tool_calls": [
    {"name": "read_document", "args": {"filename": "plan.pdf"}, "summary": "Document primit (9 octeți), analiză mock."},
-   {"name": "search_products", "args": {"category": "credit_business"}, "summary": "1 produs demo: Credit Micro-Business Demo."},
-   {"name": "simulate_decision", "args": {"principal": 20000, "apr": 0.099, "months": 36}, "summary": "Rată estimată 644 lei/lună, dobândă totală 3.190 lei."}]}
+   {"name": "search_products", "args": {"category": "credit"}, "summary": "4 produse (credit): Credit de nevoi personale, Refinanțare fără ipotecă, Refinanțare cu ipotecă – Flexicredit Integral, Overdraft"},
+   {"name": "compare_products", "args": {"ids": ["credit_nevoi"], "amount": 20000, "months": 36}, "summary": "20.000 lei pe 36 luni. Credit de nevoi personale: 608 lei/lună, dobândă totală 1.887 lei"}]}
 ```
 
-### GET /api/products?category=savings
+### GET /api/products?category=economii
 ```json
 {"products": [
-  {"id": "cont_economii", "category": "savings", "name": "Cont de Economii Automat Demo", "apr": 0.03,
-   "min_months": 0, "max_months": 0, "note": "Dobândă fictivă 3%/an, transfer automat lunar, bani disponibili oricând.", "mock": true},
-  {"id": "depozit", "category": "savings", "name": "Depozit Flexibil Demo", "apr": 0.045,
-   "min_months": 0, "max_months": 0, "note": "Dobândă fictivă 4,5%/an, pentru sume care nu sunt necesare imediat.", "mock": true}]}
+  {"id": "super_acces_plus", "category": "economii", "name": "Cont de economii Super Acces Plus",
+   "terms": "Dobândă brută în lei 2% / 2,5% / 3% pe tranșe; 0,5% la euro; 0,3% la dolar. Acces oricând, fără sumă minimă efectivă. Dobânda se capitalizează lunar.",
+   "conditions": "Dobânda brută este impozitată cu 10%. Depozitele sunt acoperite de Fondul de Garantare a Depozitelor în Sistemul Bancar.",
+   "best_for": "fondul de urgență: banii rămân disponibili oricând",
+   "cautions": "Nu e produsul cu dobânda cea mai mare. Alege-l pentru siguranță și acces, nu pentru randament.",
+   "as_of_date": "2026-10-28",
+   "disclaimer": "Informații publice Raiffeisen Bank, cu titlu educativ. Dobânzile la credite sunt „de la” (minime) și nu sunt garantate: ..."},
+  "... platesti_si_economisesti, fresh_money, flexidepozit, depozit_1_an, depozit_24_luni"]}
 ```
-Categories: `credit_auto`, `credit_personal`, `credit_business`, `savings`, `investment`, `insurance`.
+`GET /api/products/super_acces_plus` returns that object on its own; `GET /api/products/nu_exista` → 404 `{"detail": "Produs necunoscut: nu_exista."}`.
+
+### GET /api/campaigns
+```json
+{"campaigns": [
+  {"id": "campanie_credit", "name": "Bonus pentru carduri de credit Standard sau eMAG",
+   "terms": "Bonus de 150 lei după primii 1.000 lei cheltuiți. Campania se termină la 2 noiembrie 2026.",
+   "conditions": "Doar pentru anumite carduri Standard sau eMAG.", "best_for": "...", "cautions": "...",
+   "start_date": null, "end_date": "2026-11-02", "product_id": "carduri_credit",
+   "as_of_date": "2026-10-28", "disclaimer": "..."},
+  "... campanie_premium (2026-12-31), campanie_debit (2027-01-31)"]}
+```

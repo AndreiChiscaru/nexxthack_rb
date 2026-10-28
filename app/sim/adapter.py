@@ -155,9 +155,13 @@ def goal(sim: E.SimState, profile: Profile, month: int) -> GoalProgress:
     )
 
 
+# Engine balance -> the catalog product (data/products.json) it represents in GameState.products.
+HOLDING_PRODUCTS = {"emergency": "super_acces_plus", "deposit": "depozit_1_an", "fund": "fonduri_smartinvest"}
+
+
 def products(sim: E.SimState) -> list[ProductHolding]:
-    held = {"cont_economii": sim["emergency"], "depozit": sim["deposit"], "fond_diversificat": sim["fund"]}
-    return [ProductHolding(id=pid, balance=_r2(float(v))) for pid, v in held.items() if v > 0.5]
+    return [ProductHolding(id=pid, balance=_r2(float(sim[key])))
+            for key, pid in HOLDING_PRODUCTS.items() if float(sim[key]) > 0.5]
 
 
 def to_game_state(session_id: str, sim: E.SimState, profile: Profile, month: int,

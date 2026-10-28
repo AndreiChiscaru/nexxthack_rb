@@ -34,6 +34,8 @@ class Session:
     pending_events: list[Event] = field(default_factory=list)
     # institution -> {"cycle": ids used in the current cycle, "last": last id}; see app/sim/events.py schedule().
     used_events: dict[str, dict] = field(default_factory=dict)
+    # Every agent tool call ({name, args, summary, duration_ms}); see app/tools.py run_tool().
+    tool_log: list[dict] = field(default_factory=list)
 
 
 _SESSIONS: dict[str, Session] = {}
@@ -45,8 +47,12 @@ def create_session() -> Session:
     return session
 
 
+def find_session(session_id: str) -> Session | None:
+    return _SESSIONS.get(session_id)
+
+
 def get_session(session_id: str) -> Session:
-    session = _SESSIONS.get(session_id)
+    session = find_session(session_id)
     if session is None:
         raise HTTPException(404, "Sesiune inexistentă.")
     return session
