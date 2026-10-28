@@ -65,6 +65,23 @@ func begin() -> void:
 		return
 	_track(api.request_json("/api/health"), "health")
 
+## Back to the welcome screen. The next begin() asks the server for a fresh session.
+func reset_game() -> void:
+	if busy:
+		return
+	session_id = ""
+	phase = "welcome"
+	needs_recovery = false
+	last_error = ""
+	profile = {}
+	state = {}
+	events = []
+	products = []
+	transcript = []
+	advisor_transcript = []
+	business_transcript = []
+	changed.emit()
+
 func send_message(text: String, event_id: String = "") -> void:
 	text = text.strip_edges()
 	if busy or session_id.is_empty() or text.is_empty():

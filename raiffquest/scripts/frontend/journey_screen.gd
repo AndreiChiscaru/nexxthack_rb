@@ -5,6 +5,7 @@ const Controller = preload("res://scripts/frontend/session_controller.gd")
 const Chat = preload("res://scripts/frontend/journey_chat.gd")
 const CityMap = preload("res://scripts/frontend/city_map.gd")
 const Upload = preload("res://scripts/frontend/statement_upload.gd")
+const GameEnd = preload("res://scripts/frontend/game_end.gd")
 const NAMES := {"home": "Acasă", "market": "Piață", "education": "Educație", "work": "Loc de muncă", "business": "Afacere", "hospital": "Spital", "bank": "Bancă"}
 var controller: Node
 var chat: PanelContainer
@@ -42,6 +43,22 @@ var landscape: TextureRect
 var _panel_tweens: Dictionary = {}
 var _landscape_tween: Tween
 var month_dialog: ConfirmationDialog
+var score_value: Label
+var score_bar: ProgressBar
+var score_pace: ColorRect
+var score_hint: Label
+var ending: Control
+var toast: PanelContainer
+var _toast_delta: Label
+var _toast_text: Label
+var _toast_tween: Tween
+# Score bookkeeping for the end screens: the server owns the score, these only remember how it moved.
+var _last_score := -1
+var _start := {}
+var _score_log: Array = []
+var _pending_cause := ""
+var _shown_outcomes := {}
+var _extra_months := 0
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -116,6 +133,11 @@ func _ready() -> void:
 	month_dialog.get_ok_button().add_theme_stylebox_override("normal", confirm_style)
 	month_dialog.get_ok_button().add_theme_stylebox_override("focus", Kit.box(Color("ffffff00"), Color.WHITE, 0))
 	add_child(month_dialog)
+	_build_toast()
+	ending = GameEnd.new()
+	ending.reduced_motion = reduced_motion
+	add_child(ending)
+	ending.chosen.connect(_on_ending_chosen)
 	controller.changed.connect(_update)
 	get_window().files_dropped.connect(_files_dropped)
 	resized.connect(_layout)
@@ -204,6 +226,39 @@ func _build_hud() -> void:
 	hud.add_theme_stylebox_override("panel", surface)
 	hud_text = Kit.text("", 10, Kit.MUTED)
 	col.add_child(hud_text)
+	var score_row := HBoxContainer.new()
+	col.add_child(score_row)
+	var score_caption := Kit.strong("Scor", 14)
+	score_caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	score_row.add_child(score_caption)
+	score_value = Kit.strong("0 / 100", 20)
+	score_value.autowrap_mode = TextServer.AUTOWRAP_OFF
+	score_row.add_child(score_value)
+	score_bar = ProgressBar.new()
+	score_bar.custom_minimum_size.y = 12
+	score_bar.show_percentage = false
+	var score_fill := Kit.box(Kit.YELLOW, Kit.INK, 0)
+	score_fill.set_corner_radius_all(6)
+	score_fill.shadow_size = 0
+	score_fill.shadow_offset = Vector2.ZERO
+	score_bar.add_theme_stylebox_override("fill", score_fill)
+	var score_back := Kit.box(Color("dce0c7"), Color("dce0c7"), 0)
+	score_back.set_corner_radius_all(6)
+	score_back.shadow_size = 0
+	score_back.shadow_offset = Vector2.ZERO
+	score_bar.add_theme_stylebox_override("background", score_back)
+	col.add_child(score_bar)
+	# Where the score should be this month to reach 100 by the deadline.
+	score_pace = ColorRect.new()
+	score_pace.color = Kit.INK
+	score_pace.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	score_pace.anchor_top = 0
+	score_pace.anchor_bottom = 1
+	score_pace.offset_top = -4
+	score_pace.offset_bottom = 4
+	score_bar.add_child(score_pace)
+	score_hint = Kit.text("", 12, Kit.MUTED)
+	col.add_child(score_hint)
 	var metrics := HBoxContainer.new()
 	metrics.add_theme_constant_override("separation", 18)
 	col.add_child(metrics)
@@ -262,7 +317,8 @@ func _layout() -> void:
 		chat.position = Vector2(24, 190)
 		chat.size = Vector2(350, maxf(330, h - 280))
 	hud.position = Vector2(w - 355, 20)
-	hud.size = Vector2(330, 134)
+	hud.size = Vector2(330, maxf(134, hud.get_combined_minimum_size().y))
+	toast.position = Vector2((w - toast.size.x) / 2, h - 150)
 	map_controls.position = Vector2(25, h - 60)
 	map_controls.size = Vector2(400, 40)
 	recovery_button.position = Vector2(25, h - 150)
@@ -308,6 +364,11 @@ func _update() -> void:
 			if not reduced_motion:
 				city.modulate.a = 0
 				create_tween().tween_property(city, "modulate:a", 1.0, 0.65)
+		elif phase == "welcome":
+			if _landscape_tween:
+				_landscape_tween.kill()
+			_landscape_tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			_landscape_tween.tween_property(landscape, "scale", Vector2.ONE, 0.8 if not reduced_motion else 0.0)
 		last_phase = phase
 		_layout()
 	if phase == "map":
@@ -349,8 +410,200 @@ func _update() -> void:
 		advance_button.disabled = controller.busy or controller.needs_recovery or waiting != ""
 		advance_button.text = "Alege termenul fiscal" if waiting == "fiscal" else ("Alege sugestia" if waiting == "cut" else "Luna următoare →")
 		refresh_button.disabled = controller.busy
+		_update_score(state)
+		if not controller.busy:
+			_check_outcome(state)
 		if not selected.is_empty() and location.visible:
 			_institution(selected)
+
+func _horizon() -> int:
+	var goal = controller.profile.get("goal", {})
+	var months := int(goal.get("horizon_months", 0)) if goal is Dictionary else 0
+	return months + _extra_months if months > 0 else 0
+
+func _update_score(state: Dictionary) -> void:
+	var score := int(state.get("score", 0))
+	var month := int(state.get("month", 0))
+	var horizon := _horizon()
+	var balance: Dictionary = state.get("balance", {})
+	if _last_score < 0:
+		_start = {"score": score, "savings": float(balance.get("savings", 0)) + float(balance.get("investments", 0)), "debt": float(balance.get("debt", 0))}
+	elif score != _last_score:
+		var delta := score - _last_score
+		var cause := _pending_cause if not _pending_cause.is_empty() else "Ajustare de la agenți"
+		_score_log.append({"delta": delta, "text": cause, "month": month})
+		_show_toast(delta, cause, "scor %d → %d" % [_last_score, score])
+	_last_score = score
+	if not controller.busy:
+		_pending_cause = ""
+	if horizon > 0:
+		hud_text.text = "LUNA %d DIN %d     %s" % [month, horizon, "AI LIVE" if controller.agent_mode == "live" else "DEMO"]
+	score_value.text = "%d / 100" % score
+	score_bar.value = score
+	var start_score := int(_start.get("score", score))
+	var pace := 100.0
+	if horizon > 0:
+		pace = clampf(start_score + (100.0 - start_score) * month / horizon, 0, 100)
+	score_pace.visible = horizon > 0 and score < 100
+	score_pace.anchor_left = pace / 100.0
+	score_pace.anchor_right = pace / 100.0
+	score_pace.offset_left = -1
+	score_pace.offset_right = 1
+	if score >= 100:
+		score_hint.text = "Scor maxim! Acum termină obiectivul."
+		score_hint.add_theme_color_override("font_color", GOOD)
+	elif score >= 90:
+		score_hint.text = "Mai ai nevoie de %d puncte" % (100 - score)
+		score_hint.add_theme_color_override("font_color", Kit.INK)
+	elif horizon > 0 and score + 0.5 < pace:
+		score_hint.text = "● Rămâi în urmă · ritmul cerut acum: %.0f" % pace
+		score_hint.add_theme_color_override("font_color", Color("8a4708"))
+	else:
+		score_hint.text = "● În grafic spre 100"
+		score_hint.add_theme_color_override("font_color", GOOD)
+
+# The server has no game-over state yet, so the outcome is read from its figures: score, goal progress, month.
+func _check_outcome(state: Dictionary) -> void:
+	if ending.visible:
+		return
+	var score := int(state.get("score", 0))
+	var month := int(state.get("month", 0))
+	var horizon := _horizon()
+	var goal: Dictionary = state.get("goal", {})
+	var reached := float(goal.get("progress", 0)) >= 1.0
+	var kind := ""
+	if reached and score >= 100:
+		kind = "won"
+	elif reached:
+		kind = "goal_only"
+	elif horizon > 0 and month >= horizon:
+		kind = "score_only" if score >= 100 else "expired"
+	var key := kind if kind in ["won", "goal_only"] else "%s@%d" % [kind, horizon]
+	if kind.is_empty() or _shown_outcomes.has(key):
+		return
+	_shown_outcomes[key] = true
+	chat.hide()
+	location.hide()
+	ending.show_outcome(kind, _outcome_data(state))
+
+func _outcome_data(state: Dictionary) -> Dictionary:
+	var balance: Dictionary = state.get("balance", {})
+	var goal: Dictionary = state.get("goal", {})
+	var profile_goal = controller.profile.get("goal", {})
+	var described := str(profile_goal.get("description", "")) if profile_goal is Dictionary else ""
+	var target := float(goal.get("target_amount", 0))
+	var progress := float(goal.get("progress", 0))
+	var debt_goal := str(goal.get("type", "")) == "achitare_datorii"
+	var goal_text := described if not described.is_empty() else ("achitarea datoriilor" if debt_goal else "%.0f lei" % target)
+	var ranked := _score_log.duplicate()
+	ranked.sort_custom(func(a, b): return int(a.delta) > int(b.delta))
+	var best := ranked.filter(func(item): return int(item.delta) > 0).slice(0, 3)
+	ranked.reverse()
+	var worst := ranked.filter(func(item): return int(item.delta) < 0).slice(0, 3)
+	return {
+		"month": int(state.get("month", 0)),
+		"horizon": _horizon(),
+		"score": int(state.get("score", 0)),
+		"score_start": int(_start.get("score", 0)),
+		"progress": progress,
+		"goal_text": goal_text,
+		"savings_start": float(_start.get("savings", 0)),
+		"savings": float(balance.get("savings", 0)) + float(balance.get("investments", 0)),
+		"debt_start": float(_start.get("debt", 0)),
+		"debt": float(balance.get("debt", 0)),
+		"missing": float(balance.get("debt", 0)) if debt_goal else maxf(0, target * (1.0 - progress)),
+		"best": best,
+		"worst": worst,
+	}
+
+func _on_ending_chosen(action: String) -> void:
+	ending.hide()
+	match action:
+		"raiffeisen":
+			_ask_raiffeisen_for_goal()
+		"raiffeisen_save":
+			_ask_raiffeisen_savings()
+		"new_game":
+			_new_game()
+		"extend":
+			_extra_months += 3
+			_update()
+		"talk":
+			_show_onboarding_chat()
+
+func _new_game() -> void:
+	chat.hide()
+	chat.clear_messages()
+	location.hide()
+	profile_panel.hide()
+	selected = ""
+	_last_score = -1
+	_start = {}
+	_score_log = []
+	_pending_cause = ""
+	_shown_outcomes = {}
+	_extra_months = 0
+	controller.reset_game()
+
+func _ask_raiffeisen_for_goal() -> void:
+	if controller.busy:
+		return
+	var goal_text := str(_outcome_data(controller.state).get("goal_text", "obiectivul meu"))
+	_show_onboarding_chat()
+	chat.append({"role": "AIngel", "text": "Ai atins obiectivul în joc. Hai să vedem cum îl atingi și în realitate, cu Raiffeisen."})
+	controller.send_message("Am atins în joc obiectivul meu (%s). Ce produse Raiffeisen mă ajută să-l ating și în realitate? Dă-mi câteva recomandări și explică-mi beneficiile lor." % goal_text)
+
+func _ask_raiffeisen_savings() -> void:
+	if controller.busy:
+		return
+	_show_onboarding_chat()
+	chat.append({"role": "AIngel", "text": "Ai ajuns la obiectiv, dar se putea și mai bine. Hai să vedem ce soluții Raiffeisen te ajută să economisești mai ușor."})
+	controller.send_message("Ce soluții Raiffeisen mă ajută să economisesc mai ușor, pornind de la cheltuielile mele și de la alegerile care m-au costat puncte? Dă-mi câteva recomandări și explică-mi beneficiile lor.")
+
+func _build_toast() -> void:
+	toast = PanelContainer.new()
+	var style := Kit.box(Kit.INK, Kit.INK, 14)
+	style.set_corner_radius_all(12)
+	toast.add_theme_stylebox_override("panel", style)
+	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(toast)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	toast.add_child(row)
+	_toast_delta = Kit.strong("+0", 20)
+	_toast_delta.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_toast_delta.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_toast_delta)
+	var texts := VBoxContainer.new()
+	row.add_child(texts)
+	_toast_text = Kit.strong("", 16, Kit.PAPER)
+	_toast_text.autowrap_mode = TextServer.AUTOWRAP_OFF
+	texts.add_child(_toast_text)
+	var detail := Kit.text("", 13, Color("d9dcc8"))
+	detail.autowrap_mode = TextServer.AUTOWRAP_OFF
+	texts.add_child(detail)
+	toast.hide()
+
+func _show_toast(delta: int, cause: String, detail: String) -> void:
+	var chip := Kit.box(Color("dcefc9") if delta > 0 else Color("f1c9c1"), Color("dcefc9") if delta > 0 else Color("f1c9c1"), 8)
+	chip.set_corner_radius_all(8)
+	chip.shadow_size = 0
+	chip.shadow_offset = Vector2.ZERO
+	_toast_delta.add_theme_stylebox_override("normal", chip)
+	_toast_delta.add_theme_color_override("font_color", Color("24561f") if delta > 0 else Color("7d2417"))
+	_toast_delta.text = ("+%d" if delta > 0 else "%d") % delta
+	_toast_text.text = cause.left(70)
+	(_toast_text.get_parent().get_child(1) as Label).text = detail
+	toast.reset_size()
+	toast.show()
+	_layout()
+	if _toast_tween:
+		_toast_tween.kill()
+	toast.modulate.a = 1.0
+	_toast_tween = create_tween()
+	_toast_tween.tween_interval(3.2)
+	_toast_tween.tween_property(toast, "modulate:a", 0.0, 0.4 if not reduced_motion else 0.0)
+	_toast_tween.tween_callback(toast.hide)
 
 func _on_sent(text: String) -> void:
 	if channel == "investments":
@@ -615,7 +868,9 @@ func _institution(id: String) -> void:
 		location_contents.add_child(Kit.text(str(event.title), 18))
 		location_contents.add_child(Kit.text(str(event.text), 14))
 		for option: Dictionary in event.get("options", []):
-			var button := Kit.button(str(option.label), func(): controller.act(id, str(event.id), {"option_id": str(option.id)}))
+			var button := Kit.button(str(option.label), func():
+				_pending_cause = "%s: %s" % [str(event.title), str(option.label)]
+				controller.act(id, str(event.id), {"option_id": str(option.id)}))
 			button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			button.disabled = controller.busy or controller.needs_recovery
 			location_contents.add_child(button)
@@ -745,7 +1000,9 @@ func _bank_actions() -> void:
 	offer_button.disabled = controller.busy or controller.needs_recovery
 	location_contents.add_child(offer_button)
 	for spec in [["save", "Mută în economii"], ["invest", "Investește"], ["repay", "Rambursează datorii"], ["set_monthly_saving", "Economisire lunară automată"], ["set_monthly_invest", "Investiție lunară automată"]]:
-		var button := Kit.button(spec[1], func(): controller.act("bank", spec[0], {"amount": amount.value}))
+		var button := Kit.button(spec[1], func():
+			_pending_cause = "%s · %.0f lei" % [spec[1], amount.value]
+			controller.act("bank", spec[0], {"amount": amount.value}))
 		button.disabled = controller.busy or controller.needs_recovery
 		location_contents.add_child(button)
 	var catalog_button := Kit.button("Vezi catalogul de produse", _products)
