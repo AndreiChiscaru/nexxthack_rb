@@ -164,6 +164,8 @@ class GameState(BaseModel):
     log: list[LogEntry]
     categories: list[SpendingCategory] = Field(default_factory=list)
     firm: FirmState | None = None
+    # Choice score for the frontend. Opening finances, then each choice and each agent note. Always 0-100.
+    score: int = Field(0, ge=0, le=100)
 
 
 # --- §4.4 Events ------------------------------------------------------------

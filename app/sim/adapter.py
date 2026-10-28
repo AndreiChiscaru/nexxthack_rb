@@ -240,7 +240,7 @@ def products(sim: E.SimState) -> list[ProductHolding]:
 
 
 def to_game_state(session_id: str, sim: E.SimState, profile: Profile, month: int,
-                  pending_events: list[Event], log: list[LogEntry]) -> GameState:
+                  pending_events: list[Event], log: list[LogEntry], score: int = 0) -> GameState:
     return GameState(
         session_id=session_id,
         month=month,
@@ -255,4 +255,5 @@ def to_game_state(session_id: str, sim: E.SimState, profile: Profile, month: int
         log=list(log),
         categories=list(profile.categories),
         firm=_firm_state(sim, month, pending_events),
+        score=max(0, min(100, int(score))),
     )

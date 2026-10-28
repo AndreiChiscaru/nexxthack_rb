@@ -9,6 +9,7 @@ from ..extraction import extract_text
 from ..schemas import ChatRequest, ChatResponse, GameState, ToolCall
 from ..sessions import Session, game_state, get_session
 from ..sim import firm as F
+from ..sim import score as player_score
 from ..tools import run_tool
 from .advisor import _context, calls_since, event_payload, open_event
 from .onboarding import llm_enabled
@@ -35,6 +36,7 @@ Ce faci:
 - Când primești <document>, spune întâi pe scurt ce tip de document e și cifrele cheie, apoi aplică regulile de mai sus.
 - Ține cont de situația lui personală (get_financial_state) și de fișa comună: dacă afacerea îi pune în pericol bugetul sau scopul, spune-o.
 - Când utilizatorul vrea să pornească afacerea în joc, confirmă cifrele și apelează apply_business_to_game. Costul inițial se scade din bani, încasările intră lunar, iar taxele se plătesc la termenele care apar la Afacere. Dacă amână, plătește dobânzi, penalități și amendă.
+- Scorul (scor în context) este între 0 și 100 și se mută cu alegerile jucătorului. Când vezi o alegere fără ajustarea ta, apelează add_to_score cu id-ul ei și un delta întreg între -10 și 10 (plus dacă ajută scopul sau firma, minus dacă le pune în pericol). Apelul tău înlocuiește evaluarea ta anterioară. Scorul rămâne între 0 și 100.
 - {memory_rule}
 - Răspunsuri în română, clare, cu liste scurte, maximum ~200 de cuvinte, cu cifrele principale în lei.
 - Ești un asistent educațional: încheie calculele importante cu nota că sunt orientative și trebuie verificate cu un expert contabil.
@@ -141,6 +143,7 @@ def _tools(session: Session) -> list[Tool]:
               "required": ["name", "form", "regime", "startup_cost", "monthly_revenue", "monthly_expenses"]},
              apply_business_to_game),
         memory.tool(session.id, "business"),
+        player_score.tool(session.id, "business"),
     ]
 
 
@@ -191,10 +194,14 @@ def _with_state(session: Session, response: ChatResponse) -> BusinessChatRespons
 
 def _live_accountant(session: Session, text: str) -> ChatResponse:
     history = list(session.business_history)
+    saved_adjustments = list(session.score_adjustments)
+    logged = len(session.tool_log)
     add_user_text(history, text[:20000])
     try:
         result = run_agent(_accountant_system(session), history, _tools(session), max_tokens=2000)
     except Exception:
+        session.score_adjustments = saved_adjustments
+        del session.tool_log[logged:]
         raise HTTPException(502, "Contabilul nu a putut răspunde. Te rugăm să reîncerci.") from None
     session.business_history = history
     calls = [ToolCall(**call) for call in result["tool_calls"]]
