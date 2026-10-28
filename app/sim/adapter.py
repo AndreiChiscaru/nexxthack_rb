@@ -49,9 +49,17 @@ def _expense_total(profile: Profile, obj, attr: str) -> float:
 def _base_categories(profile: Profile) -> dict[str, float]:
     """Profile spending grouped by institution; their sum is the engine's `living`."""
     r, s = profile.recurring, profile.spending
+    leisure = _expense_total(profile, s, "leisure")
+    subscriptions = _expense_total(profile, r, "subscriptions")
+    # Old profiles aggregate purchases/deliveries into leisure. Keep identified
+    # essentials at Market; the unitemized remainder is the user's leisure budget.
+    market_leisure = min(leisure, sum(c.monthly for c in profile.categories
+                                     if c.id in {"livrari", "cafea", "cumparaturi", "rate", "numerar"}))
+    fun_subscriptions = min(subscriptions, sum(c.monthly for c in profile.categories if c.id == "abonamente"))
     base = {
-        "home": r.rent + r.utilities + _expense_total(profile, r, "subscriptions"),
-        "market": _expense_total(profile, s, "food") + _expense_total(profile, s, "leisure") + _expense_total(profile, r, "transport"),
+        "entertainment": leisure - market_leisure + fun_subscriptions,
+        "home": r.rent + r.utilities + subscriptions - fun_subscriptions,
+        "market": _expense_total(profile, s, "food") + market_leisure + _expense_total(profile, r, "transport"),
         "education": profile.education.tuition_monthly,
         "health": profile.health.monthly_costs,
     }
@@ -66,6 +74,9 @@ def _base_categories(profile: Profile) -> dict[str, float]:
 
 def reconcile_categories(profile: Profile) -> None:
     """Editable totals win; retain each statement category's relative share for cut suggestions."""
+    for cat in profile.categories:
+        if cat.id in {"restaurante", "pariuri", "abonamente"}:
+            cat.institution = "entertainment"
     groups = {}
     for cat in profile.categories:
         holder = _bucket(profile, cat.id)
@@ -167,10 +178,11 @@ def expenses(sim: E.SimState, profile: Profile) -> MonthlyExpenses:
     base = _base_categories(profile)
     total = sum(base.values())
     shares = ({k: v / total for k, v in base.items()} if total > 0
-              else {"home": 0.0, "market": 1.0, "education": 0.0, "health": 0.0})
+              else {"home": 0.0, "market": 1.0, "education": 0.0, "health": 0.0, "entertainment": 0.0})
     living = float(sim["living"])
     running = sim.get("firm") if isinstance(sim.get("firm"), dict) and not sim["firm"].get("_projection") else None
     return MonthlyExpenses(
+        entertainment=_r2(living * shares["entertainment"]),
         home=_r2(living * shares["home"]),
         market=_r2(living * shares["market"]),
         education=_r2(living * shares["education"]),

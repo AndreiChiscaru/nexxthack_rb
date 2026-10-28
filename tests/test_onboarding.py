@@ -110,7 +110,7 @@ def test_scholarship_and_health_costs_reach_the_engine():
     assert sim["living"] == 1500 + 350 + 120 + 200 + 1200 + 400 + 80
     ex = adapter.expenses(sim, p)
     assert ex.health == 80
-    assert ex.home + ex.market + ex.education + ex.health + ex.bank == pytest.approx(sim["living"] + 650)
+    assert sum(ex.model_dump().values()) == pytest.approx(sim["living"] + 650)
 
 
 # ---------------------------------------------------------------- statement merge (deploy/sample_statement.py data)

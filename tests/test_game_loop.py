@@ -147,7 +147,7 @@ def test_same_session_id_same_game(monkeypatch):
 def test_initial_expenses_match_contract_example():
     sid = start_game()
     state = client.get("/api/game/state", params={"session_id": sid}).json()
-    assert state["monthly"]["expenses"] == {"home": 1970, "market": 1800, "education": 0,
+    assert state["monthly"]["expenses"] == {"home": 1970, "market": 1400, "entertainment": 400, "education": 0,
                                             "health": 0, "business": 0, "bank": 650}
 
 
@@ -159,11 +159,11 @@ def test_expense_keys_sum_to_engine_outflows():
     for month in range(13):
         adapter.advance_month(sim, month, year_rep)
     ex = adapter.expenses(sim, ANDREI_PROFILE)
-    total = ex.home + ex.market + ex.education + ex.health + ex.business + ex.bank
+    total = sum(ex.model_dump().values())
     assert total == pytest.approx(sim["living"] + sim["insurance_premium"] + E.debt_payments(sim), abs=0.05)
     assert ex.health == 90.0
     # living keeps the profile's home/market proportions after growth
-    assert ex.home / ex.market == pytest.approx(1970 / 1800, rel=1e-3)
+    assert ex.home / ex.market == pytest.approx(1970 / 1400, rel=1e-3)
 
 
 # ---------------------------------------------------------------- goal

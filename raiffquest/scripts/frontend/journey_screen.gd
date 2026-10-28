@@ -4,9 +4,10 @@ const Kit = preload("res://scripts/frontend/journey_theme.gd")
 const Controller = preload("res://scripts/frontend/session_controller.gd")
 const Chat = preload("res://scripts/frontend/journey_chat.gd")
 const CityMap = preload("res://scripts/frontend/city_map.gd")
+const StatHud = preload("res://scripts/frontend/stat_hud.gd")
 const Upload = preload("res://scripts/frontend/statement_upload.gd")
 const GameEnd = preload("res://scripts/frontend/game_end.gd")
-const NAMES := {"home": "Acasă", "market": "Piață", "education": "Educație", "work": "Loc de muncă", "business": "Afacere", "hospital": "Spital", "bank": "Bancă"}
+const NAMES := {"home": "Acasă", "market": "Piață", "education": "Educație", "work": "Loc de muncă", "business": "Afacere", "hospital": "Spital", "bank": "Bancă", "entertainment": "Divertisment"}
 var controller: Node
 var chat: PanelContainer
 var city: Control
@@ -18,20 +19,12 @@ var start_button: Button
 var mode: Label
 var error_label: Label
 var hud: PanelContainer
-var hud_text: Label
-var averages_text: Label
-var metric_cash: Label
-var metric_savings: Label
-var metric_income: Label
-var goal_text: Label
-var progress: ProgressBar
 var advisor_button: Button
 var _advisor_hover_tween: Tween
 var channel := "onboarding"
 var map_controls: HBoxContainer
 var advance_button: Button
 var recovery_button: Button
-var refresh_button: Button
 var location: PanelContainer
 var location_contents: VBoxContainer
 var profile_panel: PanelContainer
@@ -42,11 +35,7 @@ var reduced_motion := false
 var landscape: TextureRect
 var _panel_tweens: Dictionary = {}
 var _landscape_tween: Tween
-var month_dialog: ConfirmationDialog
-var score_value: Label
-var score_bar: ProgressBar
-var score_pace: ColorRect
-var score_hint: Label
+var month_dialog: Control
 var ending: Control
 var toast: PanelContainer
 var _toast_delta: Label
@@ -113,26 +102,9 @@ func _ready() -> void:
 	profile_panel = PanelContainer.new()
 	add_child(profile_panel)
 	profile_panel.hide()
-	month_dialog = ConfirmationDialog.new()
-	month_dialog.title = "Închei luna curentă?"
-	month_dialog.dialog_text = "Veniturile și cheltuielile se aplică o singură dată. Sugestia de reducere trebuie aleasă înainte."
-	month_dialog.ok_button_text = "Luna următoare"
-	month_dialog.cancel_button_text = "Mai rămân"
-	month_dialog.confirmed.connect(controller.advance)
-	month_dialog.add_theme_font_size_override("title_font_size", 22)
-	month_dialog.add_theme_color_override("title_color", Color.WHITE)
-	var dialog_label := month_dialog.get_label()
-	dialog_label.add_theme_font_size_override("font_size", 20)
-	dialog_label.add_theme_color_override("font_color", Color.WHITE)
-	dialog_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	dialog_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	for dialog_button in [month_dialog.get_ok_button(), month_dialog.get_cancel_button()]:
-		dialog_button.add_theme_font_size_override("font_size", 18)
-		dialog_button.custom_minimum_size = Vector2(170, 46)
-	var confirm_style := Kit.box(Kit.YELLOW, Kit.INK, 12)
-	month_dialog.get_ok_button().add_theme_stylebox_override("normal", confirm_style)
-	month_dialog.get_ok_button().add_theme_stylebox_override("focus", Kit.box(Color("ffffff00"), Color.WHITE, 0))
+	month_dialog = preload("res://scripts/frontend/month_dialog.gd").new()
 	add_child(month_dialog)
+	month_dialog.confirmed.connect(controller.advance)
 	_build_toast()
 	ending = GameEnd.new()
 	ending.reduced_motion = reduced_motion
@@ -174,7 +146,7 @@ func _build_header() -> void:
 	add_child(mode)
 	error_label = Kit.text("", 13, Color("963b2b"))
 	add_child(error_label)
-	recovery_button = Kit.button("Verifică starea serverului", controller.refresh, true)
+	recovery_button = Kit.button("Reîncearcă sincronizarea", controller.refresh, true)
 	add_child(recovery_button)
 	recovery_button.hide()
 	advisor_button = Kit.button("", _show_onboarding_chat)
@@ -215,85 +187,12 @@ func _build_welcome() -> void:
 	col.add_child(start_button)
 
 func _build_hud() -> void:
-	hud = PanelContainer.new()
+	hud = StatHud.new()
 	add_child(hud)
-	var col := VBoxContainer.new()
-	hud.add_child(col)
-	var surface := Kit.box(Color("fffbef"), Color("8e9f73"), 16)
-	surface.set_border_width_all(1)
-	surface.shadow_color = Color("7e8f66")
-	surface.shadow_offset = Vector2(0, 3)
-	hud.add_theme_stylebox_override("panel", surface)
-	hud_text = Kit.text("", 10, Kit.MUTED)
-	col.add_child(hud_text)
-	var score_row := HBoxContainer.new()
-	col.add_child(score_row)
-	var score_caption := Kit.strong("Scor", 14)
-	score_caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	score_row.add_child(score_caption)
-	score_value = Kit.strong("0 / 100", 20)
-	score_value.autowrap_mode = TextServer.AUTOWRAP_OFF
-	score_row.add_child(score_value)
-	score_bar = ProgressBar.new()
-	score_bar.custom_minimum_size.y = 12
-	score_bar.show_percentage = false
-	var score_fill := Kit.box(Kit.YELLOW, Kit.INK, 0)
-	score_fill.set_corner_radius_all(6)
-	score_fill.shadow_size = 0
-	score_fill.shadow_offset = Vector2.ZERO
-	score_bar.add_theme_stylebox_override("fill", score_fill)
-	var score_back := Kit.box(Color("dce0c7"), Color("dce0c7"), 0)
-	score_back.set_corner_radius_all(6)
-	score_back.shadow_size = 0
-	score_back.shadow_offset = Vector2.ZERO
-	score_bar.add_theme_stylebox_override("background", score_back)
-	col.add_child(score_bar)
-	# Where the score should be this month to reach 100 by the deadline.
-	score_pace = ColorRect.new()
-	score_pace.color = Kit.INK
-	score_pace.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	score_pace.anchor_top = 0
-	score_pace.anchor_bottom = 1
-	score_pace.offset_top = -4
-	score_pace.offset_bottom = 4
-	score_bar.add_child(score_pace)
-	score_hint = Kit.text("", 12, Kit.MUTED)
-	col.add_child(score_hint)
-	var metrics := HBoxContainer.new()
-	metrics.add_theme_constant_override("separation", 18)
-	col.add_child(metrics)
-	var values: Array[Label] = []
-	for caption in ["Disponibil", "Economii", "Venit lunar"]:
-		var stack := VBoxContainer.new()
-		stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		metrics.add_child(stack)
-		stack.add_child(Kit.text(caption, 11, Kit.MUTED))
-		var value := Kit.strong("0 lei", 19)
-		stack.add_child(value)
-		values.append(value)
-	metric_cash = values[0]
-	metric_savings = values[1]
-	metric_income = values[2]
-	goal_text = Kit.text("", 11)
-	col.add_child(goal_text)
-	averages_text = Kit.text("", 10, Kit.MUTED)
-	averages_text.hide()
-	col.add_child(averages_text)
-	progress = ProgressBar.new()
-	progress.custom_minimum_size.y = 5
-	progress.show_percentage = false
-	var fill := Kit.box(Color("cdb800"), Color("cdb800"), 0)
-	fill.shadow_size = 0
-	fill.shadow_offset = Vector2.ZERO
-	progress.add_theme_stylebox_override("fill", fill)
-	progress.add_theme_stylebox_override("background", Kit.box(Color("dce0c7"), Color("dce0c7"), 0))
-	col.add_child(progress)
 	map_controls = HBoxContainer.new()
 	map_controls.add_theme_constant_override("separation", 8)
 	add_child(map_controls)
-	refresh_button = Kit.button("Actualizează", controller.refresh)
-	map_controls.add_child(refresh_button)
-	advance_button = Kit.button("Luna următoare →", func(): month_dialog.popup_centered(Vector2i(620, 260)), true)
+	advance_button = Kit.button("Luna următoare →", func(): month_dialog.popup_centered(), true)
 	map_controls.add_child(advance_button)
 	hud.hide()
 	map_controls.hide()
@@ -316,8 +215,9 @@ func _layout() -> void:
 	if controller.phase == "map":
 		chat.position = Vector2(24, 190)
 		chat.size = Vector2(350, maxf(330, h - 280))
-	hud.position = Vector2(w - 355, 20)
-	hud.size = Vector2(330, maxf(134, hud.get_combined_minimum_size().y))
+	hud.size = Vector2(minf(440, w - 40), hud.get_combined_minimum_size().y)
+	hud.scale = Vector2.ONE * 0.74
+	hud.position = Vector2(w - hud.size.x * hud.scale.x - 20, 20)
 	toast.position = Vector2((w - toast.size.x) / 2, h - 150)
 	map_controls.position = Vector2(25, h - 60)
 	map_controls.size = Vector2(400, 40)
@@ -325,8 +225,8 @@ func _layout() -> void:
 	recovery_button.size = Vector2(270, 40)
 	error_label.position = Vector2(25, h - 105)
 	error_label.size = Vector2(maxf(400, w - 470), 40)
-	location.position = Vector2(w - 365, maxf(178, hud.position.y + hud.size.y + 18))
-	location.size = Vector2(340, maxf(260, h - 245))
+	location.position = Vector2(w - 365, maxf(178, hud.position.y + hud.size.y * hud.scale.y + 18))
+	location.size = Vector2(340, maxf(160, h - location.position.y - 72))
 	profile_panel.position = Vector2(maxf(15, (w - 670) / 2), 95)
 	profile_panel.size = Vector2(minf(670, w - 30), maxf(430, h - 125))
 
@@ -337,7 +237,7 @@ func _update() -> void:
 	if not controller.last_error.is_empty():
 		start_button.text = "Reîncearcă conectarea →"
 	error_label.text = controller.last_error
-	recovery_button.visible = controller.needs_recovery
+	recovery_button.visible = controller.needs_recovery or (phase == "map" and not controller.last_error.is_empty())
 	recovery_button.disabled = controller.busy
 	if phase != "review":
 		profile_panel.hide()
@@ -373,32 +273,7 @@ func _update() -> void:
 		_layout()
 	if phase == "map":
 		var state: Dictionary = controller.state
-		var balance: Dictionary = state.get("balance", {})
-		var monthly: Dictionary = state.get("monthly", {})
-		var expense := 0.0
-		for amount in monthly.get("expenses", {}).values():
-			expense += float(amount)
-		var wellbeing: Dictionary = state.get("wellbeing", {})
-		hud_text.text = "LUNA %d · UN NOU ÎNCEPUT     %s" % [state.get("month", 0), "AI LIVE" if controller.agent_mode == "live" else "DEMO"]
-		metric_cash.text = "%.0f lei" % balance.get("cash", 0)
-		metric_savings.text = "%.0f lei" % balance.get("savings", 0)
-		metric_income.text = "%.0f lei" % monthly.get("income", 0)
-		averages_text.text = ""
-		averages_text.visible = not state.get("categories", []).is_empty()
-		var averages: Array = state.get("categories", [])
-		if not averages.is_empty():
-			var bits: PackedStringArray = []
-			for cat: Dictionary in averages:
-				if bits.size() == 4:
-					break
-				bits.append("%s %.0f" % [cat.get("label", ""), float(cat.get("monthly", 0))])
-			averages_text.text = "Medii din extras: " + ", ".join(bits)
-		var goal: Dictionary = state.get("goal", {})
-		progress.value = float(goal.get("progress", 0)) * 100
-		if str(goal.get("type", "")) == "achitare_datorii":
-			goal_text.text = "Datorie rămasă: %.0f lei · progres %.0f%%" % [balance.get("debt", 0), progress.value]
-		else:
-			goal_text.text = "Obiectiv: %.0f lei · %.0f%%" % [goal.get("target_amount", 0), progress.value]
+		hud.update_state(state, controller.profile)
 		city.set_institutions(state.get("institutions", []))
 		var waiting := ""
 		for event: Dictionary in controller.events:
@@ -409,7 +284,6 @@ func _update() -> void:
 				waiting = "cut"
 		advance_button.disabled = controller.busy or controller.needs_recovery or waiting != ""
 		advance_button.text = "Alege termenul fiscal" if waiting == "fiscal" else ("Alege sugestia" if waiting == "cut" else "Luna următoare →")
-		refresh_button.disabled = controller.busy
 		_update_score(state)
 		if not controller.busy:
 			_check_outcome(state)
@@ -437,30 +311,19 @@ func _update_score(state: Dictionary) -> void:
 	if not controller.busy:
 		_pending_cause = ""
 	if horizon > 0:
-		hud_text.text = "LUNA %d DIN %d     %s" % [month, horizon, "AI LIVE" if controller.agent_mode == "live" else "DEMO"]
-	score_value.text = "%d / 100" % score
-	score_bar.value = score
+		hud.month_label.text = "LUNA %d/%d" % [month, horizon]
 	var start_score := int(_start.get("score", score))
-	var pace := 100.0
-	if horizon > 0:
+	var pace := -1.0
+	if horizon > 0 and score < 100:
 		pace = clampf(start_score + (100.0 - start_score) * month / horizon, 0, 100)
-	score_pace.visible = horizon > 0 and score < 100
-	score_pace.anchor_left = pace / 100.0
-	score_pace.anchor_right = pace / 100.0
-	score_pace.offset_left = -1
-	score_pace.offset_right = 1
 	if score >= 100:
-		score_hint.text = "Scor maxim! Acum termină obiectivul."
-		score_hint.add_theme_color_override("font_color", GOOD)
+		hud.set_score_pace(pace, "Scor maxim! Acum termină obiectivul.", GOOD)
 	elif score >= 90:
-		score_hint.text = "Mai ai nevoie de %d puncte" % (100 - score)
-		score_hint.add_theme_color_override("font_color", Kit.INK)
-	elif horizon > 0 and score + 0.5 < pace:
-		score_hint.text = "● Rămâi în urmă · ritmul cerut acum: %.0f" % pace
-		score_hint.add_theme_color_override("font_color", Color("8a4708"))
+		hud.set_score_pace(pace, "Mai ai nevoie de %d puncte" % (100 - score), Kit.INK)
+	elif pace >= 0 and score + 0.5 < pace:
+		hud.set_score_pace(pace, "● Rămâi în urmă · ritmul cerut acum: %.0f" % pace, Color("8a4708"))
 	else:
-		score_hint.text = "● În grafic spre 100"
-		score_hint.add_theme_color_override("font_color", GOOD)
+		hud.set_score_pace(pace, "● În grafic spre 100", GOOD)
 
 # The server has no game-over state yet, so the outcome is read from its figures: score, goal progress, month.
 func _check_outcome(state: Dictionary) -> void:
@@ -902,7 +765,7 @@ func _ask_raiffeisen_offer() -> void:
 	chat.append({"role": "AIngel", "text": "Hai să vedem ce îți poate oferi Raiffeisen: conturi și economii, depozite, carduri, credite, investiții, pensie și asigurări. Mă uit în oferta băncii și îți spun ce ți se potrivește acum."})
 	controller.send_message("Ce produse și servicii Raiffeisen mi se potrivesc acum, pentru obiectivul și cheltuielile mele? Dă-mi câteva recomandări și explică-mi beneficiile lor.")
 
-const EXPENSE_LABELS := {"home": "Locuință", "market": "Cumpărături", "education": "Educație", "health": "Sănătate", "business": "Firmă", "bank": "Rate la bancă"}
+const EXPENSE_LABELS := {"entertainment": "Divertisment", "home": "Locuință", "market": "Cumpărături", "education": "Educație", "health": "Sănătate", "business": "Firmă", "bank": "Rate la bancă"}
 const GOOD := Color("3f7d3a")
 const BAD := Color("963b2b")
 

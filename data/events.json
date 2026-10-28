@@ -207,5 +207,70 @@
       {"id": "400", "label": "400 lei/lună în fondul de urgență, pentru avans", "ops": {"emergency_contrib": 400, "mood": {"conf": 4}}},
       {"id": "amana", "label": "Mai amân", "ops": {"mood": {"conf": -1}}}
     ]
-  }
+  },
+{
+  "id": "seara_spectacol",
+  "institution": "entertainment",
+  "title": "O seară la spectacol",
+  "text": "Prietenii te invită la teatru și cinema. Alegi cât cheltuiești din banii disponibili, fără să renunți la timpul liber.",
+  "options": [
+    {
+      "id": "bilet",
+      "label": "Bilet la spectacol (120 lei)",
+      "ops": {
+        "spend": 120,
+        "mood": {
+          "stress": -4
+        }
+      }
+    },
+    {
+      "id": "gratuit",
+      "label": "Aleg un eveniment gratuit în parc",
+      "ops": {
+        "mood": {
+          "stress": -2,
+          "conf": 1
+        }
+      }
+    }
+  ]
+},
+{
+  "id": "festival_weekend",
+  "institution": "entertainment",
+  "title": "Festival în weekend",
+  "text": "A apărut un festival în oraș. Compară costul cu bugetul și obiectivul tău înainte să cumperi biletul.",
+  "options": [
+    {
+      "id": "festival",
+      "label": "Particip la festival (350 lei)",
+      "ops": {
+        "spend": 350,
+        "mood": {
+          "stress": -6
+        }
+      }
+    },
+    {
+      "id": "local",
+      "label": "Aleg un concert local (50 lei)",
+      "ops": {
+        "spend": 50,
+        "mood": {
+          "stress": -3
+        }
+      }
+    },
+    {
+      "id": "parc",
+      "label": "Organizez o ieșire gratuită în parc",
+      "ops": {
+        "mood": {
+          "stress": -2
+        }
+      }
+    }
+  ]
+}
 ]
