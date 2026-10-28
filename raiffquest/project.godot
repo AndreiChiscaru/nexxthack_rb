@@ -22,7 +22,7 @@ boot_splash/bg_color=Color(0.07843, 0.10196, 0.11765, 1)
 config/name="Raiff Quest"
 config/description="Joc educațional 2D de simulare financiară în română, cu Consilier AI explicabil. Date fictive."
 config/version="0.1.0"
-run/main_scene="res://scenes/raiff_main.tscn"
+run/main_scene="res://scenes/journey.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://assets/share/favicon.png"
 

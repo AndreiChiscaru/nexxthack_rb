@@ -60,6 +60,13 @@ def start(req: GameStartRequest):
     return GameStartResponse(state=game_state(session), events=opening)
 
 
+@router.get("/snapshot", response_model=GameStartResponse)
+def snapshot(session_id: str):
+    """Recover both authoritative balances and pending decisions after a lost response."""
+    session = get_session(session_id)
+    return GameStartResponse(state=game_state(session), events=session.pending_events)
+
+
 @router.get("/state", response_model=GameState)
 def state(session_id: str):
     return game_state(get_session(session_id))

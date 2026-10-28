@@ -21,13 +21,15 @@ sys.path.insert(0, str(ROOT.parent))
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--godot", default="godot")
+    parser.add_argument("--scene", default="res://test/backend_contract_test.tscn")
+    parser.add_argument("--visible", action="store_true", help="Render the integration scene for visual QA")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="raiff-frontend-test-") as temporary:
         os.environ["DEMO_DB"] = str(Path(temporary) / "demo.sqlite3")
-        return run_test(args.godot)
+        return run_test(args.godot, args.scene, args.visible)
 
 
-def run_test(godot):
+def run_test(godot, scene, visible=False):
     # The real onboarding now calls Claude when credentials are configured.
     os.environ["MOCK_LLM"] = "true"
     import uvicorn
@@ -47,7 +49,7 @@ def run_test(godot):
                 time.sleep(0.05)
             env = dict(os.environ, RAIFF_TEST_API=f"http://127.0.0.1:{port}")
             result = subprocess.run(
-                [godot, "--headless", "--path", str(ROOT), "res://test/backend_contract_test.tscn"],
+                [godot, *([] if visible else ["--headless"]), "--path", str(ROOT), scene],
                 env=env, timeout=60, check=False,
             )
             return result.returncode

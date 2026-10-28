@@ -18,6 +18,8 @@ from .sim.engine import SimState
 class Session:
     id: str
     onboarding_messages: int = 0
+    # Full Claude advisor transcript, including tool use/results; volatile and session-scoped.
+    advisor_history: list[dict] = field(default_factory=list)
     # Onboarding agent state, in the agent's own formats (app/agents/): draft profile and conversation.
     agent_profile: dict = field(default_factory=prof.empty)
     onboarding_convo: dict = field(default_factory=onboarding_agent.new_conversation)

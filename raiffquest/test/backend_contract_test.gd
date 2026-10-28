@@ -89,7 +89,7 @@ func _run() -> void:
 	_check(response.ok and response.data.reply is String and not response.data.tool_calls.is_empty(), "advisor returns text and tool calls")
 	for call: Dictionary in response.data.tool_calls:
 		_check(call.name is String and call.args is Dictionary and call.summary is String, "tool call contract")
-	response = await _wait(_api.get_products("savings"))
+	response = await _wait(_api.get_products("economii"))
 	_check(response.ok and response.data.products is Array and not response.data.products.is_empty(), "catalog response wraps products")
 	response = await _wait(_api.get_game_state("nonexistent-frontend-test-session"))
 	_check(not response.ok and response.status == 404 and response.error.code == "http", "missing session is a recoverable HTTP error")
