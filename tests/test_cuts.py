@@ -19,6 +19,7 @@ def test_sample_statement_reports_category_averages(monkeypatch):
     categories = {c["id"]: c["monthly"] for c in response.json()["profile_fields"]["categories"]}
     assert categories["uber"] >= 450
     assert categories["restaurante"] >= 400
+    assert categories["bursa"] == 800
     assert response.json()["profile_fields"]["recurring"]["rent"] == 0
 
 

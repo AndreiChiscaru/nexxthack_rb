@@ -22,6 +22,7 @@ RULES = [
 ]
 INCOME_WORDS = ("incasare salariu", "salariu ")
 OTHER_INCOME_WORDS = ("transfer primit",)
+SCHOLARSHIP_WORDS = ("bursa facultate", "bursă facultate", "bursa de merit")
 SKIP_WORDS = ("sold initial", "sold final", "comision")
 LINE = re.compile(r"(\d{2})\.(\d{2})\.(\d{4})\s+(.+?)\s+([+-]?\d{1,3}(?:\.\d{3})*,\d{2})\s*$")
 SOLD_FINAL = re.compile(r"Sold final\s+([+-]?\d{1,3}(?:\.\d{3})*,\d{2})")
@@ -45,7 +46,7 @@ def _category(description: str) -> str | None:
     text = description.lower()
     if any(word in text for word in INCOME_WORDS) or any(word in text for word in SKIP_WORDS):
         return None
-    if any(word in text for word in OTHER_INCOME_WORDS):
+    if any(word in text for word in OTHER_INCOME_WORDS) or any(word in text for word in SCHOLARSHIP_WORDS):
         return None
     for cid, _, _, words in RULES:
         if any(word in text for word in words):
@@ -58,6 +59,7 @@ def summarize(text: str) -> dict | None:
     spent: dict[str, float] = defaultdict(float)
     salary: dict[str, float] = defaultdict(float)
     other: dict[str, float] = defaultdict(float)
+    scholarship: dict[str, float] = defaultdict(float)
     months: set[str] = set()
     expense_count = 0
     for raw_line in text.splitlines():
@@ -74,6 +76,9 @@ def summarize(text: str) -> dict | None:
             continue
         if amount > 0 and any(word in lowered for word in INCOME_WORDS):
             salary[key] += amount
+            continue
+        if amount > 0 and any(word in lowered for word in SCHOLARSHIP_WORDS):
+            scholarship[key] += amount
             continue
         if amount > 0 and any(word in lowered for word in OTHER_INCOME_WORDS):
             other[key] += amount
@@ -122,6 +127,7 @@ def summarize(text: str) -> dict | None:
         "luni": n,
         "venit_mediu": round(sum(salary.values()) / n, 2) if salary else None,
         "alte_intrari_medii": round(sum(other.values()) / n, 2) if other else None,
+        "bursa_medie": round(sum(scholarship.values()) / n, 2) if scholarship else None,
         "cheltuieli_medii": total_lunar,
         "categorii": categorii,
         "semnale": semnale,

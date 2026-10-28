@@ -192,7 +192,7 @@ def _apply_parsed(result: dict, text: str) -> dict:
     if "depozit" not in text.lower() and "cont de economii" not in text.lower():
         result["economii_identificate"] = 0
     result["profil_din_extras"] = {
-        k: stats[k] for k in ("varsta", "ocupatie", "locuinta", "alte_intrari_medii") if stats.get(k) is not None
+        k: stats[k] for k in ("varsta", "ocupatie", "locuinta", "alte_intrari_medii", "bursa_medie") if stats.get(k) is not None
     }
     known = set(stats["semnale"])
     result["semnale_de_risc"] = stats["semnale"] + [s for s in result.get("semnale_de_risc") or [] if s not in known]
