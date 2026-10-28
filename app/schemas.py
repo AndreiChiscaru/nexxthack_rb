@@ -219,6 +219,7 @@ class GameActionRequest(BaseModel):
 
 
 class GameActionResponse(BaseModel):
+    pending_events: list[Event] = Field(default_factory=list)
     state: GameState
     delta: dict[str, float]
     advisor_note: str
@@ -229,6 +230,7 @@ class GameAdvanceRequest(BaseModel):
 
 
 class GameAdvanceResponse(BaseModel):
+    pending_events: list[Event] = Field(default_factory=list)
     state: GameState
     delta: dict[str, float]
     events: list[Event]

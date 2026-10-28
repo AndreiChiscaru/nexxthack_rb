@@ -160,11 +160,12 @@ func _response(id: int, response: Dictionary) -> void:
 			if data.get("state") is Dictionary:
 				state = data.state.duplicate(true)
 				phase = "map"
-				if operation == "start":
-					events = data.get("events", []).duplicate(true)
+				if data.get("pending_events") is Array:
+					events = _unique_events(data.pending_events)
+				elif operation == "start":
+					events = _unique_events(data.get("events", []))
 				elif operation == "advance":
-					for event in data.get("events", []):
-						events.append(event)
+					events = _unique_events(events + data.get("events", []))
 				else:
 					events = events.filter(func(e: Dictionary) -> bool: return str(e.get("id", "")) != _event_id)
 			else:
@@ -172,7 +173,7 @@ func _response(id: int, response: Dictionary) -> void:
 		"refresh":
 			if data.get("state") is Dictionary and data.get("events") is Array:
 				state = data.state.duplicate(true)
-				events = data.events.duplicate(true)
+				events = _unique_events(data.events)
 				needs_recovery = false
 				phase = "map"
 		"advisor":
@@ -184,3 +185,10 @@ func _response(id: int, response: Dictionary) -> void:
 		"products":
 			products = data.get("products", [])
 	changed.emit()
+
+func _unique_events(items: Array) -> Array:
+	var by_id: Dictionary = {}
+	for item in items:
+		if item is Dictionary and not str(item.get("id", "")).is_empty():
+			by_id[str(item.id)] = item.duplicate(true)
+	return by_id.values()

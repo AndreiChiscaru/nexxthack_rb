@@ -60,5 +60,13 @@ func _ready() -> void:
 	check(scene.chat.portraits.all(func(p): return p.visible and p.material is ShaderMaterial), "Both participants keep circular profile pictures on the map")
 	await capture("map-chat")
 	check(scene.chat.visible and scene.controller.transcript.size()>=10,"map advisor retains onboarding chat")
+	for repeat in range(2):
+		scene._show_investments()
+		await get_tree().process_frame
+		scene._show_business()
+		await get_tree().process_frame
+		scene._close_chat()
+		await get_tree().process_frame
+	check(scene.chat.portraits.all(func(p): return is_instance_valid(p)), "switching advisors clears old portrait references")
 	print("[journey-ui] ","FAIL" if failed else "PASS")
 	get_tree().quit(1 if failed else 0)

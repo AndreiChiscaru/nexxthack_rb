@@ -119,6 +119,17 @@ Formatul `ops` este cel din `finance_sim.gd` (`spend`, `loan`, `salary_mult`, `l
 
 ---
 
+### Reguli de integrare verificate
+
+- Sesiunile API sunt în memorie: deployul rulează cu `--workers 1`, o singură instanță. Restartul pierde sesiunile; scalarea la mai multe procese necesită un store comun.
+- `/api/game/action` și `/api/game/advance` includ `pending_events`, lista completă a deciziilor încă deschise. Frontendul o înlocuiește, nu o concatenează. `events` din `advance` rămâne lista evenimentelor noi pentru compatibilitate. `/snapshot` întoarce lista completă în `events`.
+- Operațiile de joc și citirile stării sunt serializate per sesiune. Două răspunsuri la aceeași decizie nu pot aplica efectele de două ori.
+- Pragul de descoperit de 15.000 lei semnalează dificultatea financiară; nu șterge datoria, dobânda sau deficitul. Aceeași regulă se aplică motorului Python și celui Godot.
+- Pentru `achitare_datorii`, progresul reprezintă reducerea netă a datoriei față de început, raportată la suma de rambursat (cel mult datoria inițială). Împrumuturile noi pot reduce progresul. Economiile nu contează drept rambursare.
+- Totalurile explicit confirmate în profil pentru transport, abonamente, mâncare și timp liber au prioritate. Categoriile din extras se ajustează proporțional la aceste totaluri, inclusiv când totalul este zero. Câmpurile lipsă pot folosi categoriile extrasului; bursa rămâne venit.
+
+---
+
 ## 5. Decizie de arhitectură: unde rulează simularea
 
 **Recomandare: mutăm motorul financiar în backend (Python)**, iar Godot doar afișează starea.

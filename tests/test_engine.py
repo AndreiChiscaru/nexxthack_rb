@@ -99,7 +99,7 @@ def test_every_option_is_finite(seed):
             assert 0.0 <= rep["after"]["stress"] <= 100.0
         if i < E.PERIODS:  # play the first option of the first 10 events in sequence
             E.resolve(s, {"ops": event.options[0].ops.to_engine()}, shock)
-    assert s["overdraft"] <= E.OVERDRAFT_LIMIT + 1.0
+    assert math.isfinite(s["overdraft"]) and s["overdraft"] >= 0
 
 
 # ---------------------------------------------------------------- ported: _test_strategies_differ
@@ -341,11 +341,11 @@ def test_op_mood_is_returned_not_applied():
 
 # ---------------------------------------------------------------- simulation
 
-def test_month_overdraft_capped_with_austerity():
+def test_month_overdraft_preserves_debt_above_distress_threshold():
     s = blank(cash=0.0, emergency=0.0, deposit=0.0, overdraft=14900.0, salary=1000.0, living=3000.0)
     rep = {"interest_paid": 0.0, "overdraft_months": 0, "austerity_months": 0, "invest_gain": 0.0}
     E._month(s, 0.0, rep)
-    assert s["overdraft"] == E.OVERDRAFT_LIMIT
+    assert s["overdraft"] == pytest.approx(14900 * (1 + E.OVERDRAFT_APR / 12) + 2000)
     assert rep["austerity_months"] == 1 and rep["overdraft_months"] == 1
 
 

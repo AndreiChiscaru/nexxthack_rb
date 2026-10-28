@@ -82,6 +82,7 @@ func clear_messages() -> void:
 		messages.remove_child(child)
 		child.queue_free()
 	_rows.clear()
+	portraits.clear()
 
 func submit() -> void:
 	if send.disabled or input.text.strip_edges().is_empty():

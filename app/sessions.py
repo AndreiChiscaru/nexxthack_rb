@@ -1,6 +1,7 @@
 """In-memory session store. Lost on restart; nothing is written to disk."""
 # TODO(real): SQLite (or keep in-memory) with TTL eviction so old sessions don't pile up.
 import random
+from threading import RLock
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import uuid4
@@ -17,6 +18,7 @@ from .sim.engine import SimState
 @dataclass
 class Session:
     id: str
+    lock: Any = field(default_factory=RLock, repr=False, compare=False)
     onboarding_messages: int = 0
     # Full Claude advisor transcript, including tool use/results; volatile and session-scoped.
     advisor_history: list[dict] = field(default_factory=list)

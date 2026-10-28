@@ -123,7 +123,7 @@ def apply_profile(s: SimState, p: dict[str, Any]) -> None:
     for key in ("salary", "living", "cash", "emergency", "home_value", "stress", "confidence"):
         if p.get(key) is not None:
             s[key] = max(float(p[key]), 0.0)
-    s["overdraft"] = _clamp(float(p.get("overdraft", 0.0)), 0.0, OVERDRAFT_LIMIT)
+    s["overdraft"] = max(float(p.get("overdraft", 0.0)), 0.0)
     for loan in p.get("loans", []):
         if float(loan.get("principal", 0.0)) > 0.5 and int(loan.get("months", 0)) > 0:
             add_loan(s, str(loan.get("name", "Credit existent")), float(loan["principal"]),
@@ -421,8 +421,7 @@ def _month(s: SimState, shock: float, rep: dict[str, Any]) -> None:
     if float(s["overdraft"]) > 0.5:
         rep["overdraft_months"] = int(rep["overdraft_months"]) + 1
     if float(s["overdraft"]) > OVERDRAFT_LIMIT:
-        # The bank stops extending the overdraft: spending is cut by force (austerity).
-        s["overdraft"] = OVERDRAFT_LIMIT
+        # Flag distress; the threshold must never forgive outstanding debt.
         rep["austerity_months"] = int(rep["austerity_months"]) + 1
     s["emergency"] = float(s["emergency"]) * (1.0 + EMERGENCY_APR / 12.0)
     s["deposit"] = float(s["deposit"]) * (1.0 + DEPOSIT_APR / 12.0)
