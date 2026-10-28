@@ -19,10 +19,6 @@ ANDREI_PROFILE = Profile.model_validate({
     "source": {"statement_uploaded": True, "statement_score": 58, "risk_signals": ["Rată la IFN"]},
 })
 
-# Order in which the mock onboarding "collects" required fields (§4.1).
-REQUIRED_FIELDS = ["goal", "age", "income.salary", "recurring", "savings", "debts", "risk_tolerance"]
-
-
 # TODO(real): data/products.json, ingested from the Raiffeisen PDF. Copied from catalog.gd.
 PRODUCTS: list[Product] = [Product.model_validate(p) for p in [
     {"id": "credit_auto", "category": "credit_auto", "name": "Credit Auto Demo", "apr": 0.095, "min_months": 12, "max_months": 84,

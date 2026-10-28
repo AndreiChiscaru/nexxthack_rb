@@ -54,7 +54,8 @@ def test_onboarding_statement():
     body = r.json()
     assert body["analysis"]["mock"] is True
     assert "income" in body["profile_fields"]
-    assert "goal" in body["missing_fields"]
+    assert "goal.description" in body["missing_fields"]  # §4.1 paths
+    assert "income.salary" not in body["missing_fields"]  # filled from the statement
 
 
 def test_onboarding_statement_empty_file():

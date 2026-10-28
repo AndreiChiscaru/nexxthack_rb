@@ -1,19 +1,20 @@
 # Raiff Quest API
 
 Shapes follow `docs/implementation-plan.md` §4. `/api/game/*` runs on the real financial engine
-(`app/sim/engine.py`, port of `finance_sim.gd`) with events from `data/events.json`. Onboarding, advisor,
-business and products are still **mock**; each mock in the code is marked `# TODO(real): ...`.
+(`app/sim/engine.py`, port of `finance_sim.gd`) with events from `data/events.json`. Onboarding runs the real
+agent when an API key is set (see [Onboarding](#onboarding)). Advisor, business and products are still **mock**;
+each mock in the code is marked `# TODO(real): ...`.
 
 - Base URL: same origin as the game (`/joc`). CORS is open (`*`) for local dev.
 - Swagger: `GET /docs`. Raw schema: `GET /openapi.json`.
 - Sessions are in memory, so a server restart drops them. An unknown `session_id` returns **404**. Calling a `/api/game/*` route before `/api/game/start` returns **409**.
-- Uploads are read into memory only and never written to disk.
+- Uploads are read into memory only and never written to disk. See [Data & privacy](#data--privacy).
 
 | Method | Endpoint | Body / query | Response |
 |---|---|---|---|
 | POST | `/api/session` | none | `{session_id}` |
 | POST | `/api/onboarding/message` | JSON `{session_id, text}` | `{reply, missing_fields[], done, profile?}` |
-| POST | `/api/onboarding/statement` | multipart `session_id`, `file` | `{analysis, profile_fields, missing_fields[]}` |
+| POST | `/api/onboarding/statement` | multipart `session_id`, `file` | `{analysis, profile_fields, missing_fields[], reply}` |
 | POST | `/api/game/start` | JSON `{session_id, profile?}` | `{state, events[]}` |
 | GET | `/api/game/state` | `?session_id=` | `GameState` (§4.2) |
 | POST | `/api/game/action` | JSON `{session_id, institution, action_id, params}` | `{state, delta, advisor_note}` |
@@ -31,7 +32,7 @@ Shared shapes:
 
 Mock behaviour:
 
-- **Onboarding.** The 3rd message returns `done: true` with the Andrei profile.
+- **Onboarding (no API key or `MOCK_LLM=true`).** The 3rd message returns `done: true` with the Andrei profile; a statement upload uses a fixed analysis of the synthetic sample statement.
 
 ## Game loop (engine)
 
@@ -56,7 +57,8 @@ How the engine maps onto `GameState` (§4.2):
 | `goal.progress` | `(savings + investments) / target_amount`, clamped to 0..1 |
 | `goal.on_track` | `progress >= month / profile.goal.horizon_months` |
 | `monthly.expenses.home` / `.market` / `.education` | `living`, split by the profile's starting proportions (rent + utilities + subscriptions / food + leisure + transport / tuition) |
-| `monthly.expenses.health` | `insurance_premium` |
+| `monthly.expenses.health` | its share of `living` (profile `health.monthly_costs`) + `insurance_premium` |
+| `monthly.income` | `salary + side_income`; side income starts as `income.other + education.scholarship` |
 | `monthly.expenses.business` | `0` for now |
 | `monthly.expenses.bank` | loan payments |
 | `products` | `cont_economii` = emergency, `depozit` = deposit, `fond_diversificat` = fund (only if > 0) |
@@ -164,6 +166,45 @@ Real example (Andrei, month 1):
 ### Future work
 - **Personalized amounts:** scale event amounts (rent increases, bonuses, repair costs) and the suggested monthly contributions to the player's bank-statement profile. The Godot game does this for its first decision (`Events.personalize`); the backend library uses fixed amounts for now.
 
+## Onboarding
+
+**Real mode** is on when the server has `ANTHROPIC_API_KEY` and `MOCK_LLM` isn't `true`. Otherwise the endpoints use the mock behaviour. Tests force `MOCK_LLM=true` (`tests/conftest.py`).
+
+- **`POST /api/onboarding/message`**: one turn of the onboarding agent (`app/agents/onboarding.py`) on the session's conversation. Not streamed: the response comes when the turn ends.
+  - When the agent finishes, the profile is mapped and validated against §4.1. Only if it's valid does the response have `done: true` with `profile`; it's then stored where `/api/game/start` reads it.
+  - If validation fails, the response has `done: false` and `missing_fields` lists the invalid paths.
+- **`POST /api/onboarding/statement`**: the `/api/analyze` pipeline, in memory (`extract_text` → `analyze_statement` → `to_game_profile`).
+  - The agent merges the confident fields (name, income, balance, savings, loans) into the draft profile, so it stops asking for them, and replies with what it understood: `reply`.
+  - Mock: a fixed analysis of the synthetic statement in `deploy/sample_statement.py`, merged the same way, with `reply: null`.
+- **`missing_fields`** uses §4.1 paths in both modes, e.g. `["age", "goal.description", "recurring.rent", "cash"]`. `occupation` is the only one with no §4.1 equivalent: the agent requires it, but it isn't kept in the profile.
+- **Errors:** a failed agent or Claude call returns 502 and the turn isn't saved. The statement endpoint returns 400/413/415/422 like `/api/analyze`.
+
+Mapping from the agent profile (`app/agents/profile.py`) to §4.1, in one place (`app/profile_mapping.py`):
+
+| Agent | §4.1 |
+|---|---|
+| `home.housing` (rent **or** mortgage payment) | `recurring.rent` |
+| `home.utilities`, `home.subscriptions` | `recurring.utilities`, `recurring.subscriptions` |
+| `market.transport` | `recurring.transport` |
+| `market.food`, `market.leisure` | `spending.food`, `spending.leisure` |
+| `bank.cash`, `bank.savings`, `bank.investments` | `cash`, `savings`, `investments` |
+| `bank.debts[]{name, monthly_payment, remaining?, apr?}` | `debts[]{name, monthly, remaining, apr}`; a missing `apr`/`remaining` is estimated from the loan name (mortgage / IFN / default), no debts → `[]` |
+| `income.scholarship` | `education.scholarship` (counted as income in the engine) |
+| `health.monthly_costs` | `health.monthly_costs` |
+| `goal.type` (optional) | `goal.type` (default `"altul"`) |
+| `business.interest` | `business_interest` |
+| `occupation`, `business.idea` | not kept |
+| statement analysis | `source{statement_uploaded, statement_score, risk_signals}` |
+
+Same names in both: `name`, `age`, `goal.description/target_amount/horizon_months`, `income.salary/other`, `education.status/tuition_monthly`, `health.insured`, `risk_tolerance` (`scazuta|medie|ridicata`), `dependents`.
+
+## Data & privacy
+
+- **Uploaded files** are read into memory and never written to disk. Neither the file nor its extracted text is kept in the session; the session keeps only `{score, risk_signals}` from the analysis.
+- **Session data** (draft profile, conversation, §4.1 profile, game) lives in server memory only and is lost on restart.
+- **`data/demo.sqlite3`**: in real mode the agents write the shared "user file" there (`app/agents/memory.py`, keyed by `session_id`), which also holds the `/api/demo/*` sessions. These short notes can include facts from the conversation and the statement summary (stability score, risk level, up to 3 risk signals). The file is in `.gitignore` (`data/*.sqlite3`) and its contents are never logged.
+- **Use only synthetic statements** (like `deploy/sample_statement.py`) for the demo. Real bank statements must not be uploaded: their text is sent to the Claude API, and facts from them can end up in `data/demo.sqlite3`.
+
 ## Errors
 
 Every error uses FastAPI's default body, `{"detail": "<message>"}`. Validation errors (422) return `detail` as a list.
@@ -201,24 +242,29 @@ POST /api/game/advance  {"session_id": "<new session, not started>"}
 ```json
 // request
 {"session_id": "c3db...", "text": "Vreau să strâng avans pentru o casă"}
-// response (1st message)
-{"reply": "Super. Cât câștigi pe lună și cât dai pe chirie, utilități și alte cheltuieli fixe?",
- "missing_fields": ["savings", "debts", "risk_tolerance"], "done": false, "profile": null}
+// response (not done yet; missing_fields are §4.1 paths)
+{"reply": "Notat! Cât dai pe chirie și pe utilități?",
+ "missing_fields": ["recurring.rent", "recurring.utilities", "spending.food", "cash", "savings", "risk_tolerance"],
+ "done": false, "profile": null}
 ```
-On the 3rd message: `"done": true, "missing_fields": [], "profile": { ...§4.1 Andrei... }`.
+When done: `"done": true, "missing_fields": [], "profile": { ...§4.1... }`, and `/api/game/start` uses that profile.
 
 ### POST /api/onboarding/statement
 ```bash
 curl -F session_id=c3db... -F file=@extras.pdf http://localhost:8000/api/onboarding/statement
 ```
 ```json
-{"analysis": {"mock": true, "statement_score": 58, "risk_signals": ["Rată la IFN"]},
- "profile_fields": {"income": {"salary": 4300, "other": 0},
-                    "recurring": {"rent": 1500, "utilities": 350, "subscriptions": 120, "transport": 200},
-                    "debts": [{"name": "Credit nevoi personale", "monthly": 650, "remaining": 11000, "apr": 0.14}],
-                    "source": {"statement_uploaded": true, "statement_score": 58, "risk_signals": ["Rată la IFN"]}},
- "missing_fields": ["goal", "age", "savings", "risk_tolerance"]}
+// response (synthetic sample statement; analysis shortened)
+{"analysis": {"titular": "ION POPESCU", "venit_lunar_estimat": 6850.0, "sold_final": 5309.81, "scor_stabilitate_financiara": 58, "...": "..."},
+ "profile_fields": {"name": "Ion Popescu", "income": {"salary": 6850.0}, "cash": 5309.81, "savings": 0.0,
+                    "debts": [{"name": "Rata credit ipotecar BT", "monthly": 2310.0, "remaining": 309828.76, "apr": 0.065},
+                              {"name": "Credius IFN rata", "monthly": 650.0, "remaining": 11107.58, "apr": 0.35}],
+                    "source": {"statement_uploaded": true, "statement_score": 58, "risk_signals": ["Rată la IFN", "Pariuri online"]}},
+ "missing_fields": ["age", "occupation", "goal.description", "goal.target_amount", "goal.horizon_months",
+                    "recurring.rent", "recurring.utilities", "spending.food", "risk_tolerance"],
+ "reply": "Am citit extrasul: venit de ~6.850 lei, două rate (ipotecar și un IFN). Cât dai pe utilități și pe mâncare?"}
 ```
+`reply` is `null` in mock mode.
 
 ### POST /api/game/start
 ```json
