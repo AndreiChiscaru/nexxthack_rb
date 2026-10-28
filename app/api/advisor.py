@@ -10,11 +10,12 @@ router = APIRouter(prefix="/api/advisor", tags=["advisor"])
 def advisor_message(req: ChatRequest):
     # TODO(real): advisor agent (app/agents/) with tools backed by app/sim/engine.py; log every tool call.
     session = get_session(req.session_id)
-    s = session.state
-    cash = s.balance.cash if s else 0
+    sim = session.sim
+    cash = sim["cash"] if sim else 0
+    stress = sim["stress"] if sim else 0
     tool_calls = [
         ToolCall(name="get_player_profile", args={},
-                 summary=f"Luna {s.month if s else 0}, cash {cash:.0f} lei, stres {s.wellbeing.stress if s else 0:.0f}/100."),
+                 summary=f"Luna {session.month}, cash {cash:.0f} lei, stres {stress:.0f}/100."),
         ToolCall(name="search_products", args={"category": "savings"},
                  summary="2 produse demo: Cont de Economii Automat Demo, Depozit Flexibil Demo."),
     ]

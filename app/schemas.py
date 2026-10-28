@@ -230,6 +230,7 @@ class GameAdvanceRequest(BaseModel):
 
 class GameAdvanceResponse(BaseModel):
     state: GameState
+    delta: dict[str, float]
     events: list[Event]
 
 
