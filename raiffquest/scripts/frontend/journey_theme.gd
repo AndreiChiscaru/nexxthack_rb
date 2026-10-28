@@ -31,6 +31,9 @@ static func theme() -> Theme:
 		value.set_color("font_disabled_color", type, Color("626b55"))
 	value.set_color("font_placeholder_color", "LineEdit", MUTED)
 	value.set_color("font_color", "TextEdit", INK)
+	for type in ["LineEdit", "TextEdit"]:
+		value.set_color("caret_color", type, INK)
+		value.set_constant("caret_width", type, 2)
 	value.set_stylebox("normal", "Button", box(Color("edf0d9")))
 	value.set_stylebox("hover", "Button", box(Color("fff19a"), INK))
 	value.set_stylebox("hover_pressed", "Button", box(YELLOW, INK))
@@ -72,6 +75,21 @@ static func button(value: String, action: Callable, primary: bool = false) -> Bu
 		down.shadow_offset = Vector2(0,1)
 		b.add_theme_stylebox_override("pressed", down)
 		b.add_theme_stylebox_override("hover_pressed", down)
+	b.pressed.connect(action)
+	return b
+static func close_button(action: Callable) -> Button:
+	var b := Button.new()
+	b.icon = load("res://assets/raiff/icon_close.svg")
+	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	b.tooltip_text = "Închide"
+	b.custom_minimum_size = Vector2(36, 36)
+	b.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		var style: StyleBoxFlat = box(PAPER if state == "normal" else Color("fff19a"), INK, 0)
+		if state == "focus":
+			style.bg_color = Color("ffffff00")
+		style.set_corner_radius_all(18)
+		b.add_theme_stylebox_override(state, style)
 	b.pressed.connect(action)
 	return b
 static func player_portrait(expression: String = "talking", side: float = 40) -> TextureRect:
