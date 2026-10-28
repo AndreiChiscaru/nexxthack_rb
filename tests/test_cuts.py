@@ -49,3 +49,31 @@ def test_cuts_replace_surprise_events_and_remove_the_expense():
     advanced = client.post("/api/game/advance", json={"session_id": sid})
     assert advanced.status_code == 200, advanced.text
     assert [e["id"] for e in advanced.json()["events"]] == ["taie_restaurante"]
+
+
+def test_a_cut_must_be_answered_and_returns_after_a_gap():
+    sid = client.post("/api/session").json()["session_id"]
+    profile = ANDREI_PROFILE.model_dump()
+    profile["categories"] = [
+        {"id": "uber", "label": "Transport (Uber / Bolt)", "institution": "market", "monthly": 670},
+    ]
+    started = client.post("/api/game/start", json={"session_id": sid, "profile": profile})
+    assert [e["id"] for e in started.json()["events"]] == ["taie_uber"]
+
+    blocked = client.post("/api/game/advance", json={"session_id": sid})
+    assert blocked.status_code == 409
+    assert len(client.get("/api/game/snapshot", params={"session_id": sid}).json()["events"]) == 1
+
+    left = client.post("/api/game/action", json={
+        "session_id": sid, "institution": "market", "action_id": "taie_uber", "params": {"option_id": "lasa"},
+    })
+    assert left.status_code == 200, left.text
+
+    quiet = []
+    for _ in range(3):
+        step = client.post("/api/game/advance", json={"session_id": sid})
+        assert step.status_code == 200, step.text
+        quiet.append([e["id"] for e in step.json()["events"]])
+    assert quiet == [[], [], []]
+    again = client.post("/api/game/advance", json={"session_id": sid})
+    assert [e["id"] for e in again.json()["events"]] == ["taie_uber"]

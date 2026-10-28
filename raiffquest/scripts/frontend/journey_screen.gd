@@ -312,8 +312,49 @@ func _show_onboarding_chat() -> void:
 	chat.set_heading("AIngel\nConsilierul tău · pas cu pas")
 	chat.clear_messages()
 	for message: Dictionary in controller.transcript:
+		if controller.phase == "map" and _is_game_log(message):
+			continue
 		chat.append(message)
+	if controller.phase == "map":
+		chat.append({"role": "AIngel", "text": _advice_for_screen()})
 	_open_chat()
+
+func _is_game_log(message: Dictionary) -> bool:
+	var text := str(message.get("text", ""))
+	return str(message.get("role", "")) == "Joc" or text.begins_with("Am pregătit orașul") or "a dispărut din cheltuielile lunare" in text or text == "Decizia a fost înregistrată."
+
+func _decision_on_screen() -> Dictionary:
+	var on_this_building: Array[Dictionary] = []
+	var cuts: Array[Dictionary] = []
+	for event: Dictionary in controller.events:
+		if not selected.is_empty() and str(event.get("institution", "")) == selected:
+			on_this_building.append(event)
+		elif str(event.get("id", "")).begins_with("taie_"):
+			cuts.append(event)
+	if not on_this_building.is_empty():
+		return on_this_building[0]
+	if not cuts.is_empty():
+		return cuts[0]
+	return {}
+
+func _advice_for_screen() -> String:
+	var event := _decision_on_screen()
+	if event.is_empty():
+		return "Nu ai o decizie deschisă. Spune-mi ce vrei să schimbi la bani în luna asta."
+	var place: String = NAMES.get(str(event.get("institution", "")), "hartă")
+	var title := str(event.get("title", "alegerea asta"))
+	if str(event.get("id", "")).begins_with("taie_"):
+		var monthly := -1.0
+		var cat_id := str(event.get("id", "")).trim_prefix("taie_")
+		for cat: Dictionary in controller.state.get("categories", []):
+			if str(cat.get("id", "")) == cat_id:
+				monthly = float(cat.get("monthly", 0))
+		var sum := " Cam %.0f lei pe lună." % monthly if monthly >= 0.0 else ""
+		return "La %s ai de ales: %s.%s Eu aș tăia cheltuiala dacă nu îți trebuie: iese din cheltuielile lunare. «O las așa» o păstrează și o revezi mai târziu, nu luna viitoare." % [place, title, sum]
+	var detail := str(event.get("text", ""))
+	if detail.length() > 160:
+		detail = detail.substr(0, 157) + "..."
+	return "La %s ai de ales: %s. %s Alege tu varianta de pe clădire." % [place, title, detail]
 
 func _show_business() -> void:
 	channel = "business"
