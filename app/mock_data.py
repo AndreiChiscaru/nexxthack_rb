@@ -35,17 +35,18 @@ ANDREI_PROFILE = Profile.model_validate({
 
 # Order in which the mock onboarding "collects" required fields (§4.1).
 REQUIRED_FIELDS = ["goal", "age", "income.salary", "recurring", "savings", "debts", "risk_tolerance"]
-# TODO(real): read from the session's profile.goal.horizon_months.
-MOCK_HORIZON_MONTHS = 36
 
 
-def recompute(state: GameState) -> None:
-    """Refresh derived fields (net worth, goal progress) after any change."""
+def recompute(state: GameState, horizon_months: int) -> None:
+    """Refresh derived fields (net worth, goal progress) after any change.
+
+    `horizon_months` comes from the session profile (goal.horizon_months); GameState doesn't carry it.
+    """
     # TODO(real): app/sim/engine.py owns these formulas (port of finance_sim.gd).
     b = state.balance
     b.net_worth = round(b.cash + b.savings + b.investments - b.debt, 2)
     state.goal.progress = round(min(1.0, max(0.0, b.savings / state.goal.target_amount)), 3)
-    state.goal.on_track = state.goal.progress >= state.month / MOCK_HORIZON_MONTHS
+    state.goal.on_track = state.goal.progress >= state.month / max(1, horizon_months)
     state.products = [ProductHolding(id="cont_economii", balance=b.savings)] if b.savings > 0 else []
 
 
@@ -77,7 +78,7 @@ def initial_state(session_id: str, profile: Profile) -> GameState:
         products=[],
         log=[LogEntry(month=0, institution="home", text=f"{profile.name or 'Jucătorul'} începe aventura.")],
     )
-    recompute(state)
+    recompute(state, profile.goal.horizon_months)
     return state
 
 

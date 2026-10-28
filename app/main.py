@@ -25,8 +25,8 @@ MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 GAME_DIR = Path(__file__).resolve().parent.parent / "game"
 
-app = FastAPI(title="Analiză extras de cont")
-# TODO(real): restrict origins to the deployed game domain.
+app = FastAPI(title="Raiff Quest API")
+# TODO(deploy): restrict CORS to our domain
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 for module in (session, onboarding, game, advisor, business, products):
     app.include_router(module.router)

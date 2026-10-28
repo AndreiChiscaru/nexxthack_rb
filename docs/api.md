@@ -35,6 +35,27 @@ Mock behaviour:
 - **Advance.** `month + 1`, `cash += income - all expenses`, `debt -= bank` expense, plus 0–2 new events (deterministic per session and month).
 - **Action.** Either answer a pending event with `action_id = <event id>` and `params.option_id`, or use a free action: `save`, `invest` or `repay` with `params.amount`.
 
+## Errors
+
+Every error uses FastAPI's default body, `{"detail": "<message>"}`. Validation errors (422) return `detail` as a list.
+
+| Status | When | Example `detail` |
+|---|---|---|
+| **404** | `session_id` doesn't exist (any route that takes it, including `/api/onboarding/*`, `/api/advisor/*` and `/api/business/*`) | `"Sesiune inexistentă."` |
+| **409** | `GET /api/game/state`, `POST /api/game/action` or `POST /api/game/advance` before `POST /api/game/start` | `"Jocul nu a pornit încă (POST /api/game/start)."` |
+| 400 | unknown `action_id`, invalid `option_id`, `amount <= 0`, empty uploaded file | `"Acțiune necunoscută: teleport."` |
+| 413 | upload over 25 MB | `"Fișierul depășește 25 MB."` |
+| 422 | body or query fails validation (e.g. `institution` not one of the 7 ids, missing `session_id`) | `[{"type": "literal_error", "loc": ["body", "institution"], ...}]` |
+
+Example:
+```http
+GET /api/game/state?session_id=nope
+→ 404 {"detail": "Sesiune inexistentă."}
+
+POST /api/game/advance  {"session_id": "<new session, not started>"}
+→ 409 {"detail": "Jocul nu a pornit încă (POST /api/game/start)."}
+```
+
 ---
 
 ## Examples
