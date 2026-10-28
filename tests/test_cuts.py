@@ -47,6 +47,8 @@ def test_cuts_replace_surprise_events_and_remove_the_expense():
     after = chosen.json()["state"]
     assert all(c["id"] != "uber" for c in after["categories"])
     assert abs(_total(after) - (before - 670)) < 1.5
+    from app.agents import memory
+    assert any("Uber" in note["text"] and note["topic"] == "decizie" for note in memory.load(sid))
 
     advanced = client.post("/api/game/advance", json={"session_id": sid})
     assert advanced.status_code == 200, advanced.text

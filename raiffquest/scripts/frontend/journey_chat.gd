@@ -20,6 +20,7 @@ var compact := false
 var portraits: Array[Control] = []
 var heading: Label
 var invest_mode := false
+var attach_kind := "statement"
 var _rows: Array[Control] = []
 
 func _ready() -> void:
@@ -148,8 +149,10 @@ func show_state(busy: bool, phase: String, error: String) -> void:
 	send.disabled = busy
 	input.editable = not busy
 	attach.disabled = busy
+	var documents := attach_kind == "business"
 	var angel := phase != "map" and not invest_mode
-	attach.visible = angel
+	attach.visible = angel or documents
+	attach.text = "＋ Adaugă un document" if documents else "＋ Adaugă un extras"
 	tip.visible = angel
 	sample.disabled = busy
 	sample.visible = angel

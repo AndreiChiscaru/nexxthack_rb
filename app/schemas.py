@@ -137,6 +137,20 @@ class LogEntry(BaseModel):
     text: str
 
 
+class FirmState(BaseModel):
+    """A business the accountant started in the city. Taxes stay due until the player pays them."""
+    name: str
+    form: str
+    regime: str
+    regime_label: str
+    monthly_revenue: float
+    monthly_expenses: float
+    monthly_taxes: float
+    monthly_cash: float
+    taxes_due: float
+    next_due: str = ""
+
+
 class GameState(BaseModel):
     session_id: str
     month: int
@@ -149,6 +163,7 @@ class GameState(BaseModel):
     products: list[ProductHolding]
     log: list[LogEntry]
     categories: list[SpendingCategory] = Field(default_factory=list)
+    firm: FirmState | None = None
 
 
 # --- §4.4 Events ------------------------------------------------------------
@@ -239,6 +254,8 @@ class GameAdvanceResponse(BaseModel):
 class ChatRequest(BaseModel):
     session_id: str
     text: str
+    # The decision open on the player's screen. The consultant compares that event's options.
+    event_id: str | None = None
 
 
 class ChatResponse(BaseModel):
