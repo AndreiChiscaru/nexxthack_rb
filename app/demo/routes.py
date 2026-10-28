@@ -1,13 +1,14 @@
-"""HTTP API for the demo game: sessions, the 4 agents and game actions."""
+"""HTTP API for the demo game: sessions, the 4 agents (streamed as server-sent events) and game actions."""
+import json
 import logging
 import random
 
 import anthropic
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from ..agents import business, consultant, onboarding, store
+from ..agents import business, consultant, memory, onboarding, store
 from ..agents import profile as prof
 from ..analyzer import AnalysisError, analyze_statement
 from ..extraction import extract_text
@@ -55,29 +56,49 @@ def _view(session_id: str) -> dict:
         "game": engine.public_view(game) if game else None,
         "consultant": _chat(store.load(session_id, "consultant")),
         "business": _chat(store.load(session_id, "business")),
+        "memory": memory.load(session_id),
     }
 
 
-def _agent_call(fn, *args):
-    try:
-        return fn(*args)
-    except anthropic.APIError as exc:
-        log.exception("Claude call failed")
-        raise HTTPException(502, f"Eroare la apelul Claude: {exc}")
+def _sse(event: dict) -> str:
+    return f"data: {json.dumps(event, ensure_ascii=False, default=str)}\n\n"
 
 
-async def _read_upload(file: UploadFile) -> tuple[str, str]:
+def _stream(session_id: str, run, save) -> StreamingResponse:
+    """`run()` yields agent events; `save()` persists the mutated state, only if the whole turn succeeded."""
+    def generate():
+        try:
+            for event in run():
+                if event["type"] in ("text", "tool_start", "tool_end", "status"):
+                    yield _sse(event)
+            save()
+            yield _sse({"type": "view", "view": _view(session_id)})
+        except (AnalysisError, ValueError) as exc:
+            yield _sse({"type": "error", "message": str(exc)})
+        except anthropic.APIError as exc:
+            log.exception("Claude call failed")
+            yield _sse({"type": "error", "message": f"Eroare la apelul Claude: {exc}"})
+        except Exception as exc:
+            log.exception("Agent turn failed")
+            yield _sse({"type": "error", "message": f"Eroare internă: {exc}"})
+
+    return StreamingResponse(generate(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+async def _read_upload(file: UploadFile) -> bytes:
     data = await file.read()
     if not data:
         raise HTTPException(400, "Fișierul este gol.")
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(413, "Fișierul depășește 25 MB.")
-    try:
-        text, method = await run_in_threadpool(extract_text, file.filename or "", data)
-    except ValueError as exc:
-        raise HTTPException(415, str(exc))
+    return data
+
+
+def _extract(filename: str, data: bytes) -> tuple[str, str]:
+    text, method = extract_text(filename, data)
     if len(text.strip()) < 30:
-        raise HTTPException(422, "Documentul nu conține text lizibil (nici după OCR).")
+        raise ValueError("Documentul nu conține text lizibil (nici după OCR).")
     return text, method
 
 
@@ -110,31 +131,37 @@ def onboarding_message(session_id: str, body: Message):
     _require(session_id)
     profile = store.load(session_id, "profile", prof.empty())
     convo = store.load(session_id, "onboarding")
-    _agent_call(onboarding.user_turn, profile, convo, body.text.strip()[:4000])
-    store.save(session_id, "profile", profile)
-    store.save(session_id, "onboarding", convo)
-    return _view(session_id)
+
+    def save():
+        store.save(session_id, "profile", profile)
+        store.save(session_id, "onboarding", convo)
+
+    return _stream(session_id, lambda: onboarding.user_turn(session_id, profile, convo, body.text.strip()[:4000]), save)
 
 
 @router.post("/onboarding/{session_id}/statement")
 async def onboarding_statement(session_id: str, file: UploadFile = File(...)):
     _require(session_id)
-    text, method = await _read_upload(file)
-    try:
-        analysis = await run_in_threadpool(analyze_statement, text)
-    except AnalysisError as exc:
-        raise HTTPException(502, str(exc))
-    except anthropic.APIError as exc:
-        raise HTTPException(502, f"Eroare la apelul Claude: {exc}")
-    game_profile = to_game_profile(analysis)
-    store.save(session_id, "statement", {"filename": file.filename, "method": method, "analysis": analysis, "game_profile": game_profile})
-
+    data = await _read_upload(file)
+    filename = file.filename or "extras"
     profile = store.load(session_id, "profile", prof.empty())
     convo = store.load(session_id, "onboarding")
-    await run_in_threadpool(_agent_call, onboarding.statement_turn, profile, convo, file.filename or "extras", analysis, game_profile)
-    store.save(session_id, "profile", profile)
-    store.save(session_id, "onboarding", convo)
-    return _view(session_id)
+
+    def run():
+        yield {"type": "status", "text": "Citesc documentul (OCR dacă e nevoie)…"}
+        text, method = _extract(filename, data)
+        yield {"type": "status", "text": "Agentul de analiză extrage datele din extras…"}
+        analysis = analyze_statement(text)
+        game_profile = to_game_profile(analysis)
+        store.save(session_id, "statement", {"filename": filename, "method": method, "analysis": analysis, "game_profile": game_profile})
+        yield {"type": "status", "text": "Raportul a ajuns la agentul de onboarding…"}
+        yield from onboarding.statement_turn(session_id, profile, convo, filename, analysis, game_profile)
+
+    def save():
+        store.save(session_id, "profile", profile)
+        store.save(session_id, "onboarding", convo)
+
+    return _stream(session_id, run, save)
 
 
 # ---------------------------------------------------------------- game
@@ -191,9 +218,8 @@ def game_bank(session_id: str, body: BankAction):
 def consultant_message(session_id: str, body: Message):
     _require(session_id)
     convo = store.load(session_id, "consultant") or consultant.new_conversation()
-    _agent_call(consultant.user_turn, session_id, convo, body.text.strip()[:4000])
-    store.save(session_id, "consultant", convo)
-    return _view(session_id)
+    return _stream(session_id, lambda: consultant.user_turn(session_id, convo, body.text.strip()[:4000]),
+                   lambda: store.save(session_id, "consultant", convo))
 
 
 # ---------------------------------------------------------------- agent 4: business accountant
@@ -202,16 +228,20 @@ def consultant_message(session_id: str, body: Message):
 def business_message(session_id: str, body: Message):
     _require(session_id)
     convo = store.load(session_id, "business") or business.new_conversation()
-    _agent_call(business.user_turn, session_id, convo, body.text.strip()[:4000])
-    store.save(session_id, "business", convo)
-    return _view(session_id)
+    return _stream(session_id, lambda: business.user_turn(session_id, convo, body.text.strip()[:4000]),
+                   lambda: store.save(session_id, "business", convo))
 
 
 @router.post("/business/{session_id}/document")
 async def business_document(session_id: str, file: UploadFile = File(...), note: str = Form("")):
     _require(session_id)
-    text, method = await _read_upload(file)
+    data = await _read_upload(file)
+    filename = file.filename or "document"
     convo = store.load(session_id, "business") or business.new_conversation()
-    await run_in_threadpool(_agent_call, business.document_turn, session_id, convo, file.filename or "document", text, method, note.strip()[:2000])
-    store.save(session_id, "business", convo)
-    return _view(session_id)
+
+    def run():
+        yield {"type": "status", "text": "Citesc documentul (OCR dacă e nevoie)…"}
+        text, method = _extract(filename, data)
+        yield from business.document_turn(session_id, convo, filename, text, method, note.strip()[:2000])
+
+    return _stream(session_id, run, lambda: store.save(session_id, "business", convo))

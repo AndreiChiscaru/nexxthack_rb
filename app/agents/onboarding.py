@@ -1,8 +1,9 @@
 """Agent 1: builds the player profile and goal through conversation; receives the statement agent's report."""
 import json
 
+from . import memory
 from . import profile as prof
-from .llm import Tool, add_user_text, run_agent
+from .llm import Tool, add_user_text, chat_turn
 
 GREETING = (
     "Salut! Îți construiesc parcursul în Raiff Quest. Ce scop financiar ai? De exemplu: „avans pentru apartament în 3 ani”. "
@@ -34,21 +35,25 @@ Cum lucrezi:
 - Nu da sfaturi de investiții sau recomandări de produse: de asta se ocupă consultantul financiar din joc.
 - Când nu mai lipsește niciun câmp obligatoriu: fă un rezumat de 2-3 rânduri scurte (scop, venit, cheltuieli, economii)
   și apelează finish_onboarding. Apoi spune-i că poate apăsa „Începe jocul”.
+- {memory_rule} Exemple: vrea să-și deschidă o firmă, așteaptă un copil, schimbă jobul, are o datorie care îl stresează.
 
 Profilul curent (JSON):
 {profile}
 
 Câmpuri obligatorii lipsă: {missing}
+
+{memory}
 """
 
 
-def _system(profile: dict) -> str:
+def _system(session_id: str, profile: dict) -> str:
     missing = prof.missing(profile)
     return SYSTEM.format(profile=json.dumps(profile["data"], ensure_ascii=False),
-                         missing=", ".join(missing) if missing else "niciunul — poți finaliza")
+                         missing=", ".join(missing) if missing else "niciunul — poți finaliza",
+                         memory=memory.prompt_block(session_id), memory_rule=memory.RULE)
 
 
-def _tools(profile: dict, convo: dict) -> list[Tool]:
+def _tools(session_id: str, profile: dict, convo: dict) -> list[Tool]:
     def update_profile(**patch):
         updated = prof.merge(profile, patch, "conversație")
         missing = prof.missing(profile)
@@ -61,9 +66,11 @@ def _tools(profile: dict, convo: dict) -> list[Tool]:
             return {"error": "Profil incomplet", "lipsesc": missing}
         convo["done"] = True
         convo["scenario"] = {"title": scenario_title, "summary": summary}
+        memory.add(session_id, "onboarding", "scop", f"Parcurs: {scenario_title}. {summary}")
         return {"ok": True, "summary": f"Profil complet: „{scenario_title}”"}
 
     return [
+        memory.tool(session_id, "onboarding"),
         Tool("update_profile", "Salvează în profil informațiile aflate (doar câmpurile noi sau corectate).",
              prof.UPDATE_SCHEMA, update_profile),
         Tool("finish_onboarding", "Finalizează profilul când nu mai lipsește niciun câmp obligatoriu.",
@@ -79,12 +86,10 @@ def new_conversation() -> dict:
     return {"history": [], "display": [{"role": "assistant", "text": GREETING}], "done": False, "scenario": None}
 
 
-def user_turn(profile: dict, convo: dict, text: str) -> dict:
+def user_turn(session_id: str, profile: dict, convo: dict, text: str):
     convo["display"].append({"role": "user", "text": text})
     add_user_text(convo["history"], text)
-    result = run_agent(_system(profile), convo["history"], _tools(profile, convo))
-    convo["display"].append({"role": "assistant", "text": result["text"], "tool_calls": result["tool_calls"]})
-    return result
+    yield from chat_turn(convo, _system(session_id, profile), _tools(session_id, profile, convo))
 
 
 def statement_patch(analysis: dict, game_profile: dict) -> dict:
@@ -113,16 +118,17 @@ def statement_report(analysis: dict) -> dict:
     return {k: analysis.get(k) for k in keys}
 
 
-def statement_turn(profile: dict, convo: dict, filename: str, analysis: dict, game_profile: dict) -> dict:
+def statement_turn(session_id: str, profile: dict, convo: dict, filename: str, analysis: dict, game_profile: dict):
     saved = prof.merge(profile, statement_patch(analysis, game_profile), "extras")
     score = analysis.get("scor_stabilitate_financiara")
     convo["display"].append({"role": "system", "text": f"📄 Agentul de analiză a citit „{filename}”: scor de stabilitate {score}/100, "
                                                         f"risc {analysis.get('nivel_risc', '-')}. A completat automat {len(saved)} câmpuri."})
+    memory.add(session_id, "statement", "risc",
+               f"Extras „{filename}”: scor {score}/100, risc {analysis.get('nivel_risc', '-')}. "
+               + "; ".join((analysis.get("semnale_de_risc") or [])[:3]))
     report = json.dumps(statement_report(analysis), ensure_ascii=False)
     add_user_text(convo["history"],
                   f"<raport_agent_extras fisier=\"{filename}\">\n{report}\n</raport_agent_extras>\n"
                   f"Câmpuri salvate automat din extras: {', '.join(saved) or 'niciunul'}. "
                   "Continuă conversația cu utilizatorul pe baza raportului.")
-    result = run_agent(_system(profile), convo["history"], _tools(profile, convo))
-    convo["display"].append({"role": "assistant", "text": result["text"], "tool_calls": result["tool_calls"]})
-    return result
+    yield from chat_turn(convo, _system(session_id, profile), _tools(session_id, profile, convo))

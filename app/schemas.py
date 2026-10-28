@@ -48,6 +48,7 @@ class Education(BaseModel):
 
 class Health(BaseModel):
     insured: bool = False
+    monthly_costs: float = 0  # recurring medical costs (lei/month), shown under monthly.expenses.health
 
 
 class ProfileSource(BaseModel):
@@ -199,6 +200,7 @@ class StatementResponse(BaseModel):
     analysis: dict[str, Any]
     profile_fields: dict[str, Any]
     missing_fields: list[str]
+    reply: str | None = None
 
 
 class GameStartRequest(BaseModel):

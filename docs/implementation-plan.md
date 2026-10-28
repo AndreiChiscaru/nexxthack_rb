@@ -61,13 +61,15 @@ Toți patru lucrează în paralel doar dacă aceste formate sunt fixate devreme.
   "savings": 1200, "investments": 0, "cash": 4000,
   "debts": [{"name": "Credit nevoi personale", "monthly": 650, "remaining": 11000, "apr": 0.14}],
   "education": {"status": "student", "scholarship": 0, "tuition_monthly": 0},
-  "health": {"insured": false},
+  "health": {"insured": false, "monthly_costs": 0},
   "business_interest": false,
   "risk_tolerance": "medie",
   "dependents": 0,
   "source": {"statement_uploaded": true, "statement_score": 58, "risk_signals": ["Rată la IFN"]}
 }
 ```
+
+`health.monthly_costs` = costuri medicale recurente (lei/lună), afișate la `monthly.expenses.health`. `education.scholarship` se adună la venit în motor (împreună cu `income.other`).
 
 Câmpuri obligatorii pentru `submit_profile`: `goal`, `age`, `income.salary`, cheltuieli recurente totale, `savings`, `debts` (poate fi listă goală), `risk_tolerance`.
 

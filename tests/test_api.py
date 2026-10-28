@@ -54,7 +54,8 @@ def test_onboarding_statement():
     body = r.json()
     assert body["analysis"]["mock"] is True
     assert "income" in body["profile_fields"]
-    assert "goal" in body["missing_fields"]
+    assert "goal.description" in body["missing_fields"]  # §4.1 paths
+    assert "income.salary" not in body["missing_fields"]  # filled from the statement
 
 
 def test_onboarding_statement_empty_file():
@@ -74,9 +75,10 @@ def test_game_start(started):
                                             "health": 0, "business": 0, "bank": 650}
     assert {i["id"] for i in state["institutions"]} == {
         "home", "market", "education", "work", "business", "hospital", "bank"}
-    assert len(body["events"]) == 2
+    assert len(body["events"]) == 2  # opening events from the scheduler
     pending = {i["id"]: i["pending_events"] for i in state["institutions"]}
-    assert pending["hospital"] == 1 and pending["bank"] == 1
+    assert sorted(inst for inst, n in pending.items() if n) == sorted(e["institution"] for e in body["events"])
+    assert max(pending.values()) == 1
 
 
 def test_game_state(started):
@@ -87,16 +89,16 @@ def test_game_state(started):
 
 
 def test_game_action_event_option(started):
-    sid, _ = started
+    sid, body = started
+    event = body["events"][0]
     r = client.post("/api/game/action", json={
-        "session_id": sid, "institution": "hospital", "action_id": "dentist",
-        "params": {"option_id": "pay_cash"}})
+        "session_id": sid, "institution": event["institution"], "action_id": event["id"],
+        "params": {"option_id": event["options"][0]["id"]}})
     assert r.status_code == 200
     body = r.json()
-    assert body["delta"]["cash"] == -1200
     assert body["advisor_note"]
     pending = {i["id"]: i["pending_events"] for i in body["state"]["institutions"]}
-    assert pending["hospital"] == 0
+    assert pending[event["institution"]] == 0
 
 
 def test_game_action_free_and_invalid(started):
@@ -106,7 +108,7 @@ def test_game_action_free_and_invalid(started):
     assert r.json()["delta"]["savings"] == 500
     bad = client.post("/api/game/action", json={
         "session_id": sid, "institution": "bank", "action_id": "teleport", "params": {}})
-    assert bad.status_code == 400
+    assert bad.status_code == 404  # unknown action_id = unknown event id
     wrong_inst = client.post("/api/game/action", json={
         "session_id": sid, "institution": "nowhere", "action_id": "save", "params": {"amount": 1}})
     assert wrong_inst.status_code == 422

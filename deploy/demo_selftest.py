@@ -60,6 +60,7 @@ sid = store.new_session()
 store.save(sid, "profile", profile)
 store.save(sid, "game", game)
 ctools = {t.name: t for t in consultant._tools(sid)}
+check("remember" in ctools, "consultant are unealta de memorie comună")
 state = ctools["get_financial_state"].handler()
 check(state["joc_pornit"], "consultant: " + state["summary"])
 plan = ctools["simulate_plan"].handler(savings_per_month=800, months=12)

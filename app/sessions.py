@@ -7,6 +7,8 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 
+from .agents import onboarding as onboarding_agent
+from .agents import profile as prof
 from .schemas import Event, GameState, LogEntry, Profile
 from .sim import adapter
 from .sim.engine import SimState
@@ -16,6 +18,12 @@ from .sim.engine import SimState
 class Session:
     id: str
     onboarding_messages: int = 0
+    # Onboarding agent state, in the agent's own formats (app/agents/): draft profile and conversation.
+    agent_profile: dict = field(default_factory=prof.empty)
+    onboarding_convo: dict = field(default_factory=onboarding_agent.new_conversation)
+    # Only what the profile needs from an uploaded statement ({score, risk_signals}); never the file or its text.
+    statement: dict | None = None
+    # §4.1 profile, set when onboarding is done; /api/game/start reads it.
     profile: Profile | None = None
     # Engine state is the source of truth; GameState is rebuilt from it on every request.
     sim: SimState | None = None
@@ -24,6 +32,8 @@ class Session:
     year_rep: dict[str, Any] = field(default_factory=dict)
     log: list[LogEntry] = field(default_factory=list)
     pending_events: list[Event] = field(default_factory=list)
+    # institution -> {"cycle": ids used in the current cycle, "last": last id}; see app/sim/events.py schedule().
+    used_events: dict[str, dict] = field(default_factory=dict)
 
 
 _SESSIONS: dict[str, Session] = {}

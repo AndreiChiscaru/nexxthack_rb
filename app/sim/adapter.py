@@ -42,6 +42,7 @@ def _base_categories(profile: Profile) -> dict[str, float]:
         "home": r.rent + r.utilities + r.subscriptions,
         "market": s.food + s.leisure + r.transport,
         "education": profile.education.tuition_monthly,
+        "health": profile.health.monthly_costs,
     }
 
 
@@ -56,7 +57,8 @@ def profile_to_state(profile: Profile, seed: str) -> tuple[E.SimState, random.Ra
         "emergency": profile.savings,
     })
     sim["age"] = profile.age
-    sim["side_income"] = float(profile.income.other)
+    # The engine has one extra-income field: other income plus the scholarship.
+    sim["side_income"] = float(profile.income.other) + float(profile.education.scholarship)
     sim["fund"] = float(profile.investments)
     for debt in profile.debts:
         months = E.months_left_for(debt.remaining, debt.apr, debt.monthly)
@@ -108,18 +110,20 @@ def advance_month(sim: E.SimState, month: int, year_rep: dict[str, Any]) -> dict
 def expenses(sim: E.SimState, profile: Profile) -> MonthlyExpenses:
     """The single mapping of engine outflows onto §4.2 expense keys.
 
-    `living` is split across home/market/education by the profile's starting proportions, so the
+    `living` is split across home/market/education/health by the profile's starting proportions, so the
     keys always sum to living + insurance_premium + debt_payments (what _month subtracts).
+    health = its share of living (profile health.monthly_costs) + the insurance premium.
     """
     base = _base_categories(profile)
     total = sum(base.values())
-    shares = {k: v / total for k, v in base.items()} if total > 0 else {"home": 0.0, "market": 1.0, "education": 0.0}
+    shares = ({k: v / total for k, v in base.items()} if total > 0
+              else {"home": 0.0, "market": 1.0, "education": 0.0, "health": 0.0})
     living = float(sim["living"])
     return MonthlyExpenses(
         home=_r2(living * shares["home"]),
         market=_r2(living * shares["market"]),
         education=_r2(living * shares["education"]),
-        health=_r2(float(sim["insurance_premium"])),
+        health=_r2(living * shares["health"] + float(sim["insurance_premium"])),
         business=0.0,  # TODO(real): business running costs once the engine models them.
         bank=_r2(E.debt_payments(sim)),
     )
