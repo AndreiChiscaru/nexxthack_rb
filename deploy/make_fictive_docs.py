@@ -1,5 +1,7 @@
-"""Generates two FICTIONAL, filled-in company registration documents for testing the accountant agent:
-the ONRC registration request (Anexa 2a) and the fiscal registration request (Anexa 1, vector fiscal).
+"""Generates FICTIONAL, filled-in documents for testing the accountant agent: the ONRC registration request
+(Anexa 2a), the fiscal registration request (Anexa 1, vector fiscal), the articles of association, the loan-for-use
+contract for the registered office and an expense invoice. The contract deliberately gives a different apartment
+number than the other documents, so the dossier review has an inconsistency to catch.
 All names, CNP/CUI and IBAN values are invented. Usage: make_fictive_docs.py <output_dir>"""
 import sys
 from pathlib import Path
@@ -208,12 +210,124 @@ din 01.11.2026; cheltuieli estimate 3.000 lei/lună (chirie birou coworking, lic
 """
 
 
+def articles_of_association() -> str:
+    p, f = PERSON, FIRM
+    name = p["prenume"] + " " + p["nume"]
+    return f"""
+<p class="fictiv">{FICTIV}</p>
+<h1>ACT CONSTITUTIV<br>al societății cu răspundere limitată cu asociat unic<br>{f["nume"]}</h1>
+<p>Încheiat astăzi, {v("08.10.2026")}, la Cluj-Napoca.</p>
+<h2>Capitolul I. Asociatul unic</h2>
+<p>Subsemnata {v(name)}, cetățean român, CNP {v(p["cnp"])}, născută în {v(p["nastere"])}, domiciliată în {v(p["domiciliu"])},
+identificată cu {v(p["act"])}, în calitate de asociat unic, am hotărât constituirea unei societăți cu răspundere limitată,
+în temeiul Legii societăților nr. 31/1990 și al Legii nr. 265/2022 privind registrul comerțului.</p>
+<h2>Capitolul II. Denumirea, forma juridică, sediul, durata</h2>
+<p><b>Art. 1.</b> Denumirea societății este {v(f["nume"])}, conform dovezii de rezervare a denumirii nr. {v("0918273 din 02.10.2026")}.</p>
+<p><b>Art. 2.</b> Forma juridică: societate cu răspundere limitată, persoană juridică română.</p>
+<p><b>Art. 3.</b> Sediul social este în {v(f["sediu"])}, în baza contractului de comodat nr. {v("12 din 01.10.2026")}.
+Sediul poate fi schimbat prin decizia asociatului unic.</p>
+<p><b>Art. 4.</b> Durata de funcționare a societății este nelimitată.</p>
+<h2>Capitolul III. Obiectul de activitate</h2>
+<p><b>Art. 5.</b> Domeniul și activitatea principală: {v(f["caen"])}.<br>
+Activități secundare: {v("6201 – Activități de realizare a soft-ului la comandă; 7311 – Activități ale agențiilor de publicitate; 8559 – Alte forme de învățământ")}.</p>
+<h2>Capitolul IV. Capitalul social</h2>
+<p><b>Art. 6.</b> Capitalul social este de {v(f["capital"])}, aport în numerar, vărsat integral în contul societății deschis la
+{v("Raiffeisen Bank S.A.")}, conform ordinului de plată din {v("09.10.2026")}.</p>
+<p><b>Art. 7.</b> Părțile sociale nu pot fi gajate și pot fi transmise conform Legii nr. 31/1990.</p>
+<h2>Capitolul V. Administrarea și controlul</h2>
+<p><b>Art. 8.</b> Societatea este administrată de {v(name)}, numită administrator pe durată nelimitată, cu puteri depline de reprezentare.</p>
+<p><b>Art. 9.</b> Asociatul unic exercită atribuțiile adunării generale a asociaților. Societatea nu are obligația numirii unui cenzor;
+situațiile financiare anuale se întocmesc de un expert contabil autorizat.</p>
+<h2>Capitolul VI. Exercițiul financiar, profitul, dividendele</h2>
+<p><b>Art. 10.</b> Exercițiul financiar începe la 1 ianuarie și se încheie la 31 decembrie. Primul exercițiu începe la data înmatriculării.</p>
+<p><b>Art. 11.</b> Profitul net se repartizează prin decizia asociatului unic, după constituirea rezervelor legale.</p>
+<h2>Capitolul VII. Dizolvarea și lichidarea</h2>
+<p><b>Art. 12.</b> Dizolvarea și lichidarea se fac în condițiile Legii nr. 31/1990.</p>
+<h2>Capitolul VIII. Dispoziții finale</h2>
+<p><b>Art. 13.</b> Beneficiarul real al societății este {v(name)}, cu 100% din părțile sociale.
+Prezentul act constitutiv a fost redactat în {v("3")} exemplare originale.</p>
+<p>Asociat unic și administrator: {v(name)} &nbsp;&nbsp; Semnătura: {v("M. Ionescu")}</p>
+"""
+
+
+def loan_for_use_contract() -> str:
+    p, f = PERSON, FIRM
+    sediu = f["sediu"].replace("ap. 5", "ap. 6")
+    return f"""
+<p class="fictiv">{FICTIV}</p>
+<h1>CONTRACT DE COMODAT<br>nr. 12 din 01.10.2026</h1>
+<h2>I. Părțile</h2>
+<p><b>1.1.</b> {v("POP ANDREI")}, CNP {v("1870923120034")}, domiciliat în {v("Cluj-Napoca, str. Horea nr. 30, jud. Cluj")},
+identificat cu {v("CI seria CJ nr. 512309")}, în calitate de <b>comodant</b> (proprietar), și</p>
+<p><b>1.2.</b> {v(f["nume"] + " (în curs de înmatriculare)")}, reprezentată de {v(p["prenume"] + " " + p["nume"])}, în calitate de
+<b>comodatar</b>, au convenit încheierea prezentului contract.</p>
+<h2>II. Obiectul contractului</h2>
+<p><b>2.1.</b> Comodantul dă în folosință gratuită comodatarului spațiul situat în {v(sediu)},
+compus din {v("o cameră de 18 mp")}, proprietatea sa conform extrasului de carte funciară nr. {v("301245")} al municipiului Cluj-Napoca.</p>
+<p><b>2.2.</b> Spațiul va fi folosit exclusiv ca <b>sediu social</b> al societății, fără desfășurarea efectivă a activității
+(activitatea se desfășoară la beneficiari).</p>
+<h2>III. Durata</h2>
+<p><b>3.1.</b> Contractul se încheie pe o perioadă de {v("3 ani")}, de la {v("01.10.2026")} până la {v("30.09.2029")}, cu posibilitate de prelungire.</p>
+<h2>IV. Obligațiile părților</h2>
+<p><b>4.1.</b> Comodantul garantează că spațiul nu face obiectul vreunui litigiu și își dă acordul pentru înregistrarea sediului social la ONRC.</p>
+<p><b>4.2.</b> Comodatarul folosește spațiul cu prudență, suportă cheltuielile de folosință și îl restituie la încetarea contractului.</p>
+<h2>V. Dispoziții finale</h2>
+<p><b>5.1.</b> Folosința este gratuită (art. 2.146 și urm. din Codul civil). Contractul s-a încheiat în 2 exemplare.</p>
+<table>
+<tr><th>Comodant</th><th>Comodatar</th></tr>
+<tr><td>{v("POP ANDREI")}<br>Semnătura: {v("A. Pop")}</td><td>{v(f["nume"])}<br>prin {v(p["prenume"] + " " + p["nume"])}<br>Semnătura: {v("M. Ionescu")}</td></tr>
+</table>
+"""
+
+
+INVOICE_ITEMS = [
+    ("Laptop Lenovo ThinkPad E16, i7, 32 GB RAM", "buc", 1, 4800.00),
+    ("Licență Adobe Creative Cloud — abonament anual", "buc", 1, 2600.00),
+    ("Mouse wireless Logitech MX Anywhere", "buc", 1, 180.00),
+    ("Masă de protocol cu clientul (catering, 4 persoane)", "serv", 1, 650.00),
+    ("Abonament telefonie mobilă + internet, luna octombrie", "luna", 1, 95.00),
+]
+
+
+def expense_invoice() -> str:
+    f = FIRM
+    rows, base = [], 0.0
+    for i, (name, unit, qty, price) in enumerate(INVOICE_ITEMS, 1):
+        value = qty * price
+        base += value
+        rows.append(f"<tr><td>{i}</td><td>{name}</td><td>{unit}</td><td>{qty}</td><td>{price:,.2f}</td>"
+                    f"<td>{value:,.2f}</td><td>{value * 0.21:,.2f}</td></tr>")
+    vat = base * 0.21
+    return f"""
+<p class="fictiv">{FICTIV}</p>
+<h1>FACTURĂ</h1>
+<p>Seria {v("TMD")} nr. {v("004512")} &nbsp;&nbsp; Data emiterii: {v("05.11.2026")} &nbsp;&nbsp; Termen de plată: {v("19.11.2026")}</p>
+<table>
+<tr><th style="width:50%">Furnizor</th><th>Cumpărător</th></tr>
+<tr><td>{v("TECHNO MAGAZIN DEMO SRL")}<br>CUI {v("RO40112233")}, Reg. Com. {v("J12/4410/2019")}<br>
+Cluj-Napoca, Calea Florești nr. 58, jud. Cluj<br>IBAN {v("RO55 BTRL 0000 1111 2222 3333")}</td>
+<td>{v(f["nume"])}<br>CUI {v(f["cui"])}<br>{v(f["sediu"])}<br>IBAN {v(f["iban"])}</td></tr>
+</table>
+<br>
+<table>
+<tr><th>Nr.</th><th>Denumirea produselor / serviciilor</th><th>U.M.</th><th>Cant.</th><th>Preț unitar fără TVA (lei)</th><th>Valoare (lei)</th><th>TVA 21% (lei)</th></tr>
+{"".join(rows)}
+<tr><td colspan="5"><b>Total</b></td><td><b>{base:,.2f}</b></td><td><b>{vat:,.2f}</b></td></tr>
+<tr><td colspan="5"><b>Total de plată (cu TVA)</b></td><td colspan="2"><b>{base + vat:,.2f} lei</b></td></tr>
+</table>
+<p>Cota TVA: 21%. Plata: ordin de plată. Factura circulă fără semnătură și ștampilă (Codul fiscal, art. 319 alin. (29)).</p>
+"""
+
+
 def main():
     out = Path(sys.argv[1] if len(sys.argv) > 1 else ".")
     out.mkdir(parents=True, exist_ok=True)
     render(onrc_request(), out / "FICTIV_cerere_inregistrare_ONRC_Atelier_Verde.pdf")
     render(fiscal_request(), out / "FICTIV_cerere_inregistrare_fiscala_Atelier_Verde.pdf",
            "body { font-size: 8pt; line-height: 1.2; } td, th { font-size: 7.5pt; padding: 1.5pt 3pt; }")
+    render(articles_of_association(), out / "FICTIV_act_constitutiv_Atelier_Verde.pdf")
+    render(loan_for_use_contract(), out / "FICTIV_contract_comodat_sediu_Atelier_Verde.pdf")
+    render(expense_invoice(), out / "FICTIV_factura_cheltuieli_Atelier_Verde.pdf")
     for path in sorted(out.glob("FICTIV_*.pdf")):
         doc = fitz.open(path)
         print(path.name, doc.page_count, "pagini,", sum(len(p.get_text()) for p in doc), "caractere text")
