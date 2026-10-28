@@ -74,12 +74,21 @@ def new_game(profile: dict, seed: int) -> dict:
         items["education"].append(_item("scholarship", "Bursă", g("income.scholarship")))
     if g("education.tuition_monthly"):
         items["education"].append(_item("tuition", "Taxă de școlarizare", -g("education.tuition_monthly")))
-    for key, label in (("housing", "Chirie / rată locuință"), ("utilities", "Utilități"), ("subscriptions", "Abonamente")):
-        if g(f"home.{key}"):
-            items["home"].append(_item(key, label, -g(f"home.{key}")))
-    for key, label in (("food", "Mâncare"), ("transport", "Transport"), ("leisure", "Ieșiri și vacanțe")):
-        if g(f"market.{key}"):
-            items["market"].append(_item(key, label, -g(f"market.{key}")))
+    categories = [c for c in (_get(profile, "categories") or []) if isinstance(c, dict)]
+    if categories:
+        for cat in categories:
+            monthly = _num(cat.get("monthly"))
+            if monthly <= 0:
+                continue
+            inst = cat.get("institution") if cat.get("institution") in INSTITUTION_IDS else "market"
+            items[inst].append(_item(str(cat["id"]), f"{cat['label']} · medie/lună", -monthly))
+    else:
+        for key, label in (("housing", "Chirie / rată locuință"), ("utilities", "Utilități"), ("subscriptions", "Abonamente")):
+            if g(f"home.{key}"):
+                items["home"].append(_item(key, label, -g(f"home.{key}")))
+        for key, label in (("food", "Mâncare"), ("transport", "Transport"), ("leisure", "Ieșiri și vacanțe")):
+            if g(f"market.{key}"):
+                items["market"].append(_item(key, label, -g(f"market.{key}")))
     if g("health.monthly_costs"):
         items["hospital"].append(_item("health", "Costuri medicale", -g("health.monthly_costs")))
 
@@ -113,6 +122,9 @@ def new_game(profile: dict, seed: int) -> dict:
         "auto": {"savings": 0.0, "investments": 0.0},
         "insured": bool(_get(profile, "health.insured")),
         "student": str(_get(profile, "education.status") or "").lower().startswith(("elev", "student", "master")),
+        "lives_with_parents": _get(profile, "home.housing") == 0,
+        "statement_months": int(g("statement_months")) or None,
+        "from_statement": bool(categories),
         "business": None,
         "calendar_start": _next_month(date.today()),
         "fiscal_arrears": [],
@@ -255,10 +267,23 @@ def public_view(state: dict) -> dict:
         "debts": state["debts"],
         "business": state["business"],
         "institutions": institutions_view(state),
+        "averages": _averages(state),
+        "statement_months": state.get("statement_months"),
         "pending_event": state["pending_event"],
         "log": state["log"][-15:],
         "history": state["history"],
     }
+
+
+def _averages(state: dict) -> list[dict]:
+    rows = []
+    for inst in INSTITUTION_IDS:
+        for item in state["items"].get(inst, []):
+            if item["amount"] < 0 and "medie/lună" in item["label"]:
+                rows.append({"id": item["id"], "label": item["label"].replace(" · medie/lună", ""),
+                             "monthly": round(-item["amount"], 2), "institution": inst})
+    rows.sort(key=lambda row: -row["monthly"])
+    return rows
 
 
 def _next_due(state: dict, months: list[int]) -> str | None:
@@ -320,8 +345,10 @@ def apply_ops(state: dict, ops: dict) -> list[str]:
             amount = min(float(ops[key]), max(state["cash"], 0.0))
             state["cash"] -= amount
             state[key.removeprefix("to_")] += amount
+    specs = list(ops.get("item_sets") or [])
     if "item_set" in ops:
-        spec = ops["item_set"]
+        specs.append(ops["item_set"])
+    for spec in specs:
         items = state["items"][spec["inst"]]
         existing = _find_item(state, spec["inst"], spec["id"])
         if existing:
@@ -445,6 +472,8 @@ def advance(state: dict) -> dict:
     fiscal = _fiscal_event(state)
     if fiscal:
         state["pending_event"] = fiscal
+    elif state.get("from_statement"):
+        state["pending_event"] = _pick_event(state, rng)
     elif rng.random() < EVENT_CHANCE:
         state["pending_event"] = _pick_event(state, rng)
     return {"before": before, "after": after}
@@ -574,8 +603,8 @@ def _expense(state: dict, inst: str, item_id: str) -> float:
     return -item["amount"] if item else 0.0
 
 
-def _ev(event_id, inst, title, text, options):
-    return {"id": event_id, "institution": inst, "title": title, "text": text,
+def _ev(event_id, inst, title, text, options, kind="event", saves=0):
+    return {"id": event_id, "institution": inst, "title": title, "text": text, "kind": kind, "saves": saves,
             "options": [{"id": f"{event_id}_{i}", "label": label, "desc": desc, "ops": ops}
                         for i, (label, desc, ops) in enumerate(options)]}
 
@@ -727,13 +756,108 @@ def ev_deposit(s):
     ])
 
 
+def _keep(inst: str, item_id: str, label: str, monthly: float) -> dict:
+    return {"inst": inst, "id": item_id, "label": f"{label} · medie/lună", "amount": -round(monthly)}
+
+
+def _drop(inst: str, item_id: str, label: str, amount: float, why: str):
+    """Suggestion to remove one irresponsible monthly expense. Amount 0 deletes the line."""
+    if amount < 40:
+        return None
+    return _ev(f"taie_{item_id}", inst, f"Taie {label.lower()}",
+               f"{why} Din extras, media e {money(amount)} pe lună. Dacă accepți, dispare din cheltuielile lunare.",
+               [
+                   ("Taie cheltuiala", f"{label} dispare. Cheltuielile lunare scad cu {money(amount)}.",
+                    {"item_set": _keep(inst, item_id, label, 0)}),
+                   ("O las așa", "Rămâne în cheltuielile lunare.", {}),
+               ],
+               kind="suggestion", saves=round(amount))
+
+
+def ev_taie_uber(s):
+    amount = _expense(s, "market", "uber")
+    return _drop("market", "uber", "Transport (Uber / Bolt)", amount,
+                 "Uber și Bolt, mai ales noaptea, îți mănâncă salariul de part-time. Un abonament de transport sau mersul pe jos acoperă aceleași drumuri.")
+
+
+def ev_taie_restaurante(s):
+    amount = _expense(s, "market", "restaurante")
+    return _drop("market", "restaurante", "Restaurante și baruri", amount,
+                 "Stai cu părinții, iar ieșirile depășesc mâncarea de acasă. Gătitul acasă și o ieșire pe săptămână, nu în fiecare seară, scoate categoria.")
+
+
+def ev_taie_pariuri(s):
+    amount = _expense(s, "market", "pariuri")
+    return _drop("market", "pariuri", "Pariuri online", amount,
+                 "Superbet nu îți aduce bani înapoi. Ștergerea aplicației oprește depunerile.")
+
+
+def ev_taie_livrari(s):
+    amount = _expense(s, "market", "livrari")
+    return _drop("market", "livrari", "Livrări de mâncare", amount,
+                 "Glovo la ore târzii e o masă scumpă peste ieșirile de la restaurant.")
+
+
+def ev_taie_cumparaturi(s):
+    amount = _expense(s, "market", "cumparaturi")
+    return _drop("market", "cumparaturi", "Cumpărături impulsive", amount,
+                 "About You, H&M și Bershka apar când nu ai nevoie de haine noi. O pauză de cumpărături scoate linia.")
+
+
+def ev_taie_numerar(s):
+    amount = _expense(s, "bank", "numerar")
+    return _drop("bank", "numerar", "Retrageri de numerar", amount,
+                 "Banii scoși de la bancomat pleacă fără să știi pe ce. Dacă plătești cu cardul, retragerea dispare.")
+
+
+def ev_taie_cafea(s):
+    amount = _expense(s, "market", "cafea")
+    return _drop("market", "cafea", "Cafea de drum", amount,
+                 "5 to go de câteva ori pe zi se adună. Cafeaua de acasă acoperă același obicei.")
+
+
+def ev_taie_rate(s):
+    amount = _expense(s, "market", "rate")
+    return _drop("market", "rate", "Rate la comercianți (PayPo)", amount,
+                 "Hanorace și comenzi în rate PayPo, deși venitul e de part-time. Fără cumpărături noi în rate, linia dispare.")
+
+
+def ev_taie_abonamente(s):
+    amount = _expense(s, "home", "abonamente")
+    if amount < 80:
+        return None
+    gym = min(149, round(amount * 0.55))
+    left = round(max(amount - gym, 0))
+    return _ev("taie_abonamente", "home", "Taie abonamentele nefolosite",
+               f"Plătești {money(amount)}/lună pe Netflix, Spotify, HBO și sala la care nu mergi. Sala e cam {money(gym)} din sumă.",
+               [
+                   ("Anulează tot", f"Abonamentele dispar. Cheltuielile lunare scad cu {money(amount)}.",
+                    {"item_set": _keep("home", "abonamente", "Abonamente", 0)}),
+                   ("Anulează doar sala", f"Rămâi cu streamingul, {money(left)}/lună. Sala dispare.",
+                    {"item_set": _keep("home", "abonamente", "Abonamente", left)}),
+                   ("Le păstrez", "Abonamentele rămân.", {}),
+               ],
+               kind="suggestion", saves=round(amount))
+
+
+HABIT_EVENTS = [ev_taie_uber, ev_taie_restaurante, ev_taie_pariuri, ev_taie_livrari, ev_taie_cumparaturi,
+                ev_taie_numerar, ev_taie_cafea, ev_taie_rate, ev_taie_abonamente]
+
 EVENTS = [ev_rent, ev_subscriptions, ev_appliance, ev_vacation, ev_black_friday, ev_car_repair, ev_course,
           ev_scholarship, ev_raise, ev_bonus, ev_freelance, ev_dentist, ev_insurance, ev_loan_offer, ev_deposit]
 
 
+def _event_pool(state: dict) -> list:
+    if state.get("from_statement"):
+        return HABIT_EVENTS
+    return EVENTS
+
+
 def _pick_event(state: dict, rng: random.Random) -> dict | None:
+    pool = _event_pool(state)
+
     def candidates(exclude):
-        built = [fn(state) for fn in EVENTS if fn.__name__ not in exclude]
+        built = [fn(state) for fn in pool if fn.__name__ not in exclude]
         return [e for e in built if e]
 
     options = candidates(state["used_events"])
@@ -742,6 +866,9 @@ def _pick_event(state: dict, rng: random.Random) -> dict | None:
         options = candidates([])
     if not options:
         return None
-    event = rng.choice(options)
+    if state.get("from_statement"):
+        event = max(options, key=lambda item: item.get("saves") or 0)
+    else:
+        event = rng.choice(options)
     state["used_events"].append(f"ev_{event['id']}")
     return event

@@ -46,6 +46,25 @@ window.raiffStatementUpload = {
   };
   input.style.display = 'none'; document.body.appendChild(input);
   try { input.click(); } catch (_) { input.remove(); fail('Nu am putut deschide selectorul de fișiere.'); }
+ },
+ loadSample: function(sessionId, timeoutMs) {
+  if (this.state === 'picking' || this.state === 'uploading') return;
+  var self = this;
+  self.result = ''; self.status = 0; self.error = ''; self.errorCode = '';
+  function fail(message, code) { self.error = message; self.errorCode = code || 'invalid_request'; self.state = 'error'; }
+  if (!sessionId || !sessionId.trim()) { fail('Lipsește sesiunea.'); return; }
+  var body = new FormData(); body.append('session_id', sessionId);
+  var controller = new AbortController();
+  var timer = setTimeout(function() { controller.abort(); }, timeoutMs);
+  self.state = 'uploading';
+  fetch('/api/onboarding/sample', {method:'POST', body:body, signal:controller.signal, redirect:'error'})
+   .then(function(response) { self.status = response.status; return response.text(); })
+   .then(function(text) {
+    if (text.length > 2*1024*1024) { fail('Răspuns prea mare.', 'response_too_large'); return; }
+    self.result = text; self.state = 'done';
+   }).catch(function(error) {
+    fail(error.name === 'AbortError' ? 'Serverul nu a răspuns la timp.' : 'Conexiunea cu serverul a fost întreruptă.', error.name === 'AbortError' ? 'timeout' : 'network');
+   }).finally(function() { clearTimeout(timer); });
  }
 };
 """
@@ -95,6 +114,29 @@ func pick() -> void:
 		_dialog.canceled.connect(func() -> void: _finish(Api.failure("cancelled", "Selecția fișierului a fost anulată.")))
 		add_child(_dialog)
 	_dialog.popup_centered_ratio(0.7)
+
+func load_sample() -> void:
+	if not _begin():
+		return
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("window.raiffStatementUpload.loadSample(%s, %d)" % [JSON.stringify(_request_session), int(TIMEOUT_SECONDS * 1000)], true)
+		_poll.start()
+		return
+	var base := api_base if not api_base.is_empty() else Config.resolve_base()
+	var url := Config.build_url(base, "/api/onboarding/sample")
+	if url.is_empty():
+		_finish(Api.failure("invalid_request", "Adresa serverului nu este validă."))
+		return
+	_http = HTTPRequest.new()
+	_http.timeout = TIMEOUT_SECONDS
+	_http.max_redirects = 0
+	_http.body_size_limit = Api.MAX_RESPONSE_BYTES
+	_http.request_completed.connect(_on_response)
+	add_child(_http)
+	var body := ("session_id=" + _request_session.uri_encode()).to_utf8_buffer()
+	var error := _http.request_raw(url, PackedStringArray(["Content-Type: application/x-www-form-urlencoded"]), HTTPClient.METHOD_POST, body)
+	if error != OK:
+		_finish(Api.failure("network", "Nu s-a putut porni conexiunea cu serverul."))
 
 func upload_path(path: String) -> void:
 	if _begin():

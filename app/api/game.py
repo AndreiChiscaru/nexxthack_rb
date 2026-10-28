@@ -14,6 +14,7 @@ from ..schemas import (
 )
 from ..sessions import Session, game_state, get_session, require_game
 from ..sim import adapter
+from ..sim import cuts
 from ..sim import engine as E
 from ..sim import events
 
@@ -36,12 +37,24 @@ def _amount(params: dict) -> float:
 
 
 def _schedule(session: Session, count: int | None = None) -> list[Event]:
-    picked = events.schedule(session.sim, session.profile, session.month, session.rng,
-                             session.pending_events, session.used_events, count=count)
-    new_events = [e.to_api() for e in picked]
+    if session.cut_mode:
+        track = session.used_events.setdefault("_cuts", {"cycle": [], "last": None})
+        event = cuts.next_suggestion(session.profile, track["cycle"])
+        if event is None and track["cycle"]:
+            track["cycle"] = []
+            event = cuts.next_suggestion(session.profile, track["cycle"])
+        new_events = [event] if event else []
+        if event:
+            track["cycle"].append(event.id.removeprefix("taie_"))
+            track["last"] = event.id
+    else:
+        picked = events.schedule(session.sim, session.profile, session.month, session.rng,
+                                 session.pending_events, session.used_events, count=count)
+        new_events = [e.to_api() for e in picked]
     session.pending_events.extend(new_events)
     for e in new_events:
-        session.log.append(LogEntry(month=session.month, institution=e.institution, text=f"Eveniment nou: {e.title}"))
+        kind = "Sugestie" if session.cut_mode else "Eveniment nou"
+        session.log.append(LogEntry(month=session.month, institution=e.institution, text=f"{kind}: {e.title}"))
     return new_events
 
 
@@ -56,7 +69,8 @@ def start(req: GameStartRequest):
     session.log = [LogEntry(month=0, institution="home", text=f"{session.sim['name']} începe aventura.")]
     session.pending_events = []
     session.used_events = {}
-    opening = _schedule(session, count=OPENING_EVENTS)
+    session.cut_mode = bool(cuts.eligible(profile))
+    opening = _schedule(session, count=1 if session.cut_mode else OPENING_EVENTS)
     return GameStartResponse(state=game_state(session), events=opening)
 
 
@@ -72,8 +86,27 @@ def state(session_id: str):
     return game_state(get_session(session_id))
 
 
+def _answer_cut(session: Session, req: GameActionRequest) -> tuple[str, str]:
+    pending = next((e for e in session.pending_events if e.id == req.action_id), None)
+    if pending is None:
+        raise HTTPException(409, f"Sugestia {req.action_id} nu este în așteptare.")
+    if req.institution != pending.institution:
+        raise HTTPException(400, f"Sugestia {req.action_id} aparține instituției {pending.institution}.")
+    option_id = str(req.params.get("option_id", ""))
+    if not any(o.id == option_id for o in pending.options):
+        raise HTTPException(400, f"option_id invalid; alege din {[o.id for o in pending.options]}.")
+    try:
+        note = cuts.apply_cut(session.profile, session.sim, req.action_id.removeprefix("taie_"), option_id)
+    except ValueError:
+        raise HTTPException(400, "Sugestia nu mai corespunde unei cheltuieli din extras.")
+    session.pending_events.remove(pending)
+    return f"{pending.title}: {option_id}", note
+
+
 def _answer_event(session: Session, req: GameActionRequest) -> tuple[str, str]:
     """action_id = event id, params.option_id = chosen option. Returns (log text, advisor note)."""
+    if req.action_id.startswith("taie_"):
+        return _answer_cut(session, req)
     library_event = events.EVENT_LIBRARY.get(req.action_id)
     if library_event is None:
         raise HTTPException(404, f"Eveniment sau acțiune necunoscută: {req.action_id}.")

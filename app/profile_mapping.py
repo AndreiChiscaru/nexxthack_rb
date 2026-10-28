@@ -6,6 +6,7 @@ from typing import Any
 
 from .agents import profile as prof
 from .game_profile import _loan_terms, _principal
+from .schemas import INSTITUTIONS
 
 # Agent path -> §4.1 path, for fields that are copied as-is (only renamed or moved).
 FIELD_MAP: dict[str, str] = {
@@ -90,6 +91,16 @@ def agent_profile_to_profile(data: dict, statement: dict | None = None) -> dict:
         out["goal"].setdefault("type", DEFAULT_GOAL_TYPE)
     # Debts are optional for the agent: none reported means none.
     out["debts"] = [_debt(item) for item in prof.get(data, "bank.debts") or []]
+    categories = []
+    for item in prof.get(data, "categories") or []:
+        if not isinstance(item, dict) or item.get("institution") not in INSTITUTIONS:
+            continue
+        if not item.get("id") or not item.get("label"):
+            continue
+        categories.append({"id": str(item["id"]), "label": str(item["label"]), "institution": item["institution"],
+                           "monthly": round(float(item.get("monthly") or 0), 2)})
+    if categories:
+        out["categories"] = [c for c in categories if c["monthly"] > 0]
     if statement:
         out["source"] = {"statement_uploaded": True, "statement_score": statement.get("score"),
                          "risk_signals": list(statement.get("risk_signals") or [])}

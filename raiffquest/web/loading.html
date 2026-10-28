@@ -141,7 +141,11 @@ Source SHA-256: 38f4c5f927f746b3dfa4c3a5d7edf0b7a3e828e27438418fa54f9e1565289412
         if (failed) return;
         try {
           lastProgressAt = performance.now();
-          const missing = Engine.getMissingFeatures({ threads });
+          const missing = Engine.getMissingFeatures({ threads }).filter((item) => {
+            // The demo is opened over http://IP:8787. WebGL and WASM run there;
+            // only threads would actually need a secure context.
+            return threads || !item.startsWith('Secure Context');
+          });
           if (missing.length) throw new Error(`Missing browser features: ${missing.join(', ')}`);
           const engine = new Engine({ ...config, canvas });
           await engine.startGame({ onProgress });

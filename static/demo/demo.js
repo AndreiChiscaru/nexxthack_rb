@@ -224,7 +224,12 @@ function renderOnboarding() {
     }).join("");
   const st = session.statement;
   $("statement-card").classList.toggle("hidden", !st);
-  if (st) $("statement-card").innerHTML = `<b>📄 ${escapeHtml(st.filename)}</b> · scor ${st.score}/100 · risc ${escapeHtml(st.risk)}<br>${escapeHtml(st.summary || "")}`;
+  if (st) {
+    const cats = (st.categories || []).map((c) => `<li>${escapeHtml(c.label)} <b>${lei(c.monthly)}</b></li>`).join("");
+    const months = st.months ? ` · medii pe ${st.months} luni` : "";
+    $("statement-card").innerHTML = `<b>📄 ${escapeHtml(st.filename)}</b> · scor ${st.score}/100 · risc ${escapeHtml(st.risk)}${months}<br>${escapeHtml(st.summary || "")}`
+      + (cats ? `<ul>${cats}</ul>` : "");
+  }
   $("start-game").disabled = missing.length > 0;
   $("start-game").textContent = session.onboarding.scenario ? `Începe: ${session.onboarding.scenario.title} ▶` : "Începe jocul ▶";
 }
@@ -290,7 +295,8 @@ function renderEvent(g) {
   $("consultant-fab").classList.toggle("pulse", !!ev);
   if (!ev) return;
   const inst = g.institutions.find((i) => i.id === ev.institution);
-  $("event").innerHTML = `<div class="tag">${inst.icon} ${inst.name} · eveniment</div><h3>${escapeHtml(ev.title)}</h3><div>${escapeHtml(ev.text)}</div>
+  const tag = ev.kind === "suggestion" ? "sugestie de reducere" : "eveniment";
+  $("event").innerHTML = `<div class="tag">${inst.icon} ${inst.name} · ${tag}</div><h3>${escapeHtml(ev.title)}</h3><div>${escapeHtml(ev.text)}</div>
     <div class="options">${ev.options.map((o) => `<button class="option" data-option="${o.id}"><b>${escapeHtml(o.label)}</b><small>${escapeHtml(o.desc)}</small></button>`).join("")}</div>
     <button class="ghost small ask" data-ask-event>💬 Ce m-ar sfătui consultantul?</button>`;
 }
@@ -303,6 +309,11 @@ function renderGame() {
   $("goal-progress").firstElementChild.style.width = `${Math.min(goal.progress * 100, 100)}%`;
   $("goal-meta").textContent = `${Math.round(goal.progress * 100)}% strâns · ${goal.months_left} luni rămase din ${goal.horizon_months} · `
     + (goal.on_track ? "pe drumul cel bun ✔" : "în urmă față de plan ⚠") + ` · venit ${lei(g.monthly.income)} / cheltuieli ${lei(g.monthly.expenses)}`;
+  const averages = g.averages || [];
+  $("averages").innerHTML = averages.length
+    ? `<span class="hint">Medii din extras${g.statement_months ? `, ${g.statement_months} luni` : ""}:</span>`
+      + averages.map((c) => `<span class="avg">${escapeHtml(c.label)} <b>${lei(c.monthly)}</b></span>`).join("")
+    : "";
   renderEvent(g);
   renderInstitutions(g);
   $("log").innerHTML = g.log.map((l) => {
@@ -361,6 +372,21 @@ function bindEvents() {
     if (!file) return;
     session.onboarding.chat.push({ role: "user", text: `📎 ${file.name}` });
     streamTurn("onboarding", `/onboarding/${session.session_id}/statement`, uploadOptions(file));
+  });
+
+  $("use-sample").addEventListener("click", async () => {
+    if (busy || !session) return;
+    try {
+      const res = await fetch("/static/demo/extras_student.pdf");
+      if (!res.ok) throw new Error("Extrasul de student nu e pe server.");
+      const blob = await res.blob();
+      const file = new File([blob], "extras_student_matei.pdf", { type: "application/pdf" });
+      session.onboarding.chat.push({ role: "user", text: "📎 extras_student_matei.pdf" });
+      render();
+      streamTurn("onboarding", `/onboarding/${session.session_id}/statement`, uploadOptions(file));
+    } catch (err) {
+      toast(err.message);
+    }
   });
 
   $("biz-file").addEventListener("change", (e) => {

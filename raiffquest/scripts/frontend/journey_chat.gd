@@ -1,6 +1,7 @@
 extends PanelContainer
 signal sent(text: String)
 signal upload_requested
+signal sample_requested
 signal review_requested
 signal closed
 const Kit = preload("res://scripts/frontend/journey_theme.gd")
@@ -9,6 +10,7 @@ var messages: VBoxContainer
 var input: LineEdit
 var send: Button
 var attach: Button
+var sample: Button
 var review: Button
 var status: Label
 var face: TextureRect
@@ -56,6 +58,10 @@ func _ready() -> void:
 	attach.add_theme_font_size_override("font_size", 12)
 	attach.custom_minimum_size.y = 30
 	actions.add_child(attach)
+	sample = Kit.button("Extras de student", func(): sample_requested.emit())
+	sample.add_theme_font_size_override("font_size", 12)
+	sample.custom_minimum_size.y = 30
+	actions.add_child(sample)
 	var tip := Kit.text("opțional · sau trage fișierul în fereastră", 11, Kit.MUTED)
 	tip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(tip)
@@ -114,6 +120,8 @@ func show_state(busy: bool, phase: String, error: String) -> void:
 	input.editable = not busy
 	attach.disabled = busy
 	attach.visible = phase != "map"
+	sample.disabled = busy
+	sample.visible = phase != "map"
 	review.visible = phase == "review"
 	review.disabled = busy
 	close_button.visible = phase == "map"

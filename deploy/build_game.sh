@@ -47,6 +47,21 @@ echo ">>> Export web"
 rm -rf "$SRC_DIR/dist" && mkdir -p "$SRC_DIR/dist"
 timeout 600 "$GODOT" --headless --path . --export-release Web dist/index.html 2>&1 | tail -5
 test -f dist/index.html
+# AudioWorklet exists on the prototype but is undefined on http://IP, and Godot
+# calls it during startup. Skip it there; the script-processor driver still plays.
+python3 - <<'PY'
+from pathlib import Path
+p = Path("dist/index.js")
+t = p.read_text()
+a = "GodotAudio.audioPositionWorkletPromise=ctx.audioWorklet.addModule(path);"
+b = "GodotAudio.audioPositionWorkletPromise=(ctx.audioWorklet?ctx.audioWorklet.addModule(path):Promise.resolve());"
+c = "async connectPositionWorklet(start){await GodotAudio.audioPositionWorkletPromise;if(this.isCanceled){return}this._source.connect(this.getPositionWorklet());if(start){this.start()}}"
+d = "async connectPositionWorklet(start){if(!GodotAudio.ctx||!GodotAudio.ctx.audioWorklet){if(start&&!this.isCanceled){this.start()}return}await GodotAudio.audioPositionWorkletPromise;if(this.isCanceled){return}this._source.connect(this.getPositionWorklet());if(start){this.start()}}"
+if a not in t or c not in t:
+    raise SystemExit("patch audio: pattern missing")
+p.write_text(t.replace(a, b, 1).replace(c, d, 1))
+print("patch audio: ok")
+PY
 rm -rf "$OUT_DIR" && mv dist "$OUT_DIR"
 ls -la "$OUT_DIR"
 sudo systemctl restart extras

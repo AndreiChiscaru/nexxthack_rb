@@ -1,6 +1,7 @@
 import copy
 import logging
 import os
+from pathlib import Path
 
 import anthropic
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -12,6 +13,7 @@ from ..agents import profile as prof
 from ..agents.llm import drain
 from ..analyzer import AnalysisError, analyze_statement
 from ..extraction import extract_text
+from ..statement_spend import summarize
 from ..game_profile import to_game_profile
 from ..mock_data import ANDREI_PROFILE
 from ..profile_mapping import agent_profile_to_profile, missing_fields
@@ -22,6 +24,8 @@ log = logging.getLogger("extras.onboarding")
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
 
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+SAMPLE_PDF = Path(__file__).resolve().parents[2] / "static" / "demo" / "extras_student.pdf"
+SAMPLE_TXT = Path(__file__).resolve().parents[2] / "data" / "extras_student.txt"
 MAX_MESSAGE_CHARS = 4000
 MOCK_MESSAGES_TO_DONE = 3
 MOCK_REPLIES = [
@@ -123,6 +127,49 @@ async def onboarding_statement(session_id: str = Form(...), file: UploadFile = F
         profile_fields=agent_profile_to_profile(patch, session.statement),
         missing_fields=missing_fields(session.agent_profile),
         reply=reply,
+    )
+
+
+@router.post("/sample", response_model=StatementResponse)
+async def onboarding_sample(session_id: str = Form(...)):
+    """The fictional 12-month student statement, so the new frontend can start without a file picker."""
+    session = get_session(session_id)
+    if not llm_enabled():
+        return _sample_from_text(session)
+    if not SAMPLE_PDF.is_file():
+        raise HTTPException(404, "Extrasul de student nu este pe server.")
+    analysis, patch, reply = await _real_statement(session, "extras_student_matei.pdf", SAMPLE_PDF.read_bytes())
+    return StatementResponse(
+        analysis=analysis,
+        profile_fields=agent_profile_to_profile(patch, session.statement),
+        missing_fields=missing_fields(session.agent_profile),
+        reply=reply,
+    )
+
+
+def _sample_from_text(session: Session) -> StatementResponse:
+    stats = summarize(SAMPLE_TXT.read_text(encoding="utf-8"))
+    if not stats:
+        raise HTTPException(500, "Extrasul de student nu a putut fi citit.")
+    analysis = {
+        "mock": True, "titular": stats["titular"], "sold_final": stats["sold_final"],
+        "venit_lunar_estimat": stats["venit_mediu"], "economii_identificate": 0,
+        "medii_lunare": stats["categorii"], "luni_analizate": stats["luni"],
+        "cheltuieli_lunare_estimate": stats["cheltuieli_medii"],
+        "profil_din_extras": {"varsta": stats["varsta"], "ocupatie": stats["ocupatie"],
+                              "locuinta": stats["locuinta"], "alte_intrari_medii": stats["alte_intrari_medii"]},
+        "scor_stabilitate_financiara": 35, "nivel_risc": "ridicat", "semnale_de_risc": stats["semnale"],
+        "rezumat": "Student, part-time, stă cu părinții. Uber, restaurante, pariuri și rate depășesc venitul.",
+    }
+    patch = agent.statement_patch(analysis, to_game_profile(analysis))
+    prof.merge(session.agent_profile, patch, "extras")
+    session.statement = _statement_summary(analysis)
+    listed = ", ".join(f"{c['label']} {c['medie_lunara']:.0f} lei" for c in stats["categorii"][:4])
+    return StatementResponse(
+        analysis=analysis,
+        profile_fields=agent_profile_to_profile(patch, session.statement),
+        missing_fields=missing_fields(session.agent_profile),
+        reply=f"Am citit extrasul de student, pe {stats['luni']} luni. Medii: {listed}.",
     )
 
 
