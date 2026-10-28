@@ -8,7 +8,8 @@ MAX_INPUT_CHARS = 180_000
 
 SYSTEM_PROMPT = """Ești un analist financiar care evaluează extrase de cont bancare (în special din România).
 Primești textul extras (posibil prin OCR, cu erori) dintr-un extras de cont.
-Analizează tranzacțiile și returnează EXCLUSIV un obiect JSON valid, fără text în afara lui, cu structura:
+Analizează tranzacțiile și trimite rezultatul prin unealta raport_extras (dacă unealta nu e disponibilă,
+returnează EXCLUSIV un obiect JSON valid, fără text în afara lui), cu structura:
 
 {
   "titular": string|null,
@@ -39,6 +40,7 @@ Analizează tranzacțiile și returnează EXCLUSIV un obiect JSON valid, fără 
 }
 
 Reguli:
+- titular = numele complet al persoanei care deține contul (apare de obicei în antet, lângă adresă, „Titular”, „Client” sau „Nume”); caută-l în tot documentul înainte să pui null.
 - Sumele sunt numere (fără simbol monetar), în moneda contului.
 - scor_stabilitate_financiara este între 0 și 100.
 - Semnale de risc relevante: sold negativ/descoperit, comisioane de neplată, popriri/executări silite, jocuri de noroc, credite rapide (IFN), retrageri mari de numerar, venit neregulat, cheltuieli > venituri.
@@ -47,6 +49,40 @@ Reguli:
 - Nu inventa date. Dacă o informație lipsește, folosește null sau listă goală și menționează în observatii_calitate_date.
 - rezumat: 3-6 propoziții în limba română despre starea financiară a persoanei.
 """
+
+
+_NUM = {"type": ["number", "null"]}
+_STR = {"type": ["string", "null"]}
+_LIST_STR = {"type": "array", "items": {"type": "string"}}
+
+
+def _objects(**props) -> dict:
+    return {"type": "array", "items": {"type": "object", "properties": props}}
+
+
+REPORT_TOOL = {
+    "name": "raport_extras",
+    "description": "Trimite analiza extrasului de cont, cu structura și regulile din instrucțiuni.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "titular": _STR, "banca": _STR, "iban": _STR, "moneda": _STR,
+            "perioada": {"type": "object", "properties": {"de_la": _STR, "pana_la": _STR}},
+            "sold_initial": _NUM, "sold_final": _NUM, "total_intrari": _NUM, "total_iesiri": _NUM, "flux_net": _NUM,
+            "venituri": _objects(sursa=_STR, tip=_STR, suma_totala=_NUM, frecventa=_STR),
+            "venit_lunar_estimat": _NUM, "cheltuieli_lunare_estimate": _NUM, "economii_identificate": _NUM,
+            "cheltuieli_pe_categorii": _objects(categorie=_STR, suma=_NUM, procent=_NUM),
+            "obligatii_recurente": _objects(descriere=_STR, tip=_STR, suma_lunara=_NUM),
+            "grad_indatorare_procent": _NUM,
+            "cele_mai_mari_tranzactii": _objects(data=_STR, descriere=_STR, suma=_NUM, directie=_STR),
+            "semnale_de_risc": _LIST_STR, "puncte_forte": _LIST_STR,
+            "scor_stabilitate_financiara": _NUM,
+            "nivel_risc": {"type": "string", "enum": ["scazut", "mediu", "ridicat"]},
+            "rezumat": _STR, "recomandari": _LIST_STR, "observatii_calitate_date": _STR,
+        },
+        "required": ["moneda", "total_intrari", "total_iesiri", "scor_stabilitate_financiara", "nivel_risc", "rezumat"],
+    },
+}
 
 
 class AnalysisError(Exception):
@@ -60,28 +96,66 @@ def _parse_json(raw: str) -> dict:
     return json.loads(raw[start : end + 1])
 
 
+def _request(client, text: str, use_tool: bool) -> dict:
+    kwargs = {"tools": [REPORT_TOOL], "tool_choice": {"type": "tool", "name": REPORT_TOOL["name"]}} if use_tool else {}
+    message = client.messages.create(
+        model=MODEL,
+        max_tokens=12000,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": f"<extras_de_cont>\n{text}\n</extras_de_cont>"}],
+        **kwargs,
+    )
+    if message.stop_reason == "max_tokens":
+        raise AnalysisError("Răspunsul modelului a fost trunchiat (extras prea lung).")
+    for block in message.content:
+        if block.type == "tool_use" and isinstance(block.input, dict):
+            return block.input
+    raw = "".join(block.text for block in message.content if block.type == "text")
+    return _parse_json(raw)
+
+
+def _as_text(value):
+    if isinstance(value, str) and value.lstrip().startswith("["):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return value
+    if isinstance(value, list):
+        return " ".join(str(v).strip() for v in value)
+    return value
+
+
+def _normalize(result: dict) -> dict:
+    """Smaller models occasionally leave derived fields empty or inconsistent; fill them from the detail lists."""
+    for key in ("rezumat", "observatii_calitate_date"):
+        result[key] = _as_text(result.get(key))
+    for key in ("venituri", "cheltuieli_pe_categorii", "obligatii_recurente", "cele_mai_mari_tranzactii",
+                "semnale_de_risc", "puncte_forte", "recomandari"):
+        if not isinstance(result.get(key), list):
+            result[key] = []
+    if not result.get("venit_lunar_estimat"):
+        regular = [v.get("suma_totala") or 0 for v in result["venituri"] if v.get("tip") in ("salariu", "pensie")]
+        result["venit_lunar_estimat"] = sum(regular) or None
+    by_category = sum(c.get("suma") or 0 for c in result["cheltuieli_pe_categorii"])
+    if (result.get("cheltuieli_lunare_estimate") or 0) < 50 and by_category >= 50:
+        result["cheltuieli_lunare_estimate"] = by_category
+    return result
+
+
 def analyze_statement(text: str) -> dict:
     if not os.getenv("ANTHROPIC_API_KEY"):
         raise AnalysisError("ANTHROPIC_API_KEY nu este setat pe server.")
 
     truncated = len(text) > MAX_INPUT_CHARS
     client = anthropic.Anthropic()
-    message = client.messages.create(
-        model=MODEL,
-        max_tokens=8000,
-        system=SYSTEM_PROMPT,
-        messages=[
-            {
-                "role": "user",
-                "content": f"<extras_de_cont>\n{text[:MAX_INPUT_CHARS]}\n</extras_de_cont>",
-            }
-        ],
-    )
-    raw = "".join(block.text for block in message.content if block.type == "text")
     try:
-        result = _parse_json(raw)
-    except json.JSONDecodeError as exc:
-        raise AnalysisError(f"JSON invalid de la model: {exc}") from exc
+        result = _request(client, text[:MAX_INPUT_CHARS], use_tool=True)
+    except (AnalysisError, json.JSONDecodeError):
+        try:
+            result = _request(client, text[:MAX_INPUT_CHARS], use_tool=False)
+        except json.JSONDecodeError as exc:
+            raise AnalysisError(f"JSON invalid de la model: {exc}") from exc
+    result = _normalize(result)
 
     if truncated:
         note = result.get("observatii_calitate_date") or ""
