@@ -7,7 +7,7 @@ signal status_changed(text: String)
 signal profile_ready(result: Dictionary)
 signal failed(message: String)
 
-const DEFAULT_API := "http://158.180.47.250:8787"
+const ApiConfig := preload("res://scripts/frontend/api_config.gd")
 const TIMEOUT_SECONDS := 240.0
 const STORAGE_KEY := "raiffQuestProfile"
 const ACCEPT := ".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp,.txt,.csv"
@@ -15,20 +15,27 @@ const ACCEPT := ".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp,.txt,.csv"
 const JS_SETUP := """
 window.raiffQuest = window.raiffQuest || {
 	state: 'idle', result: '', error: '',
-	pick: function (accept) {
+	pick: function (accept, timeoutMs) {
+		if (this.state === 'picking' || this.state === 'uploading') return;
 		var self = this;
 		var input = document.createElement('input');
 		input.type = 'file';
 		input.accept = accept;
 		self.state = 'picking';
-		input.addEventListener('cancel', function () { self.state = 'idle'; });
+		input.addEventListener('cancel', function () { self.state = 'idle'; input.remove(); });
 		input.onchange = function () {
 			var file = input.files[0];
-			if (!file) { self.state = 'idle'; return; }
+			if (!file) { self.state = 'idle'; input.remove(); return; }
+			if (file.size > 25 * 1024 * 1024) {
+				self.error = 'Fișierul depășește 25 MB.'; self.state = 'error'; input.remove(); return;
+			}
 			self.state = 'uploading';
+			self.result = ''; self.error = '';
+			var controller = new AbortController();
+			var timer = setTimeout(function () { controller.abort(); }, timeoutMs);
 			var body = new FormData();
 			body.append('file', file);
-			fetch('/api/analyze', { method: 'POST', body: body })
+			fetch('/api/analyze', { method: 'POST', body: body, signal: controller.signal })
 				.then(function (r) {
 					return r.json().catch(function () { return {}; }).then(function (d) {
 						if (!r.ok) { throw new Error(d.detail || ('Eroare ' + r.status)); }
@@ -36,28 +43,35 @@ window.raiffQuest = window.raiffQuest || {
 					});
 				})
 				.then(function (d) { self.result = JSON.stringify(d); self.state = 'done'; })
-				.catch(function (e) { self.error = String(e.message || e); self.state = 'error'; });
+				.catch(function (e) {
+					self.error = e.name === 'AbortError' ? 'Serverul nu a răspuns la timp.' : String(e.message || e);
+					self.state = 'error';
+				})
+				.finally(function () { clearTimeout(timer); input.remove(); });
 		};
-		input.click();
+		input.style.display = 'none';
+		document.body.appendChild(input);
+		try { input.click(); } catch (e) { input.remove(); self.error = String(e.message || e); self.state = 'error'; }
 	},
 	takeStored: function (key) {
-		var v = window.localStorage.getItem(key) || '';
-		window.localStorage.removeItem(key);
-		return v;
+		try {
+			var v = window.localStorage.getItem(key) || '';
+			window.localStorage.removeItem(key);
+			return v;
+		} catch (_) { return ''; }
 	}
 };
 """
 
-var api_base := DEFAULT_API
+var api_base := ""
 var busy := false
+var _upload_reported := false
 var _poll: Timer
 var _dialog: FileDialog
 var _http: HTTPRequest
 
 func _ready() -> void:
-	var env_api := OS.get_environment("RAIFF_API")
-	if env_api != "":
-		api_base = env_api.trim_suffix("/")
+	api_base = ApiConfig.resolve_base()
 	if _is_web():
 		JavaScriptBridge.eval(JS_SETUP, true)
 		_poll = Timer.new()
@@ -76,15 +90,17 @@ func take_stored_profile() -> Dictionary:
 	if typeof(raw) != TYPE_STRING or str(raw) == "":
 		return {}
 	var data = JSON.parse_string(str(raw))
-	if typeof(data) == TYPE_DICTIONARY and data.has("game_profile"):
+	if typeof(data) == TYPE_DICTIONARY and data.get("game_profile") is Dictionary and not data.game_profile.is_empty():
 		return data
 	return {}
 
 func pick_and_upload() -> void:
 	if busy:
 		return
+	busy = true
+	_upload_reported = false
 	if _is_web():
-		JavaScriptBridge.eval("window.raiffQuest.pick('%s')" % ACCEPT, true)
+		JavaScriptBridge.eval("window.raiffQuest.pick('%s', %d)" % [ACCEPT, int(TIMEOUT_SECONDS * 1000)], true)
 		_poll.start()
 	else:
 		_open_dialog()
@@ -95,8 +111,8 @@ func _poll_web() -> void:
 	var state := str(JavaScriptBridge.eval("window.raiffQuest.state", true))
 	match state:
 		"uploading":
-			if not busy:
-				busy = true
+			if not _upload_reported:
+				_upload_reported = true
 				status_changed.emit("Se extrage textul și se analizează extrasul… (30-90 de secunde)")
 		"done":
 			_poll.stop()
@@ -108,6 +124,7 @@ func _poll_web() -> void:
 			_fail(str(JavaScriptBridge.eval("window.raiffQuest.error", true)))
 		"idle":
 			_poll.stop()
+			busy = false
 
 # ---------------------------------------------------------------- desktop
 
@@ -120,10 +137,20 @@ func _open_dialog() -> void:
 		_dialog.title = "Alege extrasul de cont"
 		_dialog.filters = PackedStringArray(["*.pdf,*.png,*.jpg,*.jpeg,*.tif,*.tiff,*.bmp,*.webp,*.txt,*.csv ; Extras de cont"])
 		_dialog.file_selected.connect(_upload_file)
+		_dialog.canceled.connect(func() -> void: busy = false)
 		add_child(_dialog)
 	_dialog.popup_centered_ratio(0.7)
 
 func _upload_file(path: String) -> void:
+	var source := FileAccess.open(path, FileAccess.READ)
+	if source == null:
+		_fail("Nu am putut citi fișierul selectat.")
+		return
+	var length := source.get_length()
+	source.close()
+	if length > 25 * 1024 * 1024:
+		_fail("Fișierul depășește 25 MB.")
+		return
 	var data := FileAccess.get_file_as_bytes(path)
 	if data.is_empty():
 		_fail("Nu am putut citi fișierul %s." % path.get_file())
@@ -131,15 +158,22 @@ func _upload_file(path: String) -> void:
 	if _http == null:
 		_http = HTTPRequest.new()
 		_http.timeout = TIMEOUT_SECONDS
+		_http.body_size_limit = 2 * 1024 * 1024
+		_http.max_redirects = 0
 		_http.request_completed.connect(_on_request_completed)
 		add_child(_http)
 	var boundary := "----RaiffQuest%d" % Time.get_ticks_usec()
 	var body := PackedByteArray()
-	body.append_array(("--%s\r\nContent-Disposition: form-data; name=\"file\"; filename=\"%s\"\r\nContent-Type: application/octet-stream\r\n\r\n" % [boundary, path.get_file()]).to_utf8_buffer())
+	var filename := path.get_file().replace("\"", "_").replace("\r", "_").replace("\n", "_")
+	body.append_array(("--%s\r\nContent-Disposition: form-data; name=\"file\"; filename=\"%s\"\r\nContent-Type: application/octet-stream\r\n\r\n" % [boundary, filename]).to_utf8_buffer())
 	body.append_array(data)
 	body.append_array(("\r\n--%s--\r\n" % boundary).to_utf8_buffer())
 	var headers := PackedStringArray(["Content-Type: multipart/form-data; boundary=" + boundary])
-	var err := _http.request_raw(api_base + "/api/analyze", headers, HTTPClient.METHOD_POST, body)
+	var url := ApiConfig.build_url(api_base, "/api/analyze")
+	if url.is_empty():
+		_fail("Adresa serverului nu este validă. Verifică RAIFF_API.")
+		return
+	var err := _http.request_raw(url, headers, HTTPClient.METHOD_POST, body)
 	if err != OK:
 		_fail("Nu m-am putut conecta la serverul de analiză (%s)." % api_base)
 		return
@@ -161,7 +195,7 @@ func _on_request_completed(result: int, code: int, _headers: PackedStringArray, 
 
 func _finish(data) -> void:
 	busy = false
-	if typeof(data) != TYPE_DICTIONARY or not data.has("game_profile"):
+	if typeof(data) != TYPE_DICTIONARY or not data.get("game_profile") is Dictionary or data.game_profile.is_empty():
 		_fail("Răspunsul serverului nu conține profilul de joc.")
 		return
 	profile_ready.emit(data)
