@@ -575,6 +575,138 @@
       "useEvidence": [],
       "used": false,
       "usedBy": []
+    },
+    "assets/raiff/consultant/consultant_idle.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated consultant expression sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms and trademark rights"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:a6382ea4dbdae3b5d5f7c95d5c129a589deda917ecf10fa12257d8b9394158b7",
+      "shipped": true,
+      "size": 172387,
+      "source": {
+        "description": "RaiffQuest AI Consultant expression",
+        "style": "Minimalist Flat Vector",
+        "transformation": "Cropped and normalized to 512x512",
+        "branding": "AI-generated emblem; review trademark use"
+      },
+      "status": "present",
+      "transformations": [
+        "Crop",
+        "Resize",
+        "Transparent canvas"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/consultant/consultant_thinking.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated consultant expression sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms and trademark rights"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:50eaef2d01387f39548fe38a66111773e2085c4bdd1f4dcabf602fdcc61ba3f0",
+      "shipped": true,
+      "size": 158107,
+      "source": {
+        "description": "RaiffQuest AI Consultant expression",
+        "style": "Minimalist Flat Vector",
+        "transformation": "Cropped and normalized to 512x512",
+        "branding": "AI-generated emblem; review trademark use"
+      },
+      "status": "present",
+      "transformations": [
+        "Crop",
+        "Resize",
+        "Transparent canvas"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/consultant/consultant_explaining.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated consultant expression sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms and trademark rights"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:20ad6e6e8c206570a22f99f7a2519619e9f0380f7f57cb987e8b109fcba14eba",
+      "shipped": true,
+      "size": 175874,
+      "source": {
+        "description": "RaiffQuest AI Consultant expression",
+        "style": "Minimalist Flat Vector",
+        "transformation": "Cropped and normalized to 512x512",
+        "branding": "AI-generated emblem; review trademark use"
+      },
+      "status": "present",
+      "transformations": [
+        "Crop",
+        "Resize",
+        "Transparent canvas"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/consultant/consultant_happy.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "AI-generated consultant expression sheet"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms and trademark rights"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:97d853717c82c608df4a43dca3c116ca85b6edf6b5953f478c0122741b298c7c",
+      "shipped": true,
+      "size": 180099,
+      "source": {
+        "description": "RaiffQuest AI Consultant expression",
+        "style": "Minimalist Flat Vector",
+        "transformation": "Cropped and normalized to 512x512",
+        "branding": "AI-generated emblem; review trademark use"
+      },
+      "status": "present",
+      "transformations": [
+        "Crop",
+        "Resize",
+        "Transparent canvas"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
     }
   },
   "discoveries": {},
