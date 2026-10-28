@@ -115,6 +115,10 @@ static func profile_picture(user: bool, side: float = 36) -> TextureRect:
 render_mode unshaded;
 uniform vec4 backdrop : source_color = vec4(0.93, 0.94, 0.85, 1.0);
 uniform vec4 crop = vec4(0.1, 0.0, 0.8, 0.68);
+varying vec4 tint;
+void vertex() {
+    tint = COLOR;
+}
 void fragment() {
     float radius = length(UV - vec2(0.5));
     float edge = max(fwidth(radius), 0.003);
@@ -122,7 +126,7 @@ void fragment() {
     vec3 painted = mix(backdrop.rgb, portrait.rgb, portrait.a);
     float rim = smoothstep(0.46 - edge, 0.46, radius);
     painted = mix(painted, vec3(0.188, 0.227, 0.157), rim);
-    COLOR = vec4(painted, 1.0 - smoothstep(0.5 - edge, 0.5, radius));
+    COLOR = vec4(painted, 1.0 - smoothstep(0.5 - edge, 0.5, radius)) * tint;
 }"""
 	var material := ShaderMaterial.new()
 	material.shader = shader
