@@ -493,6 +493,33 @@
       "useEvidence": [],
       "used": false,
       "usedBy": []
+    },
+    "assets/raiff/business_flat_isometric.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [],
+      "license": {
+        "note": "Subject to OpenAI terms"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:a850ae4ed0e44028d17980a566d3420aa8764d998d9b9890aa71d93c10bef9af",
+      "shipped": true,
+      "size": 2060201,
+      "source": {
+        "description": "Generated for RaiffQuest on 2026-10-28",
+        "style": "Flat Vector Isometric",
+        "purpose": "Entrepreneurship hub for business creation, financial planning and AI guidance",
+        "palette": "Purple, cream, charcoal, green and yellow accents"
+      },
+      "status": "present",
+      "transformations": [],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
     }
   },
   "discoveries": {},
