@@ -361,6 +361,84 @@
       "useEvidence": [],
       "used": false,
       "usedBy": []
+    },
+    "assets/raiff/bank_flat_isometric.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [],
+      "license": {
+        "note": "Subject to OpenAI terms and third-party trademark rights"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:7405b48dfdf6975b409ad6a32567b3532987ee34f176ec6b07b27a742a1c4495",
+      "shipped": true,
+      "size": 941203,
+      "source": {
+        "description": "Generated for RaiffQuest on 2026-10-28",
+        "style": "Flat Vector Isometric",
+        "branding": "AI-generated Raiffeisen-like signage; permission required before public use"
+      },
+      "status": "present",
+      "transformations": [],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/home_flat_isometric.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [],
+      "license": {
+        "note": "Subject to OpenAI terms"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:b540958972e73f750e307575569defa6cf5c73dd8f8742ace96a32b4efe1512c",
+      "shipped": true,
+      "size": 1379719,
+      "source": {
+        "description": "Generated for RaiffQuest on 2026-10-28",
+        "style": "Flat Vector Isometric",
+        "purpose": "Home building for recurring household expenses"
+      },
+      "status": "present",
+      "transformations": [],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
+    "assets/raiff/market_flat_isometric.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [],
+      "license": {
+        "note": "Subject to OpenAI terms"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:cdc63879e166ceeb7320471fbf767f9bd4ee84af05407d484e1d309d85e54107",
+      "shipped": true,
+      "size": 1781375,
+      "source": {
+        "description": "Generated for RaiffQuest on 2026-10-28",
+        "style": "Flat Vector Isometric",
+        "purpose": "Marketplace for variable expenses"
+      },
+      "status": "present",
+      "transformations": [],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
     }
   },
   "discoveries": {},
