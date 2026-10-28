@@ -14,11 +14,13 @@ from ..schemas import (
     GameState,
     LogEntry,
 )
+from ..agents import memory
 from ..sessions import Session, game_state, get_session, require_game
 from ..sim import adapter
 from ..sim import cuts
 from ..sim import engine as E
 from ..sim import events
+from ..sim import firm as F
 
 router = APIRouter(prefix="/api/game", tags=["game"])
 
@@ -96,8 +98,20 @@ def start(req: GameStartRequest):
     session.pending_events = []
     session.used_events = {}
     session.cut_mode = bool(cuts.eligible(profile))
+    session.sim["calendar_start"] = F.next_calendar_month()
+    _remember_start(session)
     opening = _schedule(session, count=1 if session.cut_mode else OPENING_EVENTS)
     return GameStartResponse(state=game_state(session), events=opening)
+
+
+def _remember_start(session: Session) -> None:
+    profile = session.profile
+    if profile is None:
+        return
+    goal = profile.goal
+    memory.add(session.id, "onboarding", "scop",
+               f"Scop confirmat: {goal.description or goal.type}, {goal.target_amount:.0f} lei în {goal.horizon_months} luni. "
+               f"Venit {profile.income.salary:.0f} lei/lună, toleranță la risc {profile.risk_tolerance}.")
 
 
 @router.get("/snapshot", response_model=GameStartResponse)
@@ -128,11 +142,32 @@ def _answer_cut(session: Session, req: GameActionRequest) -> tuple[str, str]:
     except ValueError:
         raise HTTPException(400, "Sugestia nu mai corespunde unei cheltuieli din extras.")
     session.pending_events.remove(pending)
+    memory.add(session.id, "joc", "decizie", note)
     return f"{pending.title}: {option_id}", note
+
+
+def _answer_fiscal(session: Session, req: GameActionRequest) -> tuple[str, str]:
+    pending = next((e for e in session.pending_events if e.id == req.action_id), None)
+    if pending is None:
+        raise HTTPException(409, f"Termenul {req.action_id} nu este în așteptare.")
+    if req.institution != pending.institution:
+        raise HTTPException(400, f"Termenul {req.action_id} aparține instituției {pending.institution}.")
+    option = next((o for o in pending.options if o.id == str(req.params.get("option_id", ""))), None)
+    if option is None:
+        raise HTTPException(400, f"option_id invalid; alege din {[o.id for o in pending.options]}.")
+    try:
+        note = F.apply_fiscal_choice(session.sim, option)
+    except (KeyError, ValueError, TypeError):
+        raise HTTPException(400, "Termenul fiscal nu mai corespunde firmei din joc.")
+    session.pending_events.remove(pending)
+    memory.add(session.id, "joc", "fiscal", note)
+    return f"{pending.title}: {option.label}", note
 
 
 def _answer_event(session: Session, req: GameActionRequest) -> tuple[str, str]:
     """action_id = event id, params.option_id = chosen option. Returns (log text, advisor note)."""
+    if req.action_id.startswith("fiscal_"):
+        return _answer_fiscal(session, req)
     if req.action_id.startswith("taie_"):
         return _answer_cut(session, req)
     library_event = events.EVENT_LIBRARY.get(req.action_id)
@@ -201,8 +236,10 @@ def action(req: GameActionRequest):
 def advance(req: GameAdvanceRequest):
     session = get_session(req.session_id)
     sim = require_game(session)
-    if session.cut_mode and session.pending_events:
+    if session.cut_mode and any(e.id.startswith("taie_") for e in session.pending_events):
         raise HTTPException(409, "Alege sugestia de reducere înainte să treci la luna următoare.")
+    if any(e.id.startswith("fiscal_") for e in session.pending_events):
+        raise HTTPException(409, "Alege ce faci cu termenul fiscal înainte să treci la luna următoare.")
     before = adapter.balance(sim)
     summary = adapter.advance_month(sim, session.month, session.year_rep)
     session.month = int(summary["month"])
@@ -211,6 +248,13 @@ def advance(req: GameAdvanceRequest):
         text=f"Luna {session.month}: venit {E.money(summary['income'])}, cheltuieli "
              f"{E.money(summary['expenses'])}, sold {E.money(summary['cash'])}",
     ))
-    new_events = _schedule(session)
+    year, calendar_month = F.calendar(sim, session.month)
+    fiscal = None if any(e.id.startswith("fiscal_") for e in session.pending_events) else F.make_fiscal_event(sim, year, calendar_month)
+    if fiscal:
+        session.pending_events.append(fiscal)
+        session.log.append(LogEntry(month=session.month, institution="business", text=f"Termen fiscal: {fiscal.title}"))
+        new_events = [fiscal]
+    else:
+        new_events = _schedule(session)
     return GameAdvanceResponse(state=game_state(session),
                                delta=adapter.delta(before, adapter.balance(sim)), events=new_events, pending_events=list(session.pending_events))

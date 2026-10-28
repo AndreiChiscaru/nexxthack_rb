@@ -11,8 +11,9 @@ const EXTENSIONS := ["pdf", "png", "jpg", "jpeg", "txt", "csv", "tif", "tiff", "
 const JS_SETUP := """
 window.raiffStatementUpload = {
  state: 'idle', result: '', status: 0, error: '', errorCode: '',
- pick: function(sessionId, timeoutMs) {
+  pick: function(sessionId, timeoutMs, path) {
   if (this.state === 'picking' || this.state === 'uploading') return;
+  var target = (typeof path === 'string' && path) ? path : '/api/onboarding/statement';
   var self = this;
   self.result = ''; self.status = 0; self.error = ''; self.errorCode = '';
   function fail(message, code) { self.error = message; self.errorCode = code || 'invalid_request'; self.state = 'error'; }
@@ -33,7 +34,7 @@ window.raiffStatementUpload = {
    var timer = setTimeout(function() { controller.abort(); }, timeoutMs);
    self.state = 'uploading';
    Promise.resolve().then(function() {
-    return fetch('/api/onboarding/statement', {method:'POST', body:body, signal:controller.signal, redirect:'error'});
+    return fetch(target, {method:'POST', body:body, signal:controller.signal, redirect:'error'});
    }).then(function(response) {
     self.status = response.status;
     return response.text();
@@ -72,6 +73,9 @@ window.raiffStatementUpload = {
 var api_base: String = ""
 var session_id: String = ""
 var busy: bool = false
+var endpoint := "/api/onboarding/statement"
+var purpose := "statement"
+var last_purpose := "statement"
 var _dialog: FileDialog
 var _http: HTTPRequest
 var _poll: Timer
@@ -96,11 +100,21 @@ func _begin() -> bool:
 		return false
 	return true
 
+func pick_business_document() -> void:
+	endpoint = "/api/business/document"
+	purpose = "business"
+	pick()
+
 func pick() -> void:
+	if purpose != "business":
+		endpoint = "/api/onboarding/statement"
+		purpose = "statement"
 	if not _begin():
+		purpose = "statement"
+		endpoint = "/api/onboarding/statement"
 		return
 	if OS.has_feature("web"):
-		JavaScriptBridge.eval("window.raiffStatementUpload.pick(%s, %d)" % [JSON.stringify(_request_session), int(TIMEOUT_SECONDS * 1000)], true)
+		JavaScriptBridge.eval("window.raiffStatementUpload.pick(%s, %d, %s)" % [JSON.stringify(_request_session), int(TIMEOUT_SECONDS * 1000), JSON.stringify(endpoint)], true)
 		_poll.start()
 		return
 	if _dialog == null:
@@ -108,11 +122,11 @@ func pick() -> void:
 		_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 		_dialog.access = FileDialog.ACCESS_FILESYSTEM
 		_dialog.use_native_dialog = true
-		_dialog.title = "Alege extrasul de cont"
-		_dialog.filters = PackedStringArray(["*.pdf,*.png,*.jpg,*.jpeg,*.txt,*.csv,*.tif,*.tiff,*.webp,*.bmp ; Extras de cont"])
+		_dialog.filters = PackedStringArray(["*.pdf,*.png,*.jpg,*.jpeg,*.txt,*.csv,*.tif,*.tiff,*.webp,*.bmp ; Document"])
 		_dialog.file_selected.connect(_send_path)
 		_dialog.canceled.connect(func() -> void: _finish(Api.failure("cancelled", "Selecția fișierului a fost anulată.")))
 		add_child(_dialog)
+	_dialog.title = "Alege documentul pentru contabil" if purpose == "business" else "Alege extrasul de cont"
 	_dialog.popup_centered_ratio(0.7)
 
 func load_sample() -> void:
@@ -161,7 +175,7 @@ func _send_path(path: String) -> void:
 		_finish(Api.failure("invalid_request", "Fișierul nu a putut fi citit complet."))
 		return
 	var base := api_base if not api_base.is_empty() else Config.resolve_base()
-	var url := Config.build_url(base, "/api/onboarding/statement")
+	var url := Config.build_url(base, endpoint)
 	if url.is_empty():
 		_finish(Api.failure("invalid_request", "Adresa serverului nu este validă."))
 		return
@@ -204,6 +218,9 @@ func _poll_web() -> void:
 
 func _finish(response: Dictionary) -> void:
 	busy = false
+	last_purpose = purpose
+	purpose = "statement"
+	endpoint = "/api/onboarding/statement"
 	_request_session = ""
 	if is_instance_valid(_http):
 		_http.queue_free()

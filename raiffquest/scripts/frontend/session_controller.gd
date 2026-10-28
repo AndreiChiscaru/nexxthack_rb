@@ -65,13 +65,13 @@ func begin() -> void:
 		return
 	_track(api.request_json("/api/health"), "health")
 
-func send_message(text: String) -> void:
+func send_message(text: String, event_id: String = "") -> void:
 	text = text.strip_edges()
 	if busy or session_id.is_empty() or text.is_empty():
 		return
 	add_message("Tu", text)
 	if phase == "map":
-		_track(api.advisor_message(session_id, text), "advisor")
+		_track(api.advisor_message(session_id, text, event_id), "advisor")
 	else:
 		profile = {}
 		phase = "onboarding"
@@ -104,6 +104,17 @@ func load_products() -> void:
 func upload_started() -> void:
 	busy = true
 	last_error = ""
+	changed.emit()
+
+func finish_business_document(response: Dictionary) -> void:
+	busy = false
+	if not response.get("ok", false):
+		last_error = "" if response.get("error", {}).get("code") == "cancelled" else str(response.get("error", {}).get("message", "Nu am putut citi documentul."))
+	else:
+		var data: Dictionary = response.data
+		add_message("Contabil", str(data.get("reply", "")), "business")
+		if data.get("state") is Dictionary:
+			state = data.state.duplicate(true)
 	changed.emit()
 
 func upload_finished(response: Dictionary) -> void:
@@ -182,6 +193,8 @@ func _response(id: int, response: Dictionary) -> void:
 			add_message("Consultant de investiții", str(data.get("reply", "")), "investments")
 		"business":
 			add_message("Contabil", str(data.get("reply", "")), "business")
+			if data.get("state") is Dictionary:
+				state = data.state.duplicate(true)
 		"products":
 			products = data.get("products", [])
 	changed.emit()

@@ -26,6 +26,10 @@ class Session:
     investment_history: list[dict] = field(default_factory=list)
     # Accountant at the Business building; also separate from AIngel.
     business_history: list[dict] = field(default_factory=list)
+    # Documents the accountant has read (name, kinds, text). Not shown in the Godot UI.
+    business_documents: list[dict] = field(default_factory=list)
+    # Decision the player is looking at, sent with the consultant's question.
+    focus_event_id: str | None = None
     # Onboarding agent state, in the agent's own formats (app/agents/): draft profile and conversation.
     agent_profile: dict = field(default_factory=prof.empty)
     onboarding_convo: dict = field(default_factory=onboarding_agent.new_conversation)

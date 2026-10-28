@@ -21,6 +21,7 @@ from . import catalog
 from .sessions import Session, find_session, game_state
 from .sim import adapter
 from .sim import engine as E
+from .sim import firm as F
 from .sim.events import Ops
 
 log = logging.getLogger("extras.tools")
@@ -81,6 +82,7 @@ def _snapshot(sim: E.SimState, profile, month: int) -> dict:
 def _run(session: Session, ops: dict | None, months: int) -> tuple[dict, dict]:
     """Applies `ops` (if any) to a sandbox and runs `months` months. Random events aren't simulated."""
     box = _sandbox(session)
+    F.settle_projection(box.sim)
     before = _snapshot(box.sim, session.profile, box.month)
     if ops:
         mood = E.apply_ops(box.sim, ops, [])
