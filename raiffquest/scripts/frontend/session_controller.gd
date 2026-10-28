@@ -162,14 +162,11 @@ func _response(id: int, response: Dictionary) -> void:
 				phase = "map"
 				if operation == "start":
 					events = data.get("events", []).duplicate(true)
-					add_message("AIngel", "Am pregătit orașul pornind de la profilul confirmat. Alege o clădire pentru a explora evenimentele și opțiunile tale.")
 				elif operation == "advance":
 					for event in data.get("events", []):
 						events.append(event)
-					add_message("Joc", "Ai avansat în luna %d. Bilanțul și evenimentele au fost actualizate de server." % int(state.get("month", 0)))
 				else:
 					events = events.filter(func(e: Dictionary) -> bool: return str(e.get("id", "")) != _event_id)
-					add_message("AIngel", str(data.get("advisor_note", "Decizia a fost înregistrată.")))
 			else:
 				last_error = "Starea jocului lipsește din răspuns."
 		"refresh":
