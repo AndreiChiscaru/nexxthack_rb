@@ -2,7 +2,7 @@ extends "res://scripts/frontend/api_client.gd"
 ## Frontend entry points for docs/implementation-plan.md section 4.3.
 ## Session identity is explicit; this layer does not calculate financial state.
 
-const INSTITUTIONS := ["home", "market", "education", "work", "business", "hospital", "bank"]
+const INSTITUTIONS := ["home", "market", "education", "work", "business", "hospital", "bank", "entertainment"]
 
 func create_session() -> int:
 	return request_json("/api/session", HTTPClient.METHOD_POST)

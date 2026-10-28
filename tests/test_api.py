@@ -71,10 +71,10 @@ def test_game_start(started):
     assert state["month"] == 0
     assert state["balance"]["cash"] == 4000
     assert state["balance"]["net_worth"] == 4000 + 1200 - 11000
-    assert state["monthly"]["expenses"] == {"home": 1970, "market": 1800, "education": 0,
+    assert state["monthly"]["expenses"] == {"home": 1970, "market": 1400, "entertainment": 400, "education": 0,
                                             "health": 0, "business": 0, "bank": 650}
     assert {i["id"] for i in state["institutions"]} == {
-        "home", "market", "education", "work", "business", "hospital", "bank"}
+        "home", "market", "education", "work", "business", "hospital", "bank", "entertainment"}
     assert len(body["events"]) == 2  # opening events from the scheduler
     pending = {i["id"]: i["pending_events"] for i in state["institutions"]}
     assert sorted(inst for inst, n in pending.items() if n) == sorted(e["institution"] for e in body["events"])

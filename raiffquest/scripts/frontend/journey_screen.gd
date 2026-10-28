@@ -4,8 +4,9 @@ const Kit = preload("res://scripts/frontend/journey_theme.gd")
 const Controller = preload("res://scripts/frontend/session_controller.gd")
 const Chat = preload("res://scripts/frontend/journey_chat.gd")
 const CityMap = preload("res://scripts/frontend/city_map.gd")
+const StatHud = preload("res://scripts/frontend/stat_hud.gd")
 const Upload = preload("res://scripts/frontend/statement_upload.gd")
-const NAMES := {"home": "Acasă", "market": "Piață", "education": "Educație", "work": "Loc de muncă", "business": "Afacere", "hospital": "Spital", "bank": "Bancă"}
+const NAMES := {"home": "Acasă", "market": "Piață", "education": "Educație", "work": "Loc de muncă", "business": "Afacere", "hospital": "Spital", "bank": "Bancă", "entertainment": "Divertisment"}
 var controller: Node
 var chat: PanelContainer
 var city: Control
@@ -17,13 +18,6 @@ var start_button: Button
 var mode: Label
 var error_label: Label
 var hud: PanelContainer
-var hud_text: Label
-var averages_text: Label
-var metric_cash: Label
-var metric_savings: Label
-var metric_income: Label
-var goal_text: Label
-var progress: ProgressBar
 var advisor_button: Button
 var _advisor_hover_tween: Tween
 var channel := "onboarding"
@@ -193,46 +187,8 @@ func _build_welcome() -> void:
 	col.add_child(start_button)
 
 func _build_hud() -> void:
-	hud = PanelContainer.new()
+	hud = StatHud.new()
 	add_child(hud)
-	var col := VBoxContainer.new()
-	hud.add_child(col)
-	var surface := Kit.box(Color("fffbef"), Color("8e9f73"), 16)
-	surface.set_border_width_all(1)
-	surface.shadow_color = Color("7e8f66")
-	surface.shadow_offset = Vector2(0, 3)
-	hud.add_theme_stylebox_override("panel", surface)
-	hud_text = Kit.text("", 10, Kit.MUTED)
-	col.add_child(hud_text)
-	var metrics := HBoxContainer.new()
-	metrics.add_theme_constant_override("separation", 18)
-	col.add_child(metrics)
-	var values: Array[Label] = []
-	for caption in ["Disponibil", "Economii", "Venit lunar"]:
-		var stack := VBoxContainer.new()
-		stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		metrics.add_child(stack)
-		stack.add_child(Kit.text(caption, 11, Kit.MUTED))
-		var value := Kit.strong("0 lei", 19)
-		stack.add_child(value)
-		values.append(value)
-	metric_cash = values[0]
-	metric_savings = values[1]
-	metric_income = values[2]
-	goal_text = Kit.text("", 11)
-	col.add_child(goal_text)
-	averages_text = Kit.text("", 10, Kit.MUTED)
-	averages_text.hide()
-	col.add_child(averages_text)
-	progress = ProgressBar.new()
-	progress.custom_minimum_size.y = 5
-	progress.show_percentage = false
-	var fill := Kit.box(Color("cdb800"), Color("cdb800"), 0)
-	fill.shadow_size = 0
-	fill.shadow_offset = Vector2.ZERO
-	progress.add_theme_stylebox_override("fill", fill)
-	progress.add_theme_stylebox_override("background", Kit.box(Color("dce0c7"), Color("dce0c7"), 0))
-	col.add_child(progress)
 	map_controls = HBoxContainer.new()
 	map_controls.add_theme_constant_override("separation", 8)
 	add_child(map_controls)
@@ -261,16 +217,17 @@ func _layout() -> void:
 	if controller.phase == "map":
 		chat.position = Vector2(24, 190)
 		chat.size = Vector2(350, maxf(330, h - 280))
-	hud.position = Vector2(w - 355, 20)
-	hud.size = Vector2(330, 134)
+	hud.size = Vector2(minf(440, w - 40), hud.get_combined_minimum_size().y)
+	hud.scale = Vector2.ONE * 0.74
+	hud.position = Vector2(w - hud.size.x * hud.scale.x - 20, 20)
 	map_controls.position = Vector2(25, h - 60)
 	map_controls.size = Vector2(400, 40)
 	recovery_button.position = Vector2(25, h - 150)
 	recovery_button.size = Vector2(270, 40)
 	error_label.position = Vector2(25, h - 105)
 	error_label.size = Vector2(maxf(400, w - 470), 40)
-	location.position = Vector2(w - 365, maxf(178, hud.position.y + hud.size.y + 18))
-	location.size = Vector2(340, maxf(260, h - 245))
+	location.position = Vector2(w - 365, maxf(178, hud.position.y + hud.size.y * hud.scale.y + 18))
+	location.size = Vector2(340, maxf(160, h - location.position.y - 72))
 	profile_panel.position = Vector2(maxf(15, (w - 670) / 2), 95)
 	profile_panel.size = Vector2(minf(670, w - 30), maxf(430, h - 125))
 
@@ -312,32 +269,7 @@ func _update() -> void:
 		_layout()
 	if phase == "map":
 		var state: Dictionary = controller.state
-		var balance: Dictionary = state.get("balance", {})
-		var monthly: Dictionary = state.get("monthly", {})
-		var expense := 0.0
-		for amount in monthly.get("expenses", {}).values():
-			expense += float(amount)
-		var wellbeing: Dictionary = state.get("wellbeing", {})
-		hud_text.text = "LUNA %d · UN NOU ÎNCEPUT     %s" % [state.get("month", 0), "AI LIVE" if controller.agent_mode == "live" else "DEMO"]
-		metric_cash.text = "%.0f lei" % balance.get("cash", 0)
-		metric_savings.text = "%.0f lei" % balance.get("savings", 0)
-		metric_income.text = "%.0f lei" % monthly.get("income", 0)
-		averages_text.text = ""
-		averages_text.visible = not state.get("categories", []).is_empty()
-		var averages: Array = state.get("categories", [])
-		if not averages.is_empty():
-			var bits: PackedStringArray = []
-			for cat: Dictionary in averages:
-				if bits.size() == 4:
-					break
-				bits.append("%s %.0f" % [cat.get("label", ""), float(cat.get("monthly", 0))])
-			averages_text.text = "Medii din extras: " + ", ".join(bits)
-		var goal: Dictionary = state.get("goal", {})
-		progress.value = float(goal.get("progress", 0)) * 100
-		if str(goal.get("type", "")) == "achitare_datorii":
-			goal_text.text = "Datorie rămasă: %.0f lei · progres %.0f%%" % [balance.get("debt", 0), progress.value]
-		else:
-			goal_text.text = "Obiectiv: %.0f lei · %.0f%%" % [goal.get("target_amount", 0), progress.value]
+		hud.update_state(state, controller.profile)
 		city.set_institutions(state.get("institutions", []))
 		var waiting := ""
 		for event: Dictionary in controller.events:
@@ -647,7 +579,7 @@ func _ask_raiffeisen_offer() -> void:
 	chat.append({"role": "AIngel", "text": "Hai să vedem ce îți poate oferi Raiffeisen: conturi și economii, depozite, carduri, credite, investiții, pensie și asigurări. Mă uit în oferta băncii și îți spun ce ți se potrivește acum."})
 	controller.send_message("Ce produse și servicii Raiffeisen mi se potrivesc acum, pentru obiectivul și cheltuielile mele? Dă-mi câteva recomandări și explică-mi beneficiile lor.")
 
-const EXPENSE_LABELS := {"home": "Locuință", "market": "Cumpărături", "education": "Educație", "health": "Sănătate", "business": "Firmă", "bank": "Rate la bancă"}
+const EXPENSE_LABELS := {"entertainment": "Divertisment", "home": "Locuință", "market": "Cumpărături", "education": "Educație", "health": "Sănătate", "business": "Firmă", "bank": "Rate la bancă"}
 const GOOD := Color("3f7d3a")
 const BAD := Color("963b2b")
 

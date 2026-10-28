@@ -137,3 +137,34 @@ Integrate `backend/gabi` la `311e64c` (include `main` la `035a542`) si grafica `
 - Runnerul de integrare seteaza explicit `MOCK_LLM=true` pentru a evita apelurile externe chiar daca exista credentiale in mediu.
 - Verificari dupa merge: 148 teste backend, 26 verificari Godot–FastAPI si 59 verificari transport frontend, toate trecute. Un avertisment de depreciere pytest/anyio.
 - Apelurile reale Claude nu au fost testate. Onboardingul Godot nu este implementat in acest checkpoint; macheta vizuala V2 este un prototip separat, cu dialog demonstrativ si avatar provizoriu, aflat in evaluare.
+
+## Divertisment (entertainment)
+
+Instituția `entertainment` este disponibilă în contractul API și în harta Godot, pe aleea dintre Bancă și Spital. `monthly.expenses.entertainment` este inclus în bilanțul lunar. Profilele păstrează câmpurile existente `spending.leisure` și `recurring.subscriptions`, pentru compatibilitate.
+
+Restaurantele, pariurile și abonamentele de streaming/sală sunt asociate cu Divertisment. Categoriile identificate de livrări, cafea, cumpărături, rate și numerar sunt scăzute din vechiul agregat leisure înainte de a calcula suma destinată Divertismentului; acestea rămân în agregatul Piață. Telefonul și abonamentele neclasificate rămân Acasă. Totalul cheltuielilor nu se schimbă la reclasificare. Corecțiile utilizatorului se aplică înaintea împărțirii.
+
+Sugestiile de reducere folosesc aceeași instituție ca liniile reclasificate. Evenimentele `seara_spectacol` și `festival_weekend` oferă alternative plătite și gratuite. Nu se inventează venituri din divertisment: salariul, bursa și veniturile firmei își păstrează sursele.
+
+
+## Terenul și traseele hărții
+
+`city_map.gd` definește pozițiile clădirilor, nodurile și muchiile navigabile. După modificarea geometriei, rulați `python raiffquest/tools/build_city_terrain.py`: generatorul reconstruiește `city_terrain.svg` din aceleași coordonate, cu iarbă uniformă, râu turcoaz, pavaj și decor care evită intrările. `city_props.svg` păstrează formele decorative reutilizabile. Pietrele pavajului sunt elemente SVG explicite deoarece importatorul Godot nu afișează pattern fills.
+
+Testul `journey_ui_test.tscn` verifică accesibilitatea tuturor perechilor de instituții și faptul că traseele nu traversează suprafețele clădirilor.
+
+Pentru modificări vizuale ale hărții, porniți Godot cu scena res://tools/map_preview.tscn și RAIFF_API configurat. Creează o sesiune backend cu profil fictiv și intră direct pe hartă. Pornirea normală a jocului păstrează onboardingul. Opțiunea -- --smoke-test verifică pornirea și închide procesul automat.
+
+
+## Macheta aprobată — terenul activ
+
+Harta activă folosește acum `city_approved_terrain.png`, un strat de decor separat de toate cele opt clădiri interactive. Coordonatele din macheta 1536×1024 sunt mărite uniform cu 1.4; `MAP_SIZE` și `FOUNTAIN_CENTER` din `city_map.gd` definesc cadrul și centrul. Ordinea clădirilor este: Acasă/Educație în nord-vest, Muncă/Bancă în nord-est, Piață/Divertisment în sud-vest și Spital/Afacere în sud-est.
+
+`NODES` și `EDGES` urmăresc aleile din imagine. După o editare a decorului, verificați și graful; vechiul `build_city_terrain.py` generează doar varianta SVG anterioară, care NU mai este încărcată în joc. Nu îl folosiți pentru a modifica terenul activ. Testul UI verifică accesibilitatea tuturor perechilor de instituții, centrarea fântânii, lipsa suprapunerilor cu HUD și evitarea pixelilor opaci ai clădirilor.
+
+
+## Fundal cartoon și sosire directă (versiunea activă)
+
+Distribuția aprobată a clădirilor este păstrată. Rendererul activ este `city_cartoon_terrain.svg`, în paleta desaturată inițială; se regenerează cu `python raiffquest/tools/build_cartoon_map.py`. Generatorul citește direct `NODES`/`EDGES` din `city_map.gd`, inclusiv aleile de acces. Imaginea PNG rămâne doar o referință, nu este afișată.
+
+Fiecare instituție are acum în graf punctul final de oprire. `park_position` întoarce acel nod exact, iar `path_to` nu mai adaugă o repoziționare după sosire. Click pe clădirea curentă deschide panoul fără mers suplimentar. Testul UI verifică punctele inițiale/finale, absența opririlor duplicate și a întoarcerilor de 180 de grade pentru toate perechile de instituții, plus evitarea pixelilor opaci ai clădirilor.

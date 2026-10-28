@@ -9,13 +9,13 @@ from collections import defaultdict
 # First match wins, so specific merchants stay above generic words like "restaurant".
 RULES = [
     ("uber", "Transport (Uber / Bolt)", "market", ("uber", "bolt")),
-    ("restaurante", "Restaurante și baruri", "market", ("beraria", "spoon", "mcdonald", "kfc", "pizza napoli", "terasa", "restaurant")),
+    ("restaurante", "Restaurante și baruri", "entertainment", ("beraria", "spoon", "mcdonald", "kfc", "pizza napoli", "terasa", "restaurant")),
     ("livrari", "Livrări de mâncare", "market", ("glovo", "tazz", "wolt", "foodpanda")),
     ("cafea", "Cafea de drum", "market", ("5 to go", "starbucks", "ted's coffee", "teds coffee")),
     ("alimente", "Cumpărături alimentare", "market", ("kaufland", "lidl", "profi", "mega image", "carrefour")),
     ("cumparaturi", "Cumpărături impulsive", "market", ("about you", "h&m", "zara", "bershka", "shein")),
-    ("pariuri", "Pariuri online", "market", ("superbet", "betano", "unibet")),
-    ("abonamente", "Abonamente", "home", ("netflix", "spotify", "hbo", "world class")),
+    ("pariuri", "Pariuri online", "entertainment", ("superbet", "betano", "unibet")),
+    ("abonamente", "Abonamente", "entertainment", ("netflix", "spotify", "hbo", "world class")),
     ("rate", "Rate la comercianți (PayPo)", "market", ("paypo", "klarna", "tbi pay")),
     ("numerar", "Retrageri de numerar", "bank", ("retragere numerar", "atm")),
     ("telefon", "Telefon", "home", ("orange", "vodafone", "digi mobil")),

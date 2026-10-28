@@ -3,8 +3,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-Institution = Literal["home", "market", "education", "work", "business", "hospital", "bank"]
-INSTITUTIONS: tuple[str, ...] = ("home", "market", "education", "work", "business", "hospital", "bank")
+Institution = Literal["home", "market", "education", "work", "business", "hospital", "bank", "entertainment"]
+INSTITUTIONS: tuple[str, ...] = ("home", "market", "education", "work", "business", "hospital", "bank", "entertainment")
 
 
 # --- §4.1 Profile -----------------------------------------------------------
@@ -103,6 +103,7 @@ class Balance(BaseModel):
 
 
 class MonthlyExpenses(BaseModel):
+    entertainment: float = 0
     home: float = 0
     market: float = 0
     education: float = 0

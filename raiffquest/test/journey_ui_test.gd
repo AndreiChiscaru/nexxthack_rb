@@ -53,6 +53,11 @@ func _ready() -> void:
 	await wait_for(scene.controller)
 	check(scene.city.visible, "map visible after confirmed profile")
 	check(not scene.map_controls.get_global_rect().intersects(Rect2(scene.size.x-200,scene.size.y-62,180,52)),"map controls do not overlap navigation")
+	await get_tree().create_timer(0.7).timeout
+	var fountain_screen: Vector2 = scene.city.world.position + scene.city.FOUNTAIN_CENTER * scene.city.world.scale
+	check(fountain_screen.distance_to(scene.city.size * 0.5) < 2.0, "Fountain stays centered in the initial camera")
+	for building in scene.city.buttons.values():
+		check(not building.get_global_rect().intersects(scene.hud.get_global_rect()), "Buildings are visible outside the HUD")
 	await capture("map")
 	scene._open_chat()
 	await wait_for(scene.controller)
@@ -75,5 +80,37 @@ func _ready() -> void:
 		scene._close_chat()
 		await get_tree().process_frame
 	check(scene.chat.portraits.all(func(p): return is_instance_valid(p)), "switching advisors clears old portrait references")
+	for origin in scene.city.PLACES:
+		for destination in scene.city.PLACES:
+			check(not scene.city.path_to(origin, destination).is_empty(), "All buildings remain reachable: " + origin + " to " + destination)
+			var route: PackedVector2Array = scene.city.path_to(origin, destination)
+			check(route[0].is_equal_approx(scene.city.NODES[origin]), "Route starts at actual entrance")
+			check(route[-1].is_equal_approx(scene.city.NODES[destination]), "Route ends directly at actual entrance")
+			for i in range(1, route.size()):
+				check(route[i].distance_to(route[i-1]) > 0.1, "Route has no duplicated stops")
+			for i in range(1, route.size()-1):
+				check((route[i]-route[i-1]).normalized().dot((route[i+1]-route[i]).normalized()) > -0.999, "Route has no positioning U-turn")
+	# Test actual opaque sprite pixels, not transparent corners of isometric assets.
+	var masks := {}
+	for id in scene.city.buttons:
+		masks[id] = scene.city.buttons[id].texture_normal.get_image()
+	for edge in scene.city.EDGES:
+		for step in range(41):
+			var point: Vector2 = scene.city.NODES[edge[0]].lerp(scene.city.NODES[edge[1]], step / 40.0)
+			for id in scene.city.buttons:
+				var button: TextureButton = scene.city.buttons[id]
+				var mask: Image = masks[id]
+				var pixels := Vector2(mask.get_width(), mask.get_height())
+				var factor: float = minf(button.size.x / pixels.x, button.size.y / pixels.y)
+				var offset := (button.size - pixels * factor) * 0.5
+				var sample := (point - button.position - offset) / factor
+				if sample.x >= 0 and sample.y >= 0 and sample.x < pixels.x and sample.y < pixels.y:
+					check(mask.get_pixel(int(sample.x), int(sample.y)).a < 0.5, "Route avoids opaque building pixels: " + id + " / " + str(edge))
+	scene.city._reduced_motion = true
+	scene.city.navigate_to("entertainment")
+	await get_tree().create_timer(0.5).timeout
+	check(scene.selected == "entertainment" and scene.location.visible, "Entertainment arrival opens its panel")
+	check(scene.city.buttons.has("entertainment"), "Entertainment texture button exists")
+	await capture("entertainment")
 	print("[journey-ui] ","FAIL" if failed else "PASS")
 	get_tree().quit(1 if failed else 0)

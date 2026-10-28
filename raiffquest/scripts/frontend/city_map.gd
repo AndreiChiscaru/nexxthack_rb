@@ -2,46 +2,123 @@ extends Control
 ## Native presentation/navigation only. Server state supplies event badges.
 signal institution_selected(id: String)
 
+## Approved image-space layout, enlarged 40% without changing relative placement.
+const MAP_SIZE := Vector2(2150.4, 1433.6)
+const FOUNTAIN_CENTER := Vector2(1127, 672)
+const BUILDING_SIZE := Vector2(336, 257.6)
+const BUILDING_ANCHOR := Vector2(168, 277.6)
 const PLACES := {
-	"home": {"name": "Acasă", "position": Vector2(230, 310)},
-	"education": {"name": "Educație", "position": Vector2(510, 245)},
-	"work": {"name": "Loc de muncă", "position": Vector2(820, 240)},
-	"business": {"name": "Afacere", "position": Vector2(1030, 380)},
-	"hospital": {"name": "Spital", "position": Vector2(920, 635)},
-	"bank": {"name": "Bancă", "position": Vector2(560, 635)},
-	"market": {"name": "Piață", "position": Vector2(230, 635)},
+	"home": {"name": "Acasă", "position": Vector2(490, 478.8)},
+	"education": {"name": "Educație", "position": Vector2(910, 445.2)},
+	"work": {"name": "Loc de muncă", "position": Vector2(1435, 462)},
+	"bank": {"name": "Bancă", "position": Vector2(1820, 648.2)},
+	"business": {"name": "Afacere", "position": Vector2(1834, 1092)},
+	"hospital": {"name": "Spital", "position": Vector2(1428, 1316)},
+	"entertainment": {"name": "Divertisment", "position": Vector2(875, 1288)},
+	"market": {"name": "Piață", "position": Vector2(462, 1106)},
 }
 const NODES := {
-	"home": Vector2(230,330), "j1": Vector2(510,330), "j2": Vector2(820,330),
-	"education": Vector2(510,265), "work": Vector2(820,260),
-	"business": Vector2(1030,400), "hospital": Vector2(920,655),
-	"bank": Vector2(560,655), "market": Vector2(230,655),
-	"left": Vector2(230,400), "center": Vector2(600,400),
-	"northHome": Vector2(230,120), "northEdu": Vector2(510,120),
-	"northWork": Vector2(820,120), "northBusiness": Vector2(1030,120),
-	"northEast": Vector2(1150,120), "east": Vector2(1150,400),
-	"southEast": Vector2(1150,620), "southBank": Vector2(560,746),
-	"southHospital": Vector2(920,746), "southMarket": Vector2(230,746),
-	"west": Vector2(-75,400), "westSouth": Vector2(-75,600), "westBottom": Vector2(-75,746),
+	"market_corner": Vector2(650, 1098),
+
+	"home": Vector2(560, 470.8),
+	"education": Vector2(980, 437.2),
+	"work": Vector2(1505, 454),
+	"bank": Vector2(1890, 640.2),
+	"business": Vector2(1904, 1084),
+	"hospital": Vector2(1498, 1308),
+	"entertainment": Vector2(945, 1280),
+	"market": Vector2(532, 1098),
+
+	"home_approach": Vector2(273, 476),
+	"bank_approach": Vector2(1890, 676.2),
+	"eastBusiness": Vector2(2097.2, 980),
+	"hospital_approach": Vector2(1498, 1337),
+	"entertainment_approach": Vector2(1127, 1232),
+	"westMarket": Vector2(252, 994),
+	"west": Vector2(770, 672),
+	"north": Vector2(1127, 434),
+	"east": Vector2(1484, 672),
+	"south": Vector2(1127, 910),
+	"nw": Vector2(945, 553),
+	"ne": Vector2(1309, 553),
+	"se": Vector2(1309, 791),
+	"sw": Vector2(945, 791),
+	"westGate": Vector2(266, 672),
+	"nwCorner": Vector2(273, 329),
+	"nwTurn": Vector2(546, 98),
+	"topLeft": Vector2(1050, 98),
+	"topGate": Vector2(1127, 140),
+	"topRight": Vector2(1204, 98),
+	"neTurn": Vector2(1596, 98),
+	"neCorner": Vector2(2086, 455),
+	"eastGate": Vector2(2093, 676.2),
+	"seCorner": Vector2(2100, 1050),
+	"seTurn": Vector2(1722, 1337),
+	"bottomRight": Vector2(1204, 1337),
+	"bottomGate": Vector2(1127, 1281),
+	"bottomLeft": Vector2(1050, 1337),
+	"swTurn": Vector2(560, 1337),
+	"swCorner": Vector2(252, 1064),
+	"bridge": Vector2(238, 651),
+	"bridgewest": Vector2(21, 651),
+	"marketEntry": Vector2(693, 959),
+	"business_approach": Vector2(1719, 1084),
+	"outerSEJoin": Vector2(1848, 1218),
 }
 const EDGES := [
-	["home","j1"], ["j1","j2"], ["j1","education"], ["j2","work"],
-	["j2","business"], ["business","hospital"], ["hospital","bank"],
-	["bank","market"], ["market","left"], ["left","home"],
-	["left","center"], ["center","business"], ["center","bank"],
-	["home","northHome"], ["northHome","northEdu"], ["northEdu","education"],
-	["northEdu","northWork"], ["northWork","work"], ["northWork","northBusiness"],
-	["northBusiness","business"], ["northBusiness","northEast"],
-	["northEast","east"], ["east","business"], ["east","southEast"],
-	["southEast","southHospital"], ["southHospital","hospital"],
-	["southHospital","southBank"], ["southBank","bank"],
-	["southBank","southMarket"], ["southMarket","market"],
-	["southMarket","westBottom"], ["westBottom","westSouth"],
-	["westSouth","west"], ["west","left"],
+	["marketEntry", "market_corner"],
+	["market_corner", "market"],
+	["bottomGate", "entertainment"],
+	["business_approach", "business"],
+	["home_approach", "home"],
+	["nw", "education"],
+	["ne", "work"],
+	["bank_approach", "bank"],
+	["hospital_approach", "hospital"],
+
+	["west", "nw"],
+	["nw", "north"],
+	["north", "ne"],
+	["ne", "east"],
+	["east", "se"],
+	["se", "south"],
+	["south", "sw"],
+	["sw", "west"],
+	["sw", "marketEntry"],
+	["se", "business_approach"],
+	["business_approach", "outerSEJoin"],
+	["north", "topGate"],
+	["west", "westGate"],
+	["east", "bank_approach"],
+	["bank_approach", "eastGate"],
+	["south", "entertainment_approach"],
+	["entertainment_approach", "bottomGate"],
+	["westGate", "home_approach"],
+	["home_approach", "nwCorner"],
+	["nwCorner", "nwTurn"],
+	["nwTurn", "topLeft"],
+	["topLeft", "topGate"],
+	["topGate", "topRight"],
+	["topRight", "neTurn"],
+	["neTurn", "neCorner"],
+	["neCorner", "eastGate"],
+	["eastGate", "eastBusiness"],
+	["eastBusiness", "seCorner"],
+	["seCorner", "outerSEJoin"],
+	["outerSEJoin", "seTurn"],
+	["seTurn", "hospital_approach"],
+	["hospital_approach", "bottomRight"],
+	["bottomRight", "bottomGate"],
+	["bottomGate", "bottomLeft"],
+	["bottomLeft", "swTurn"],
+	["swTurn", "swCorner"],
+	["swCorner", "westMarket"],
+	["westMarket", "westGate"],
+	["westGate", "bridge"],
+	["bridge", "bridgewest"],
 ]
-const GRASS := Color("b9c98b")
+const GRASS := Color("bccb91")
 const INK := Color("303a28")
-const PARK_OFFSET := Vector2(70,10)
 var world: Control
 var badges: Dictionary = {}
 var buttons: Dictionary = {}
@@ -51,7 +128,7 @@ var _avatar: MapAvatar
 var _route: Line2D
 var _hint: Label
 var _at := "home"
-const PLAY_ZOOM := 1.10
+const PLAY_ZOOM := 1.0
 var _zoom := PLAY_ZOOM
 var _camera: Tween
 var _pan := Vector2.ZERO
@@ -77,7 +154,7 @@ class MapAvatar extends Node2D:
 			for i in range(4):
 				frames.add_frame(anim, load("res://assets/raiff/characters/male/walk_%s_%02d.png" % [direction,i]))
 		sprite.sprite_frames = frames
-		sprite.scale = Vector2.ONE * 0.31
+		sprite.scale = Vector2.ONE * 0.46
 		sprite.position.y = -33
 		add_child(sprite)
 		sprite.play("idle")
@@ -104,9 +181,9 @@ func _ready() -> void:
 	world.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(world)
 	var terrain := TextureRect.new()
-	terrain.texture = load("res://assets/raiff/city_terrain.svg")
-	terrain.position = Vector2(-230,-90)
-	terrain.size = Vector2(1560,960)
+	terrain.texture = load("res://assets/raiff/city_cartoon_terrain.svg")
+	terrain.position = Vector2.ZERO
+	terrain.size = MAP_SIZE
 	terrain.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	terrain.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	world.add_child(terrain)
@@ -126,8 +203,8 @@ func _ready() -> void:
 	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	_hint.offset_top = -60
-	_hint.offset_bottom = -30
+	_hint.offset_top = -28
+	_hint.offset_bottom = -4
 	add_child(_hint)
 	var controls := HBoxContainer.new()
 	controls.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -173,8 +250,8 @@ func _add_building(id: String) -> void:
 	button.texture_normal = load("res://assets/raiff/%s_flat_isometric.png" % id)
 	button.ignore_texture_size = true
 	button.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-	button.position = center - Vector2(80,143)
-	button.size = Vector2(160,123)
+	button.position = center - BUILDING_ANCHOR
+	button.size = BUILDING_SIZE
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	world.add_child(button)
 	buttons[id] = button
@@ -183,7 +260,7 @@ func _add_building(id: String) -> void:
 	button.mouse_exited.connect(_hover.bind(id, false))
 	var label := Button.new()
 	label.text = PLACES[id].name
-	label.add_theme_font_size_override("font_size",12)
+	label.add_theme_font_size_override("font_size",20)
 	label.add_theme_font_override("font",load("res://assets/raiff/fonts/Figtree-Bold.ttf"))
 	label.add_theme_color_override("font_color",INK)
 	label.add_theme_stylebox_override("normal",_label_style(false))
@@ -192,12 +269,12 @@ func _add_building(id: String) -> void:
 	label.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	world.add_child(label)
 	label.reset_size()
-	label.position = center - Vector2(label.size.x / 2, 22)
+	label.position = center + Vector2(-label.size.x / 2, 12)
 	label.pressed.connect(navigate_to.bind(id))
 	labels[id] = label
 	var badge := Label.new()
 	badge.position = center + Vector2(50,-140)
-	badge.add_theme_font_size_override("font_size",14)
+	badge.add_theme_font_size_override("font_size",20)
 	badge.add_theme_color_override("font_color",INK)
 	badge.add_theme_stylebox_override("normal",_label_style(true))
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -209,7 +286,7 @@ func _hover(id: String, entered: bool) -> void:
 		_hover_tweens[id].kill()
 	var tween := create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_hover_tweens[id] = tween
-	var rest: Vector2 = PLACES[id].position - Vector2(80,143)
+	var rest: Vector2 = PLACES[id].position - BUILDING_ANCHOR
 	tween.tween_property(buttons[id], "position", rest + Vector2(0,-7 if entered else 0), 0.16)
 
 func set_institutions(statuses: Array) -> void:
@@ -226,9 +303,9 @@ func set_institutions(statuses: Array) -> void:
 			badges[id].show()
 
 func park_position(id: String) -> Vector2:
-	return NODES.get(id, Vector2.ZERO) + PARK_OFFSET
+	return NODES.get(id, Vector2.ZERO)
 
-## Shortest path along the displayed road network, including both parking spurs.
+## Exact entrance-to-entrance shortest path; no extra parking movement.
 func path_to(origin: String, destination: String) -> PackedVector2Array:
 	if not PLACES.has(origin) or not PLACES.has(destination):
 		return PackedVector2Array()
@@ -260,14 +337,16 @@ func path_to(origin: String, destination: String) -> PackedVector2Array:
 			return PackedVector2Array()
 		reverse.append(previous[reverse[-1]])
 	reverse.reverse()
-	var points := PackedVector2Array([park_position(origin)])
+	var points := PackedVector2Array()
 	for id in reverse:
 		points.append(NODES[id])
-	points.append(park_position(destination))
 	return points
 
 func navigate_to(id: String) -> void:
 	if _walking or not PLACES.has(id) or not is_instance_valid(_avatar):
+		return
+	if id == _at:
+		institution_selected.emit(id)
 		return
 	_walking = true
 	_hint.text = "În drum spre %s…" % PLACES[id].name
@@ -308,9 +387,9 @@ func _set_zoom(value: float) -> void:
 func _transform_world(animated: bool = false) -> void:
 	if not is_instance_valid(world):
 		return
-	var fit := maxf(0.05, minf(size.x / 1560.0, (size.y - 40) / 960.0))
+	var fit := maxf(0.05, minf(size.x / MAP_SIZE.x, (size.y - 40) / MAP_SIZE.y))
 	var target_scale := Vector2.ONE * fit * _zoom
-	var target_position := size * 0.5 + Vector2(45,35) + _pan - Vector2(550,390) * target_scale
+	var target_position := size * 0.5 + _pan - FOUNTAIN_CENTER * target_scale
 	if _camera:
 		_camera.kill()
 	if animated and not _reduced_motion:

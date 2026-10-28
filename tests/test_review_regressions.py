@@ -71,7 +71,8 @@ def test_corrected_profile_fields_override_stale_statement_categories():
     profile["spending"].update(food=700, leisure=200)
     result = client.post("/api/game/start", json={"session_id":sid, "profile":profile}).json()
     expenses = result["state"]["monthly"]["expenses"]
-    assert expenses["market"] == 1020
+    assert expenses["market"] == 820
+    assert expenses["entertainment"] == 200
     assert expenses["home"] == profile["recurring"]["rent"] + profile["recurring"]["utilities"]
     categories = {c["id"]:c["monthly"] for c in result["state"]["categories"]}
     assert categories["uber"] == 120 and categories["abonamente"] == 0
