@@ -133,3 +133,22 @@ def test_advisor_keeps_onboarding_discussion_without_internal_payloads(live, mon
     assert onboarding == before
     assert ask(second, "Ce știi despre mine?").status_code == 200
     assert "Viena" not in seen[2][0]
+
+
+def test_investments_agent_is_separate_and_uses_the_catalog(live, monkeypatch):
+    sid = session(start=False)
+    seen = fake_stream(monkeypatch, "search_products", {"category": "investitii"})
+    response = client.post("/api/advisor/investments", json={"session_id": sid, "text": "Pot pune bani într-un fond pentru o mașină în 2 ani?"})
+    assert response.status_code == 200, response.text
+    assert "consultantul de investiții" in seen[0][0]
+    stored = get_session(sid)
+    assert stored.advisor_history == []
+    assert stored.investment_history
+
+
+def test_investments_agent_mock_names_the_fund(monkeypatch):
+    monkeypatch.setenv("MOCK_LLM", "true")
+    sid = client.post("/api/session").json()["session_id"]
+    response = client.post("/api/advisor/investments", json={"session_id": sid, "text": "Vreau să investesc"})
+    assert response.status_code == 200, response.text
+    assert "fond" in response.json()["reply"].lower()

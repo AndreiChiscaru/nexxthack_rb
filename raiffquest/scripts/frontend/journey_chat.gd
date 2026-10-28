@@ -15,6 +15,8 @@ var review: Button
 var status: Label
 var face: TextureRect
 var close_button: Button
+var heading: Label
+var invest_mode := false
 var _rows: Array[Control] = []
 
 func _ready() -> void:
@@ -26,9 +28,9 @@ func _ready() -> void:
 	column.add_child(header)
 	face = Kit.portrait("idle", 56)
 	header.add_child(face)
-	var title := Kit.text("AIngel\nConsilierul tău · pas cu pas", 18)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title)
+	heading = Kit.text("AIngel\nConsilierul tău · pas cu pas", 18)
+	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(heading)
 	close_button = Kit.button("×", func(): closed.emit())
 	header.add_child(close_button)
 	scroll = ScrollContainer.new()
@@ -69,6 +71,15 @@ func _ready() -> void:
 	review.hide()
 	actions.add_child(review)
 	resized.connect(_resize_rows)
+
+func set_heading(text: String) -> void:
+	heading.text = text
+
+func clear_messages() -> void:
+	for child in messages.get_children():
+		messages.remove_child(child)
+		child.queue_free()
+	_rows.clear()
 
 func submit() -> void:
 	if send.disabled or input.text.strip_edges().is_empty():
@@ -119,9 +130,10 @@ func show_state(busy: bool, phase: String, error: String) -> void:
 	send.disabled = busy
 	input.editable = not busy
 	attach.disabled = busy
-	attach.visible = phase != "map"
+	var angel := phase != "map" and not invest_mode
+	attach.visible = angel
 	sample.disabled = busy
-	sample.visible = phase != "map"
+	sample.visible = angel
 	review.visible = phase == "review"
 	review.disabled = busy
 	close_button.visible = phase == "map"

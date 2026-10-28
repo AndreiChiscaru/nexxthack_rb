@@ -157,7 +157,8 @@ def _sample_from_text(session: Session) -> StatementResponse:
         "medii_lunare": stats["categorii"], "luni_analizate": stats["luni"],
         "cheltuieli_lunare_estimate": stats["cheltuieli_medii"],
         "profil_din_extras": {"varsta": stats["varsta"], "ocupatie": stats["ocupatie"],
-                              "locuinta": stats["locuinta"], "alte_intrari_medii": stats["alte_intrari_medii"]},
+                              "locuinta": stats["locuinta"], "alte_intrari_medii": stats["alte_intrari_medii"],
+                              "bursa_medie": stats.get("bursa_medie")},
         "scor_stabilitate_financiara": 35, "nivel_risc": "ridicat", "semnale_de_risc": stats["semnale"],
         "rezumat": "Student, part-time, stă cu părinții. Uber, restaurante, pariuri și rate depășesc venitul.",
     }

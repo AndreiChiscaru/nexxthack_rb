@@ -26,6 +26,7 @@ Data        Descriere                                      Suma
 08.11.2025  5 to go                                              -14,00
 08.11.2025  World Class Iasi                                    -149,00
 09.11.2025  Superbet                                            -100,00
+10.11.2025  Bursa facultate UAIC Iasi                           +800,00
 10.11.2025  Glovo                                                -48,00
 10.11.2025  Glovo                                                -58,00
 10.11.2025  Superbet                                             -40,00
@@ -69,6 +70,7 @@ Data        Descriere                                      Suma
 09.12.2025  5 to go                                              -16,00
 09.12.2025  Bolt                                                 -72,00
 09.12.2025  Uber Trip                                            -72,00
+10.12.2025  Bursa facultate UAIC Iasi                           +800,00
 10.12.2025  McDonald's Palas                                     -36,00
 10.12.2025  Uber Trip                                            -32,00
 11.12.2025  Beraria Veche                                       -105,00
@@ -111,6 +113,7 @@ Data        Descriere                                      Suma
 07.01.2026  HBO Max                                              -29,99
 08.01.2026  World Class Iasi                                    -149,00
 09.01.2026  5 to go                                              -16,00
+10.01.2026  Bursa facultate UAIC Iasi                           +800,00
 10.01.2026  McDonald's Palas                                     -44,00
 10.01.2026  Superbet                                             -50,00
 11.01.2026  5 to go                                              -14,00
@@ -158,6 +161,7 @@ Data        Descriere                                      Suma
 10.02.2026  Beraria Veche                                       -105,00
 10.02.2026  Bolt                                                 -45,00
 10.02.2026  Bolt                                                 -45,00
+10.02.2026  Bursa facultate UAIC Iasi                           +800,00
 11.02.2026  Glovo                                                -43,00
 11.02.2026  H&M Iasi                                            -188,00
 12.02.2026  PayPo rata                                           -89,00
@@ -195,6 +199,7 @@ Data        Descriere                                      Suma
 08.03.2026  Uber Trip                                            -58,00
 08.03.2026  World Class Iasi                                    -149,00
 10.03.2026  5 to go                                              -16,00
+10.03.2026  Bursa facultate UAIC Iasi                           +800,00
 12.03.2026  PayPo rata                                           -89,00
 12.03.2026  Uber Trip                                            -32,00
 14.03.2026  5 to go                                              -16,00
@@ -241,6 +246,7 @@ Data        Descriere                                      Suma
 08.04.2026  Bolt                                                 -72,00
 08.04.2026  Superbet                                             -40,00
 08.04.2026  World Class Iasi                                    -149,00
+10.04.2026  Bursa facultate UAIC Iasi                           +800,00
 10.04.2026  Glovo                                                -63,00
 10.04.2026  Kaufland Iasi                                        -44,00
 10.04.2026  Retragere numerar ATM                               -250,00
@@ -286,6 +292,7 @@ Data        Descriere                                      Suma
 07.05.2026  HBO Max                                              -29,99
 08.05.2026  World Class Iasi                                    -149,00
 09.05.2026  Kaufland Iasi                                        -56,00
+10.05.2026  Bursa facultate UAIC Iasi                           +800,00
 11.05.2026  5 to go                                              -16,00
 12.05.2026  PayPo rata                                          -119,00
 12.05.2026  Retragere numerar ATM                               -100,00
@@ -335,6 +342,7 @@ Data        Descriere                                      Suma
 08.06.2026  Bolt                                                 -86,00
 08.06.2026  Superbet                                             -40,00
 08.06.2026  World Class Iasi                                    -149,00
+10.06.2026  Bursa facultate UAIC Iasi                           +800,00
 10.06.2026  Pizza Napoli                                         -68,00
 12.06.2026  Bolt                                                 -86,00
 12.06.2026  H&M Iasi                                            -225,00
@@ -375,6 +383,7 @@ Data        Descriere                                      Suma
 08.07.2026  World Class Iasi                                    -149,00
 09.07.2026  Glovo                                                -39,00
 10.07.2026  Bolt                                                 -58,00
+10.07.2026  Bursa facultate UAIC Iasi                           +800,00
 11.07.2026  Bershka                                             -175,00
 12.07.2026  Beraria Veche                                       -132,00
 12.07.2026  PayPo rata                                           -89,00
@@ -420,6 +429,7 @@ Data        Descriere                                      Suma
 08.08.2026  Uber Trip                                            -32,00
 08.08.2026  World Class Iasi                                    -149,00
 09.08.2026  Bolt                                                 -86,00
+10.08.2026  Bursa facultate UAIC Iasi                           +800,00
 12.08.2026  5 to go                                              -14,00
 12.08.2026  PayPo rata                                           -89,00
 15.08.2026  Uber Trip                                            -86,00
@@ -462,6 +472,7 @@ Data        Descriere                                      Suma
 07.09.2026  Uber Trip                                            -45,00
 08.09.2026  World Class Iasi                                    -149,00
 10.09.2026  5 to go                                              -14,00
+10.09.2026  Bursa facultate UAIC Iasi                           +800,00
 10.09.2026  Glovo                                                -36,00
 10.09.2026  Glovo                                                -55,00
 10.09.2026  Uber Trip                                            -32,00
@@ -505,6 +516,7 @@ Data        Descriere                                      Suma
 08.10.2026  World Class Iasi                                    -149,00
 09.10.2026  Superbet                                             -80,00
 10.10.2026  Bolt                                                 -32,00
+10.10.2026  Bursa facultate UAIC Iasi                           +800,00
 10.10.2026  Uber Trip                                            -72,00
 11.10.2026  Restaurant Spoon                                    -127,00
 12.10.2026  Beraria Veche                                       -159,00
@@ -530,4 +542,4 @@ Data        Descriere                                      Suma
 28.10.2026  Uber Trip                                            -32,00
 31.10.2026  5 to go                                              -16,00
 
-31.10.2026  Sold final                                      -934,64
+31.10.2026  Sold final                                    +8.665,36

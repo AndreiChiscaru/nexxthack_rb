@@ -47,6 +47,9 @@ def _base_categories(profile: Profile) -> dict[str, float]:
             "health": profile.health.monthly_costs,
         }
         for cat in profile.categories:
+            # The faculty scholarship is income. It is listed on Education, not spent.
+            if cat.id == "bursa":
+                continue
             bucket = cat.institution if cat.institution in ("home", "market", "education") else "market"
             base[bucket] += cat.monthly
         return base

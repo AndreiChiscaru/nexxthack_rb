@@ -35,6 +35,12 @@ func advance_month(session_id: String) -> int:
 func advisor_message(session_id: String, text: String) -> int:
 	return _message("/api/advisor/message", session_id, text)
 
+func investments_message(session_id: String, text: String) -> int:
+	return _message("/api/advisor/investments", session_id, text)
+
+func business_message(session_id: String, text: String) -> int:
+	return _message("/api/business/chat", session_id, text)
+
 func get_products(category: String = "") -> int:
 	return request_json("/api/products", HTTPClient.METHOD_GET, {}, {"category": category} if not category.is_empty() else {})
 

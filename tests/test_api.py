@@ -134,6 +134,14 @@ def test_advisor_message(started):
     assert set(body["tool_calls"][0]) == {"name", "args", "summary"}
 
 
+def test_business_chat_introduces_the_accountant(monkeypatch):
+    monkeypatch.setenv("MOCK_LLM", "true")
+    sid = new_session()
+    response = client.post("/api/business/chat", json={"session_id": sid, "text": "Vreau o cafenea"})
+    assert response.status_code == 200, response.text
+    assert "contabil" in response.json()["reply"].lower()
+
+
 def test_business_message_with_and_without_file():
     sid = new_session()
     r = client.post("/api/business/message", data={"session_id": sid, "text": "Vreau o cafenea"})

@@ -21,6 +21,8 @@ var hud_text: Label
 var goal_text: Label
 var progress: ProgressBar
 var advisor_button: Button
+var invest_button: Button
+var channel := "onboarding"
 var map_controls: HBoxContainer
 var advance_button: Button
 var recovery_button: Button
@@ -71,11 +73,12 @@ func _ready() -> void:
 	chat = Chat.new()
 	add_child(chat)
 	chat.hide()
-	chat.sent.connect(controller.send_message)
+	chat.sent.connect(_on_sent)
+	controller.message_added.connect(_on_message)
 	chat.upload_requested.connect(_pick_statement)
 	chat.sample_requested.connect(_load_sample)
 	chat.review_requested.connect(_show_profile)
-	chat.closed.connect(func(): _dismiss(chat))
+	chat.closed.connect(_close_chat)
 	location = PanelContainer.new()
 	add_child(location)
 	location.hide()
@@ -97,7 +100,6 @@ func _ready() -> void:
 	month_dialog.confirmed.connect(controller.advance)
 	add_child(month_dialog)
 	controller.changed.connect(_update)
-	controller.message_added.connect(chat.append)
 	get_window().files_dropped.connect(_files_dropped)
 	resized.connect(_layout)
 	chat.minimum_size_changed.connect(_layout.call_deferred)
@@ -134,7 +136,7 @@ func _build_header() -> void:
 	recovery_button = Kit.button("Verifică starea serverului", controller.refresh, true)
 	add_child(recovery_button)
 	recovery_button.hide()
-	advisor_button = Kit.button("AIngel · Hai să vorbim", _open_chat)
+	advisor_button = Kit.button("AIngel · Hai să vorbim", _show_onboarding_chat)
 	advisor_button.icon = load("res://assets/raiff/consultant/consultant_idle.png")
 	advisor_button.expand_icon = true
 	advisor_button.add_theme_constant_override("icon_max_width", 52)
@@ -142,6 +144,11 @@ func _build_header() -> void:
 	advisor_button.size = Vector2(225, 64)
 	add_child(advisor_button)
 	advisor_button.hide()
+	invest_button = Kit.button("Consultant de investiții", _toggle_investments)
+	invest_button.position = Vector2(24, 166)
+	invest_button.size = Vector2(250, 48)
+	add_child(invest_button)
+	invest_button.hide()
 
 func _build_welcome() -> void:
 	welcome = Control.new()
@@ -227,6 +234,9 @@ func _update() -> void:
 	hud.visible = phase == "map"
 	map_controls.visible = phase == "map"
 	advisor_button.visible = phase == "map"
+	invest_button.visible = phase != "welcome"
+	invest_button.position = Vector2(24, 166 if phase == "map" else 94)
+	invest_button.text = "Înapoi la AIngel" if channel == "investments" else "Consultant de investiții"
 	city.visible = phase == "map"
 	if phase != last_phase:
 		if phase in ["onboarding", "review"]:
@@ -268,6 +278,74 @@ func _update() -> void:
 		refresh_button.disabled = controller.busy
 		if not selected.is_empty() and location.visible:
 			_institution(selected)
+
+func _on_sent(text: String) -> void:
+	if channel == "investments":
+		controller.ask_investments(text)
+	elif channel == "business":
+		controller.ask_business(text)
+	else:
+		controller.send_message(text)
+
+func _on_message(message: Dictionary) -> void:
+	var incoming := str(message.get("channel", "onboarding"))
+	var current := channel if channel in ["investments", "business"] else "onboarding"
+	if incoming == current:
+		chat.append(message)
+
+func _toggle_investments() -> void:
+	if channel == "investments":
+		_show_onboarding_chat()
+	else:
+		_show_investments()
+
+func _show_onboarding_chat() -> void:
+	channel = "onboarding"
+	chat.invest_mode = false
+	chat.set_heading("AIngel\nConsilierul tău · pas cu pas")
+	chat.clear_messages()
+	for message: Dictionary in controller.transcript:
+		chat.append(message)
+	_open_chat()
+
+func _show_business() -> void:
+	channel = "business"
+	chat.invest_mode = true
+	chat.set_heading("Contabil\nAfacere · taxe 2026, PFA sau SRL")
+	chat.clear_messages()
+	if controller.business_transcript.is_empty():
+		chat.append({
+			"role": "Contabil",
+			"text": "Sunt contabilul de la Afacere. Spune-mi ideea, veniturile și cheltuielile estimate, iar eu compar PFA, SRL micro și impozitul pe profit. Cifrele sunt orientative pentru 2026.",
+		})
+	else:
+		for message: Dictionary in controller.business_transcript:
+			chat.append(message)
+	_open_chat()
+
+func _show_investments() -> void:
+	channel = "investments"
+	chat.invest_mode = true
+	chat.set_heading("Consultant de investiții\nFonduri și orizont, din catalog")
+	chat.clear_messages()
+	if controller.advisor_transcript.is_empty():
+		chat.append({
+			"role": "Consultant de investiții",
+			"text": "Spune-mi orizontul și cât poți pune deoparte. Îți arăt produse din catalog; un fond nu are randament garantat, iar un scop sub 3 ani rămâne în economii.",
+		})
+	else:
+		for message: Dictionary in controller.advisor_transcript:
+			chat.append(message)
+	_open_chat()
+
+func _close_chat() -> void:
+	channel = "onboarding"
+	chat.invest_mode = false
+	chat.set_heading("AIngel\nConsilierul tău · pas cu pas")
+	chat.clear_messages()
+	for message: Dictionary in controller.transcript:
+		chat.append(message)
+	_dismiss(chat)
 
 func _open_chat() -> void:
 	location.hide()
@@ -393,9 +471,12 @@ func _institution(id: String) -> void:
 		location_contents.add_child(Kit.text("Nu ai evenimente de rezolvat aici în această lună. Poți discuta opțiunile cu AIngel.", 14, Kit.MUTED))
 	if id == "bank":
 		_bank_actions()
+	if id == "business":
+		location_contents.add_child(Kit.button("Contabil", _show_business, true))
 	location_contents.add_child(Kit.button("Întreabă-l pe AIngel", func():
-		_open_chat()
-		chat.input.text = "Ce opțiuni am la %s pentru obiectivul meu?" % NAMES.get(id, id)
+		var question := "Ce opțiuni am la %s pentru obiectivul meu?" % NAMES.get(id, id)
+		_show_onboarding_chat()
+		chat.input.text = question
 	))
 	if not location.visible:
 		_reveal(location)

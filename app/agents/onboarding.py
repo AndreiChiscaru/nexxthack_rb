@@ -127,6 +127,12 @@ def statement_patch(analysis: dict, game_profile: dict) -> dict:
         patch["market"]["leisure"] = round(sum(by_id.get(k, 0) for k in (
             "restaurante", "livrari", "cafea", "cumparaturi", "pariuri", "rate", "numerar")), 2)
         patch["home"]["subscriptions"] = round(by_id.get("abonamente", 0) + by_id.get("telefon", 0), 2)
+    if persona.get("bursa_medie"):
+        patch["income"]["scholarship"] = persona["bursa_medie"]
+        patch.setdefault("categories", []).append({
+            "id": "bursa", "label": "Bursă de facultate", "institution": "education",
+            "monthly": persona["bursa_medie"],
+        })
     if persona.get("locuinta") == "parinti":
         patch["home"]["housing"] = 0
         patch["home"]["utilities"] = 0
