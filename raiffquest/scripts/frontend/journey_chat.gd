@@ -19,6 +19,8 @@ var layout_width := 940.0
 var compact := false
 var portraits: Array[Control] = []
 var heading: Label
+var header: HBoxContainer
+var agent_face: TextureRect
 var invest_mode := false
 var attach_kind := "statement"
 var _rows: Array[Control] = []
@@ -28,7 +30,8 @@ func _ready() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 12)
 	add_child(column)
-	var header := HBoxContainer.new()
+	header = HBoxContainer.new()
+	header.add_theme_constant_override("separation", 8)
 	column.add_child(header)
 	heading = Kit.strong("AIngel · ghidul tău", 18)
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -77,6 +80,17 @@ func _ready() -> void:
 func set_heading(text: String) -> void:
 	heading.text = text
 
+func set_agent(agent: String) -> void:
+	if is_instance_valid(agent_face):
+		header.remove_child(agent_face)
+		agent_face.queue_free()
+		agent_face = null
+	if agent != "accountant":
+		return
+	agent_face = Kit.profile_picture(false, 44, "accountant")
+	header.add_child(agent_face)
+	header.move_child(agent_face, 0)
+
 func clear_messages() -> void:
 	for child in messages.get_children():
 		messages.remove_child(child)
@@ -103,7 +117,8 @@ func append(message: Dictionary) -> void:
 	if user:
 		row.add_child(spacer)
 	else:
-		var portrait := Kit.profile_picture(false, 36)
+		var agent := "accountant" if str(message.get("role", "")) == "Contabil" else ""
+		var portrait := Kit.profile_picture(false, 36, agent)
 		row.add_child(portrait)
 		portraits.append(portrait)
 	var bubble := PanelContainer.new()
@@ -159,5 +174,6 @@ func show_state(busy: bool, phase: String, error: String) -> void:
 	review.visible = phase == "review"
 	review.disabled = busy
 	close_button.visible = phase == "map"
-	status.text = "AIngel îți răspunde…" if busy else error
+	var speaker := "Contabilul" if documents else ("Consultantul" if invest_mode else "AIngel")
+	status.text = speaker + " îți răspunde…" if busy else error
 	status.add_theme_color_override("font_color", Color("963b2b") if not error.is_empty() else Kit.MUTED)

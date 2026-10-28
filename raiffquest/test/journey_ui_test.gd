@@ -65,6 +65,13 @@ func _ready() -> void:
 		await get_tree().process_frame
 		scene._show_business()
 		await get_tree().process_frame
+		if repeat == 0:
+			var accountant_face := false
+			for portrait in scene.chat.portraits:
+				if portrait is TextureRect and portrait.texture and "accountant_idle" in portrait.texture.resource_path:
+					accountant_face = true
+			check(accountant_face, "accountant chat uses the accountant avatar")
+			check(is_instance_valid(scene.chat.agent_face) and scene.chat.agent_face.texture and "accountant_idle" in scene.chat.agent_face.texture.resource_path, "accountant header shows the accountant avatar")
 		scene._close_chat()
 		await get_tree().process_frame
 	check(scene.chat.portraits.all(func(p): return is_instance_valid(p)), "switching advisors clears old portrait references")

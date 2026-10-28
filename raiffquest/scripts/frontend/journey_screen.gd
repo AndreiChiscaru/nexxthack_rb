@@ -388,6 +388,7 @@ func _show_onboarding_chat() -> void:
 	channel = "onboarding"
 	chat.invest_mode = false
 	chat.attach_kind = "statement"
+	chat.set_agent("")
 	chat.set_heading("AIngel\nConsilierul tău · pas cu pas")
 	chat.clear_messages()
 	for message: Dictionary in controller.transcript:
@@ -431,6 +432,7 @@ func _show_business() -> void:
 	channel = "business"
 	chat.invest_mode = true
 	chat.attach_kind = "business"
+	chat.set_agent("accountant")
 	chat.set_heading("Contabil\nAfacere · taxe 2026, PFA sau SRL")
 	chat.clear_messages()
 	if controller.business_transcript.is_empty():
@@ -449,6 +451,7 @@ func _show_investments() -> void:
 	channel = "investments"
 	chat.invest_mode = true
 	chat.attach_kind = ""
+	chat.set_agent("")
 	chat.set_heading("Consultant de investiții\nFonduri și orizont, din catalog")
 	chat.clear_messages()
 	if controller.advisor_transcript.is_empty():
@@ -472,6 +475,7 @@ func _close_chat() -> void:
 func _refill_onboarding_chat() -> void:
 	if chat.visible:
 		return
+	chat.set_agent("")
 	chat.set_heading("AIngel\nConsilierul tău · pas cu pas")
 	chat.clear_messages()
 	for message: Dictionary in controller.transcript:
@@ -621,7 +625,11 @@ func _institution(id: String) -> void:
 		_bank_stats()
 		_bank_actions()
 	if id == "business":
-		location_contents.add_child(Kit.button("Contabil", _show_business, true))
+		var contabil := Kit.button("Contabil", _show_business, true)
+		contabil.icon = load("res://assets/raiff/accountant/accountant_idle.png")
+		contabil.expand_icon = true
+		contabil.add_theme_constant_override("icon_max_width", 40)
+		location_contents.add_child(contabil)
 	if id != "bank":
 		location_contents.add_child(Kit.button("Întreabă-l pe AIngel", func():
 			var question := "Ce opțiuni am la %s pentru obiectivul meu?" % NAMES.get(id, id)

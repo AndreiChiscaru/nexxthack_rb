@@ -548,6 +548,40 @@
       "used": false,
       "usedBy": []
     },
+    "assets/raiff/accountant/accountant_idle.png": {
+      "declaredUseEvidence": [],
+      "generator": {
+        "name": "OpenAI ImageGen"
+      },
+      "inputs": [
+        "docs/characters/contabil.png"
+      ],
+      "license": {
+        "note": "Subject to OpenAI terms and trademark rights"
+      },
+      "origin": "ai",
+      "referenceEvidence": [],
+      "regions": [],
+      "sha256": "sha256:494f21d1506b4e4f07467c13106602196598d325592a59c4f2067b7d5142b676",
+      "shipped": true,
+      "size": 253803,
+      "source": {
+        "description": "RaiffQuest accountant avatar",
+        "style": "Minimalist Flat Vector",
+        "transformation": "Hero figure cropped from the accountant sheet onto a transparent 512x512 canvas",
+        "branding": "AI-generated emblem; review trademark use"
+      },
+      "status": "present",
+      "transformations": [
+        "Crop",
+        "Background removal",
+        "Resize",
+        "Transparent canvas"
+      ],
+      "useEvidence": [],
+      "used": false,
+      "usedBy": []
+    },
     "assets/raiff/consultant/consultant_avatar.png": {
       "declaredUseEvidence": [],
       "generator": {
