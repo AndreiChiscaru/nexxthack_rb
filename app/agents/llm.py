@@ -59,8 +59,10 @@ def _stream_step(client, system: str, history: list, tools: list[Tool], max_toke
             if block is None:
                 continue
             if delta.type == "text_delta":
-                block["text"] += delta.text
-                yield {"type": "text", "delta": delta.text}
+                piece = delta.text.replace("*", "")
+                block["text"] += piece
+                if piece:
+                    yield {"type": "text", "delta": piece}
             elif delta.type == "input_json_delta":
                 block["json"] += delta.partial_json
         elif kind == "message_delta":
@@ -84,6 +86,7 @@ def stream_agent(system: str, history: list, tools: list[Tool], max_tokens: int 
     """Runs one agent turn (with tool calls) on `history`, mutated in place. Yields
     {"type": "text", "delta"}, {"type": "tool_start", "name"}, {"type": "tool_end", "name", "summary"}
     and finally {"type": "done", "text", "tool_calls"}."""
+    system += "\nScrie text simplu pentru utilizator, fără asteriscuri și fără markdown."
     client = anthropic.Anthropic()
     by_name = {tool.name: tool for tool in tools}
     calls: list[dict] = []
