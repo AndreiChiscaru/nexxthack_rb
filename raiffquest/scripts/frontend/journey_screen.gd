@@ -38,6 +38,8 @@ var reduced_motion := false
 var landscape: TextureRect
 var _panel_tweens: Dictionary = {}
 var _landscape_tween: Tween
+var new_game_button: Button
+var new_game_dialog: Control
 var month_dialog: Control
 var ending: Control
 var toast: PanelContainer
@@ -113,6 +115,14 @@ func _ready() -> void:
 	month_dialog = preload("res://scripts/frontend/month_dialog.gd").new()
 	add_child(month_dialog)
 	month_dialog.confirmed.connect(controller.advance)
+	new_game_dialog = preload("res://scripts/frontend/month_dialog.gd").new()
+	new_game_dialog.heading_text = "Începem un joc nou?"
+	new_game_dialog.description_text = "Te întorci la început și construim împreună un profil nou."
+	new_game_dialog.note_text = "Nu vei mai putea continua parcursul curent din această fereastră."
+	new_game_dialog.cancel_text = "Continuă jocul"
+	new_game_dialog.confirm_text = "Da, joc nou →"
+	add_child(new_game_dialog)
+	new_game_dialog.confirmed.connect(_new_game)
 	_build_toast()
 	ending = GameEnd.new()
 	ending.reduced_motion = reduced_motion
@@ -217,8 +227,8 @@ func _build_welcome() -> void:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 20)
 	greeting.add_child(col)
-	col.add_child(Kit.strong("Hei, sunt AIngel!", 28))
-	col.add_child(Kit.text("Ce vis ai vrea să transformăm într-un plan?", 20))
+	col.add_child(Kit.strong("Bine ai venit în RaiffQuest!", 28))
+	col.add_child(Kit.text("Sunt AIngel, ghidul tău financiar. Pornim de la planurile tale și găsim împreună pașii potriviți.", 18))
 	start_button = Kit.button("Începe jocul →", controller.begin, true)
 	start_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	var start_spacing := MarginContainer.new()
@@ -244,6 +254,10 @@ func _build_hud() -> void:
 	add_child(map_controls)
 	advance_button = Kit.button("Luna următoare →", func(): month_dialog.popup_centered(), true)
 	map_controls.add_child(advance_button)
+	new_game_button = Kit.button("Joc nou", func(): new_game_dialog.popup_centered())
+	new_game_button.add_theme_font_size_override("font_size", 13)
+	new_game_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	map_controls.add_child(new_game_button)
 	hud.hide()
 	map_controls.hide()
 
@@ -336,6 +350,7 @@ func _update() -> void:
 	map_controls.visible = phase == "map"
 	advisor_button.visible = phase == "map"
 	advisor_button.disabled = controller.busy
+	new_game_button.disabled = controller.busy
 	city.visible = phase == "map"
 	if phase != last_phase:
 		if phase in ["onboarding", "review"]:
@@ -479,6 +494,19 @@ func _on_ending_chosen(action: String) -> void:
 			_show_onboarding_chat()
 
 func _new_game() -> void:
+	if controller.busy:
+		return
+	new_game_dialog.hide()
+	month_dialog.hide()
+	if is_instance_valid(_hud_tween):
+		_hud_tween.kill()
+	_hud_expanded = false
+	_hud_shade.hide()
+	hud.z_index = 0
+	hud.expand_button.text = "⤢"
+	_bank_amount = 100.0
+	_catalog_open = false
+	toast.hide()
 	chat.hide()
 	chat.clear_messages()
 	location.hide()

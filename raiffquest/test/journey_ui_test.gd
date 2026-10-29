@@ -59,7 +59,7 @@ func _ready() -> void:
 		await wait_for(scene.controller)
 		check(scene.advance_button.disabled == not scene.controller.events.is_empty(), "Next month unlocks only after last mission")
 
-	check(scene.map_controls.get_child_count() == 1 and not scene.recovery_button.visible, "Healthy map has no manual refresh button")
+	check(scene.map_controls.get_child_count() == 2 and scene.new_game_button.visible and not scene.recovery_button.visible, "Healthy map has no manual refresh button")
 	var original_state: Dictionary = scene.controller.state.duplicate(true)
 	scene.controller._track(99999, "advance")
 	scene.controller._response(99999, {"ok":false,"status":0,"error":{"code":"timeout","message":"Conexiune întreruptă"}})
@@ -216,5 +216,19 @@ func _ready() -> void:
 	await get_tree().create_timer(0.35).timeout
 	check(not scene._hud_expanded and not scene._hud_shade.visible, "HUD collapses and releases map input")
 	check(scene.hud.position.distance_to(compact_position) < 2 and is_equal_approx(scene.hud.scale.x, 0.74), "HUD returns to its original corner and scale")
+	var previous_session: String = scene.controller.session_id
+	scene.new_game_button.pressed.emit()
+	check(scene.new_game_dialog.visible, "New game asks for confirmation")
+	scene.new_game_dialog.cancel_button.pressed.emit()
+	check(scene.controller.session_id == previous_session and scene.controller.phase == "map", "Cancelling restart preserves session")
+	scene.new_game_button.pressed.emit()
+	scene.new_game_dialog.confirm_button.pressed.emit()
+	await get_tree().process_frame
+	check(scene.controller.phase == "welcome" and scene.controller.session_id.is_empty(), "New game returns to welcome with fresh session state")
+	check(scene.controller.transcript.is_empty() and scene.controller.state.is_empty(), "New game clears previous conversation and finances")
+	check(not scene._hud_shade.visible and not scene.location.visible, "New game dismisses map panels")
+	scene.start_button.pressed.emit()
+	await wait_for(scene.controller)
+	check(not scene.controller.session_id.is_empty() and scene.controller.session_id != previous_session, "Starting again creates a new backend session")
 	print("[journey-ui] ","FAIL" if failed else "PASS")
 	get_tree().quit(1 if failed else 0)

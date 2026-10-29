@@ -2,6 +2,11 @@ extends Control
 ## In-scene modal so the confirmation shares the game's palette and typography.
 signal confirmed
 const Kit = preload("res://scripts/frontend/journey_theme.gd")
+var heading_text := "Închei luna curentă?"
+var description_text := "Trecem la luna următoare și aplicăm veniturile și cheltuielile lunare."
+var note_text := "Asigură-te că ai făcut alegerile dorite pe hartă."
+var cancel_text := "Mai rămân"
+var confirm_text := "Luna următoare →"
 var panel: PanelContainer
 var confirm_button: Button
 var cancel_button: Button
@@ -37,22 +42,22 @@ func _ready() -> void:
 	calendar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	calendar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	heading.add_child(calendar)
-	var title := Kit.strong("Închei luna curentă?", 23)
+	var title := Kit.strong(heading_text, 23)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading.add_child(title)
 	var close := Kit.close_button(_cancel)
 	close.tooltip_text = ""
 	heading.add_child(close)
-	var description := Kit.text("Trecem la luna următoare și aplicăm veniturile și cheltuielile lunare.", 17)
+	var description := Kit.text(description_text, 17)
 	description.custom_minimum_size.x = 420
 	col.add_child(description)
-	var note := Kit.text("Asigură-te că ai făcut alegerile dorite pe hartă.", 14, Kit.MUTED)
+	var note := Kit.text(note_text, 14, Kit.MUTED)
 	col.add_child(note)
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	col.add_child(actions)
-	cancel_button = Kit.button("Mai rămân", _cancel)
-	confirm_button = Kit.button("Luna următoare →", _confirm, true)
+	cancel_button = Kit.button(cancel_text, _cancel)
+	confirm_button = Kit.button(confirm_text, _confirm, true)
 	for button in [cancel_button, confirm_button]:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.custom_minimum_size.y = 46
