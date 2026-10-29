@@ -213,7 +213,10 @@ func _build_welcome() -> void:
 	col.add_child(Kit.text("Ce vis ai vrea să transformăm într-un plan?", 20))
 	start_button = Kit.button("Începe jocul →", controller.begin, true)
 	start_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	col.add_child(start_button)
+	var start_spacing := MarginContainer.new()
+	start_spacing.add_theme_constant_override("margin_top", 18)
+	col.add_child(start_spacing)
+	start_spacing.add_child(start_button)
 
 func _build_hud() -> void:
 	hud = StatHud.new()
@@ -287,7 +290,7 @@ func _update() -> void:
 	recovery_button.disabled = controller.busy
 	if phase != "review":
 		profile_panel.hide()
-	mode.text = "Agenți AI conectați · simulare educațională" if controller.agent_mode == "live" else "Mod demonstrativ · răspunsuri de test" if controller.agent_mode == "mock" else "UN ORAȘ. ALEGERILE TALE."
+	mode.text = "Banking 1:1. Level up your future."
 	chat.show_state(controller.busy, phase, controller.last_error)
 	uploader.session_id = controller.session_id
 	welcome.visible = phase == "welcome"
@@ -545,7 +548,7 @@ func _show_onboarding_chat() -> void:
 	chat.invest_mode = false
 	chat.attach_kind = "statement"
 	chat.set_agent("")
-	chat.set_heading("AIngel\nConsilierul tău · pas cu pas")
+	chat.set_heading("AIngel · ghidul tău")
 	chat.clear_messages()
 	for message: Dictionary in controller.transcript:
 		if controller.phase == "map" and _is_game_log(message):
@@ -632,7 +635,7 @@ func _refill_onboarding_chat() -> void:
 	if chat.visible:
 		return
 	chat.set_agent("")
-	chat.set_heading("AIngel\nConsilierul tău · pas cu pas")
+	chat.set_heading("AIngel · ghidul tău")
 	chat.clear_messages()
 	for message: Dictionary in controller.transcript:
 		chat.append(message)
