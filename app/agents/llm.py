@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Callable, Iterator
 
 import anthropic
+from ..localization import agent_language_instruction
 
 AGENT_MODEL = os.getenv("AGENT_MODEL", "claude-haiku-5-5")
 MAX_STEPS = 8
@@ -87,6 +88,7 @@ def stream_agent(system: str, history: list, tools: list[Tool], max_tokens: int 
     {"type": "text", "delta"}, {"type": "tool_start", "name"}, {"type": "tool_end", "name", "summary"}
     and finally {"type": "done", "text", "tool_calls"}."""
     system += "\nScrie text simplu pentru utilizator, fără asteriscuri și fără markdown."
+    system += agent_language_instruction()
     client = anthropic.Anthropic()
     by_name = {tool.name: tool for tool in tools}
     calls: list[dict] = []

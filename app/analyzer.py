@@ -107,11 +107,21 @@ def _request(client, text: str, use_tool: bool) -> dict:
         kwargs.update(thinking={"type": "between_tools"}, output_config={"effort": "medium"})
     elif MODEL == "claude-haiku-5-5":
         kwargs.update(thinking={"type": "disabled"}, output_config={"effort": "medium"})
+    content = f"<extras_de_cont>\n{text}\n</extras_de_cont>"
+    stats = summarize(text)
+    if stats:
+        content += (
+            "\n<medii_calculate>" + json.dumps(stats, ensure_ascii=False) + "</medii_calculate>\n"
+            "Mediile de mai sus sunt calculate determinist pentru categoriile recunoscute. "
+            "Folosește-le fără să refaci sumele tranzacție cu tranzacție. "
+            "Documentul complet rămâne sursa pentru celelalte date și categoriile nerecunoscute. "
+            "Trimite direct raportul concis; nu enumera toate tranzacțiile, doar cele mai mari 5."
+        )
     message = client.messages.create(
         model=MODEL,
         max_tokens=12000,
         system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": f"<extras_de_cont>\n{text}\n</extras_de_cont>"}],
+        messages=[{"role": "user", "content": content}],
         **kwargs,
     )
     if message.stop_reason == "max_tokens":

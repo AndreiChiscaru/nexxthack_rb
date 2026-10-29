@@ -28,6 +28,8 @@ config/icon="res://assets/share/favicon.png"
 
 [autoload]
 
+GameLocale="*res://autoload/game_locale.gd"
+
 TuningBridge="*res://scripts/manus/preview/tuning_adapter.gd"
 
 ManusFontTheme="*res://autoload/manus_font_theme.gd"

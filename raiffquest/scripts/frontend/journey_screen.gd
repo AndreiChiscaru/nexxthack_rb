@@ -11,11 +11,14 @@ const NAMES := {"home": "Acasă", "market": "Piață", "education": "Educație",
 var controller: Node
 var chat: PanelContainer
 var city: Control
+var _upload_elapsed := 0.0
+var _attachment_message := ""
 var uploader: Node
 var welcome: Control
 var greeting: PanelContainer
 var hero: TextureRect
 var start_button: Button
+var language_picker: OptionButton
 var mode: Label
 var error_label: Label
 var hud: PanelContainer
@@ -96,6 +99,8 @@ func _ready() -> void:
 	chat.sent.connect(_on_sent)
 	controller.message_added.connect(_on_message)
 	chat.upload_requested.connect(_pick_statement)
+	uploader.attachment_changed.connect(chat.set_attachment)
+	chat.attachment_removed.connect(uploader.clear_pending)
 	chat.review_requested.connect(_show_profile)
 	chat.closed.connect(_close_chat)
 	location = PanelContainer.new()
@@ -161,6 +166,28 @@ func _build_header() -> void:
 	mode.position = Vector2(29, 59)
 	mode.size = Vector2(600, 24)
 	add_child(mode)
+	language_picker = OptionButton.new()
+	language_picker.add_item("Română", 0)
+	language_picker.add_item("English", 1)
+	language_picker.selected = 1 if GameLocale.locale == "en" else 0
+	language_picker.set_meta("keep_original_language", true)
+	language_picker.custom_minimum_size = Vector2(96, 28)
+	language_picker.add_theme_font_size_override("font_size", 12)
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var style := Kit.box(Color("edf0d9") if state != "hover" else Kit.PAPER, Color("87966c"), 5)
+		style.set_border_width_all(1)
+		style.set_corner_radius_all(8)
+		style.shadow_size = 0
+		style.shadow_offset = Vector2.ZERO
+		style.content_margin_right = 20
+		language_picker.add_theme_stylebox_override(state, style)
+	language_picker.add_theme_color_override("font_color", Kit.MUTED)
+	language_picker.add_theme_color_override("font_hover_color", Kit.INK)
+	language_picker.z_index = 40
+	language_picker.item_selected.connect(func(index: int):
+		GameLocale.set_locale("en" if index == 1 else "ro"))
+	GameLocale.changed.connect(func(value: String): language_picker.selected = 1 if value == "en" else 0)
+	add_child(language_picker)
 	error_label = Kit.text("", 13, Color("963b2b"))
 	add_child(error_label)
 	recovery_button = Kit.button("Reîncearcă sincronizarea", controller.refresh, true)
@@ -281,6 +308,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 func _layout() -> void:
 	var w := size.x
 	var h := size.y
+	language_picker.size = Vector2(96, 28)
+	language_picker.position = Vector2(w - language_picker.size.x - 18, h - 40)
 	landscape.pivot_offset = size * Vector2(0.5, 0.42)
 	# AIngel and the greeting move as one group, centred on screen.
 	var greeting_width := maxf(400, minf(530, w - 330))
@@ -314,6 +343,11 @@ func _layout() -> void:
 	profile_panel.size = Vector2(minf(670, w - 30), maxf(430, h - 125))
 
 func _process(_delta: float) -> void:
+	if is_instance_valid(uploader) and uploader.busy:
+		_upload_elapsed += _delta
+		chat.status.text = GameLocale.text("Analizăm documentul… %d s. Poate dura până la câteva minute.") % int(_upload_elapsed)
+	else:
+		_upload_elapsed = 0.0
 	if is_instance_valid(advisor_button) and is_instance_valid(chat):
 		var face: Texture2D = preload("res://assets/raiff/accountant/accountant_idle.png") if channel == "business" and chat.visible else preload("res://assets/raiff/consultant/consultant_cartoon.png")
 		if advisor_button.icon != face:
@@ -332,6 +366,7 @@ func _process(_delta: float) -> void:
 
 func _update() -> void:
 	var phase: String = controller.phase
+	language_picker.disabled = controller.busy or uploader.busy
 	start_button.disabled = controller.busy or controller.needs_recovery
 	start_button.text = "Se conectează…" if controller.busy else "Începe jocul →"
 	if not controller.last_error.is_empty():
@@ -493,6 +528,8 @@ func _on_ending_chosen(action: String) -> void:
 			_show_onboarding_chat()
 
 func _new_game() -> void:
+	uploader.clear_pending()
+	_attachment_message = ""
 	if controller.busy:
 		return
 	new_game_dialog.hide()
@@ -526,14 +563,14 @@ func _ask_raiffeisen_for_goal() -> void:
 	var goal_text := str(_outcome_data(controller.state).get("goal_text", "obiectivul meu"))
 	_show_onboarding_chat()
 	chat.append({"role": "AIngel", "text": "Ai atins obiectivul în joc. Hai să vedem cum îl atingi și în realitate, cu Raiffeisen."})
-	controller.send_message("Am atins în joc obiectivul meu (%s). Ce produse Raiffeisen mă ajută să-l ating și în realitate? Dă-mi câteva recomandări și explică-mi beneficiile lor." % goal_text)
+	controller.send_message(GameLocale.text("Am atins în joc obiectivul meu (%s). Ce produse Raiffeisen mă ajută să-l ating și în realitate? Dă-mi câteva recomandări și explică-mi beneficiile lor." % goal_text))
 
 func _ask_raiffeisen_savings() -> void:
 	if controller.busy:
 		return
 	_show_onboarding_chat()
 	chat.append({"role": "AIngel", "text": "Ai ajuns la obiectiv, dar se putea și mai bine. Hai să vedem ce soluții Raiffeisen te ajută să economisești mai ușor."})
-	controller.send_message("Ce soluții Raiffeisen mă ajută să economisesc mai ușor, pornind de la cheltuielile mele și de la alegerile care m-au costat puncte? Dă-mi câteva recomandări și explică-mi beneficiile lor.")
+	controller.send_message(GameLocale.text("Ce soluții Raiffeisen mă ajută să economisesc mai ușor, pornind de la cheltuielile mele și de la alegerile care m-au costat puncte? Dă-mi câteva recomandări și explică-mi beneficiile lor."))
 
 func _build_toast() -> void:
 	toast = PanelContainer.new()
@@ -581,6 +618,11 @@ func _show_toast(delta: int, cause: String, detail: String) -> void:
 	_toast_tween.tween_callback(toast.hide)
 
 func _on_sent(text: String) -> void:
+	if uploader.has_pending():
+		_attachment_message = text
+		controller.add_message("Tu", "📎 " + uploader.pending_name, "business" if uploader.purpose == "business" else "onboarding")
+		uploader.send_pending()
+		return
 	if channel == "investments":
 		controller.ask_investments(text)
 	elif channel == "business":
@@ -614,6 +656,8 @@ func _toggle_investments() -> void:
 
 ## greet: AIngel opens with a line of its own; off when the player's question is sent right away.
 func _show_onboarding_chat(greet := true) -> void:
+	if uploader.has_pending() and (uploader.purpose != "statement"):
+		uploader.clear_pending()
 	channel = "onboarding"
 	chat.invest_mode = false
 	chat.attach_kind = "statement"
@@ -661,6 +705,8 @@ func _advice_for_screen() -> String:
 	return "La %s ai deschis: %s. Variantele sunt: %s. Scrie «ce aleg?» și compar efectul fiecăreia pe lunile următoare." % [place, title, ", ".join(labels)]
 
 func _show_business() -> void:
+	if uploader.has_pending() and (uploader.purpose != "business"):
+		uploader.clear_pending()
 	channel = "business"
 	chat.invest_mode = true
 	chat.attach_kind = "business"
@@ -678,6 +724,8 @@ func _show_business() -> void:
 	_open_chat()
 
 func _show_investments() -> void:
+	if uploader.has_pending():
+		uploader.clear_pending()
 	if controller.busy or controller.phase != "map":
 		return
 	channel = "investments"
@@ -721,10 +769,17 @@ func _open_chat() -> void:
 	chat.input.grab_focus()
 
 func _upload_finished(response: Dictionary) -> void:
+	var queued := _attachment_message
+	_attachment_message = ""
 	if uploader.last_purpose == "business":
 		controller.finish_business_document(response)
 	else:
 		controller.upload_finished(response)
+	if not queued.strip_edges().is_empty():
+		if response.get("ok", false):
+			_on_sent(queued)
+		else:
+			chat.input.text = queued
 
 func _pick_statement() -> void:
 	if controller.busy:
@@ -862,7 +917,7 @@ func _institution(id: String) -> void:
 		location_contents.add_child(contabil)
 	if id != "bank":
 		location_contents.add_child(Kit.button("Întreabă-l pe AIngel", func():
-			var question := "Ce opțiuni am la %s pentru obiectivul meu?" % NAMES.get(id, id)
+			var question := GameLocale.text("Ce opțiuni am la %s pentru obiectivul meu?") % GameLocale.text(str(NAMES.get(id, id)))
 			_show_onboarding_chat()
 			chat.input.text = question
 		))
@@ -874,7 +929,7 @@ func _ask_raiffeisen_offer() -> void:
 	if controller.busy:
 		return
 	_show_onboarding_chat(false)
-	controller.send_message("Ce produse și servicii Raiffeisen mi se potrivesc acum, pentru obiectivul și cheltuielile mele? Dă-mi câteva recomandări și explică-mi beneficiile lor.")
+	controller.send_message(GameLocale.text("Ce produse și servicii Raiffeisen mi se potrivesc acum, pentru obiectivul și cheltuielile mele? Dă-mi câteva recomandări și explică-mi beneficiile lor."))
 
 const EXPENSE_LABELS := {"entertainment": "Divertisment", "home": "Locuință", "market": "Cumpărături", "education": "Educație", "health": "Sănătate", "business": "Firmă", "bank": "Rate la bancă"}
 const GOOD := Color("3f7d3a")

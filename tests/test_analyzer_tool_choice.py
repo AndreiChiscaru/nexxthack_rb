@@ -65,3 +65,23 @@ def test_haiku_55_reserves_output_for_the_report(monkeypatch, use_tool):
     request = client.messages.create.call_args.kwargs
     assert request["thinking"] == {"type": "disabled"}
     assert request["output_config"] == {"effort": "medium"}
+
+
+def test_precomputed_monthly_totals_reach_analyzer_without_removing_source(monkeypatch):
+    stats = {"luni": 12, "cheltuieli_medii": 2507.05, "categorii": []}
+    monkeypatch.setattr("app.analyzer.summarize", lambda text: stats)
+    client = client_with(SimpleNamespace(type="text", text='{"moneda":"RON"}'))
+    _request(client, "original complete statement", use_tool=True)
+    content = client.messages.create.call_args.kwargs["messages"][0]["content"]
+    assert "original complete statement" in content
+    assert "2507.05" in content
+    assert "medii_calculate" in content
+
+
+def test_unrecognized_statement_does_not_claim_precomputed_totals(monkeypatch):
+    monkeypatch.setattr("app.analyzer.summarize", lambda text: None)
+    client = client_with(SimpleNamespace(type="text", text='{"moneda":"RON"}'))
+    _request(client, "unrecognized source", use_tool=True)
+    content = client.messages.create.call_args.kwargs["messages"][0]["content"]
+    assert "unrecognized source" in content
+    assert "medii_calculate" not in content

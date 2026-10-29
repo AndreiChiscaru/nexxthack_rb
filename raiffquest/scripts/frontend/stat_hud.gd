@@ -78,7 +78,7 @@ func _ready() -> void:
 	col.add_child(header)
 	header.add_child(icon("calendar", 19))
 	month_label = label("LUNA —", 11, true)
-	month_label.custom_minimum_size.x = 64
+	month_label.custom_minimum_size.x = 78
 	month_label.size_flags_horizontal = Control.SIZE_FILL
 	header.add_child(month_label)
 	var title := label("Planul tău financiar", 13, true)

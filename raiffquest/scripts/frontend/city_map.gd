@@ -216,7 +216,7 @@ func _ready() -> void:
 	world.add_child(_avatar)
 	var controls := HBoxContainer.new()
 	controls.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	controls.position = Vector2(-96,-52)
+	controls.position = Vector2(-96,-92)
 	controls.size = Vector2(80,36)
 	add_child(controls)
 	for item in [["−", "Micșorează harta"], ["+", "Mărește harta"]]:

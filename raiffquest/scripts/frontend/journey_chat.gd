@@ -1,5 +1,6 @@
 extends PanelContainer
 signal sent(text: String)
+signal attachment_removed
 signal upload_requested
 signal review_requested
 signal closed
@@ -10,6 +11,9 @@ var input: LineEdit
 var send: Button
 var attach: Button
 var review: Button
+var attachment_row: HBoxContainer
+var attachment_label: Label
+var remove_attachment: Button
 var status: Label
 var close_button: Button
 var tip: Label
@@ -47,6 +51,17 @@ func _ready() -> void:
 	scroll.add_child(messages)
 	status = Kit.text("", 13, Kit.MUTED)
 	column.add_child(status)
+	attachment_row = HBoxContainer.new()
+	column.add_child(attachment_row)
+	attachment_label = Kit.text("", 12, Kit.MUTED)
+	attachment_label.set_meta("keep_original_language", true)
+	attachment_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	attachment_row.add_child(attachment_label)
+	remove_attachment = Kit.button("×", func(): attachment_removed.emit())
+	remove_attachment.custom_minimum_size = Vector2(28, 28)
+	remove_attachment.add_theme_font_size_override("font_size", 14)
+	attachment_row.add_child(remove_attachment)
+	attachment_row.hide()
 	var composer := HBoxContainer.new()
 	column.add_child(composer)
 	input = LineEdit.new()
@@ -117,8 +132,12 @@ func clear_messages() -> void:
 	_rows.clear()
 	portraits.clear()
 
+func set_attachment(filename: String) -> void:
+	attachment_row.visible = not filename.is_empty()
+	attachment_label.text = "📎 " + filename
+
 func submit() -> void:
-	if send.disabled or input.text.strip_edges().is_empty():
+	if send.disabled or (input.text.strip_edges().is_empty() and not attachment_row.visible):
 		return
 	var value := input.text
 	input.clear()
@@ -153,6 +172,7 @@ func append(message: Dictionary) -> void:
 	bubble.add_child(contents)
 	contents.add_child(Kit.strong(str(message.get("role", "AIngel")), 12))
 	var body := Kit.text(str(message.get("text", "")), 14)
+	body.set_meta("keep_original_language", user or bool(message.get("generated", false)))
 	body.add_theme_constant_override("line_spacing", 5)
 	contents.add_child(body)
 	if user:
@@ -180,6 +200,7 @@ func _resize_rows() -> void:
 func show_state(busy: bool, phase: String, error: String) -> void:
 	compact = phase == "map"
 	_resize_rows()
+	remove_attachment.disabled = busy
 	send.disabled = busy
 	input.editable = not busy
 	attach.disabled = busy

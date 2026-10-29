@@ -1,5 +1,6 @@
 extends Node
 ## Session-scoped statement import. File contents are never persisted by this component.
+signal attachment_changed(filename: String)
 signal started
 signal finished(response: Dictionary)
 
@@ -11,7 +12,7 @@ const EXTENSIONS := ["pdf", "png", "jpg", "jpeg", "txt", "csv", "tif", "tiff", "
 const JS_SETUP := """
 window.raiffStatementUpload = {
  state: 'idle', result: '', status: 0, error: '', errorCode: '',
-  pick: function(sessionId, timeoutMs, path) {
+  pick: function(sessionId, timeoutMs, path, language) {
   if (this.state === 'picking' || this.state === 'uploading') return;
   var target = (typeof path === 'string' && path) ? path : '/api/onboarding/statement';
   var self = this;
@@ -28,13 +29,15 @@ window.raiffStatementUpload = {
    var extension = file.name.split('.').pop().toLowerCase();
    if (['pdf','png','jpg','jpeg','txt','csv','tif','tiff','webp','bmp'].indexOf(extension) < 0) { fail('Tip de fișier neacceptat.'); input.remove(); return; }
    if (file.size <= 0 || file.size > 25*1024*1024) { fail('Fișierul trebuie să aibă între 1 octet și 25 MB.'); input.remove(); return; }
+   self.pendingFile = file; self.state = 'attached'; input.remove();
+   self.sendPending = function(sessionId, timeoutMs, target, language) {
    var safeName = Array.from(file.name).map(function(c) { var n = c.charCodeAt(0); return n < 32 || n === 34 || n === 47 || n === 92 || n === 127 ? '_' : c; }).join('');
    var body = new FormData(); body.append('session_id', sessionId); body.append('file', file, safeName);
    var controller = new AbortController();
    var timer = setTimeout(function() { controller.abort(); }, timeoutMs);
    self.state = 'uploading';
    Promise.resolve().then(function() {
-    return fetch(target, {method:'POST', body:body, signal:controller.signal, redirect:'error'});
+    return fetch(target, {method:'POST', headers:{'Accept-Language':language || 'ro'}, body:body, signal:controller.signal, redirect:'error'});
    }).then(function(response) {
     self.status = response.status;
     return response.text();
@@ -43,12 +46,13 @@ window.raiffStatementUpload = {
     self.result = text; self.state = 'done';
    }).catch(function(error) {
     fail(error.name === 'AbortError' ? 'Serverul nu a răspuns la timp.' : 'Conexiunea cu serverul a fost întreruptă.', error.name === 'AbortError' ? 'timeout' : 'network');
-   }).finally(function() { clearTimeout(timer); input.remove(); });
+   }).finally(function() { clearTimeout(timer); });
+   };
   };
   input.style.display = 'none'; document.body.appendChild(input);
   try { input.click(); } catch (_) { input.remove(); fail('Nu am putut deschide selectorul de fișiere.'); }
  },
- loadSample: function(sessionId, timeoutMs) {
+ loadSample: function(sessionId, timeoutMs, language) {
   if (this.state === 'picking' || this.state === 'uploading') return;
   var self = this;
   self.result = ''; self.status = 0; self.error = ''; self.errorCode = '';
@@ -58,7 +62,7 @@ window.raiffStatementUpload = {
   var controller = new AbortController();
   var timer = setTimeout(function() { controller.abort(); }, timeoutMs);
   self.state = 'uploading';
-  fetch('/api/onboarding/sample', {method:'POST', body:body, signal:controller.signal, redirect:'error'})
+  fetch('/api/onboarding/sample', {method:'POST', headers:{'Accept-Language':language || 'ro'}, body:body, signal:controller.signal, redirect:'error'})
    .then(function(response) { self.status = response.status; return response.text(); })
    .then(function(text) {
     if (text.length > 2*1024*1024) { fail('Răspuns prea mare.', 'response_too_large'); return; }
@@ -76,6 +80,8 @@ var busy: bool = false
 var endpoint := "/api/onboarding/statement"
 var purpose := "statement"
 var last_purpose := "statement"
+var pending_name := ""
+var _pending_path := ""
 var _dialog: FileDialog
 var _http: HTTPRequest
 var _poll: Timer
@@ -109,12 +115,11 @@ func pick() -> void:
 	if purpose != "business":
 		endpoint = "/api/onboarding/statement"
 		purpose = "statement"
-	if not _begin():
-		purpose = "statement"
-		endpoint = "/api/onboarding/statement"
+	if busy:
 		return
+	_request_session = session_id
 	if OS.has_feature("web"):
-		JavaScriptBridge.eval("window.raiffStatementUpload.pick(%s, %d, %s)" % [JSON.stringify(_request_session), int(TIMEOUT_SECONDS * 1000), JSON.stringify(endpoint)], true)
+		JavaScriptBridge.eval("window.raiffStatementUpload.pick(%s, %d, %s, %s)" % [JSON.stringify(_request_session), int(TIMEOUT_SECONDS * 1000), JSON.stringify(endpoint), JSON.stringify(GameLocale.locale)], true)
 		_poll.start()
 		return
 	if _dialog == null:
@@ -123,17 +128,17 @@ func pick() -> void:
 		_dialog.access = FileDialog.ACCESS_FILESYSTEM
 		_dialog.use_native_dialog = true
 		_dialog.filters = PackedStringArray(["*.pdf,*.png,*.jpg,*.jpeg,*.txt,*.csv,*.tif,*.tiff,*.webp,*.bmp ; Document"])
-		_dialog.file_selected.connect(_send_path)
+		_dialog.file_selected.connect(upload_path)
 		_dialog.canceled.connect(func() -> void: _finish(Api.failure("cancelled", "Selecția fișierului a fost anulată.")))
 		add_child(_dialog)
-	_dialog.title = "Alege documentul pentru contabil" if purpose == "business" else "Alege extrasul de cont"
+	_dialog.title = GameLocale.text("Alege documentul pentru contabil" if purpose == "business" else "Alege extrasul de cont")
 	_dialog.popup_centered_ratio(0.7)
 
 func load_sample() -> void:
 	if not _begin():
 		return
 	if OS.has_feature("web"):
-		JavaScriptBridge.eval("window.raiffStatementUpload.loadSample(%s, %d)" % [JSON.stringify(_request_session), int(TIMEOUT_SECONDS * 1000)], true)
+		JavaScriptBridge.eval("window.raiffStatementUpload.loadSample(%s, %d, %s)" % [JSON.stringify(_request_session), int(TIMEOUT_SECONDS * 1000), JSON.stringify(GameLocale.locale)], true)
 		_poll.start()
 		return
 	var base := api_base if not api_base.is_empty() else Config.resolve_base()
@@ -148,13 +153,47 @@ func load_sample() -> void:
 	_http.request_completed.connect(_on_response)
 	add_child(_http)
 	var body := ("session_id=" + _request_session.uri_encode()).to_utf8_buffer()
-	var error := _http.request_raw(url, PackedStringArray(["Content-Type: application/x-www-form-urlencoded"]), HTTPClient.METHOD_POST, body)
+	var error := _http.request_raw(url, PackedStringArray(["Accept-Language: " + GameLocale.locale, "Content-Type: application/x-www-form-urlencoded"]), HTTPClient.METHOD_POST, body)
 	if error != OK:
 		_finish(Api.failure("network", "Nu s-a putut porni conexiunea cu serverul."))
 
+func has_pending() -> bool:
+	return not pending_name.is_empty()
+
+func clear_pending() -> void:
+	pending_name = ""
+	_pending_path = ""
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("window.raiffStatementUpload.pendingFile = null; window.raiffStatementUpload.sendPending = null;")
+	attachment_changed.emit("")
+
 func upload_path(path: String) -> void:
-	if _begin():
-		_send_path(path)
+	if busy:
+		return
+	if path.get_extension().to_lower() not in EXTENSIONS:
+		_finish(Api.failure("invalid_request", "Tip de fișier neacceptat."))
+		return
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		_finish(Api.failure("invalid_request", "Nu am putut citi fișierul selectat."))
+		return
+	var length := file.get_length()
+	file.close()
+	if length <= 0 or length > MAX_BYTES:
+		_finish(Api.failure("invalid_request", "Fișierul trebuie să aibă între 1 octet și 25 MB."))
+		return
+	_pending_path = path
+	pending_name = path.get_file()
+	attachment_changed.emit(pending_name)
+
+func send_pending() -> void:
+	if not has_pending() or not _begin():
+		return
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("window.raiffStatementUpload.sendPending(%s, %d, %s, %s)" % [JSON.stringify(_request_session), int(TIMEOUT_SECONDS * 1000), JSON.stringify(endpoint), JSON.stringify(GameLocale.locale)], true)
+		_poll.start()
+	else:
+		_send_path(_pending_path)
 
 func _send_path(path: String) -> void:
 	if path.get_extension().to_lower() not in EXTENSIONS:
@@ -187,7 +226,7 @@ func _send_path(path: String) -> void:
 	_http.body_size_limit = Api.MAX_RESPONSE_BYTES
 	_http.request_completed.connect(_on_response)
 	add_child(_http)
-	var error := _http.request_raw(url, PackedStringArray(["Content-Type: multipart/form-data; boundary=" + boundary]), HTTPClient.METHOD_POST, body)
+	var error := _http.request_raw(url, PackedStringArray(["Accept-Language: " + GameLocale.locale, "Content-Type: multipart/form-data; boundary=" + boundary]), HTTPClient.METHOD_POST, body)
 	if error != OK:
 		_finish(Api.failure("network", "Nu s-a putut porni conexiunea cu serverul."))
 
@@ -207,7 +246,11 @@ func _on_response(result: int, status: int, _headers: PackedStringArray, body: P
 
 func _poll_web() -> void:
 	var state := str(JavaScriptBridge.eval("window.raiffStatementUpload.state", true))
-	if state == "done":
+	if state == "attached":
+		pending_name = str(JavaScriptBridge.eval("window.raiffStatementUpload.pendingFile.name", true))
+		_poll.stop()
+		attachment_changed.emit(pending_name)
+	elif state == "done":
 		var status := int(JavaScriptBridge.eval("window.raiffStatementUpload.status", true))
 		var raw := str(JavaScriptBridge.eval("window.raiffStatementUpload.result", true))
 		_finish(Api.decode_response(HTTPRequest.RESULT_SUCCESS, status, raw.to_utf8_buffer()))
@@ -219,8 +262,11 @@ func _poll_web() -> void:
 func _finish(response: Dictionary) -> void:
 	busy = false
 	last_purpose = purpose
-	purpose = "statement"
-	endpoint = "/api/onboarding/statement"
+	if response.get("ok", false):
+		clear_pending()
+	if not has_pending():
+		purpose = "statement"
+		endpoint = "/api/onboarding/statement"
 	_request_session = ""
 	if is_instance_valid(_http):
 		_http.queue_free()

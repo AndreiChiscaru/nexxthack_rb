@@ -29,8 +29,8 @@ func _ready() -> void:
 	add_child(api)
 	api.request_finished.connect(_response)
 
-func add_message(role: String, text: String, channel: String = "onboarding") -> void:
-	var message := {"role": role, "text": text, "channel": channel}
+func add_message(role: String, text: String, channel: String = "onboarding", generated: bool = false) -> void:
+	var message := {"role": role, "text": text, "channel": channel, "generated": generated}
 	if channel == "investments":
 		advisor_transcript.append(message)
 	elif channel == "business":
@@ -129,7 +129,7 @@ func finish_business_document(response: Dictionary) -> void:
 		last_error = "" if response.get("error", {}).get("code") == "cancelled" else str(response.get("error", {}).get("message", "Nu am putut citi documentul."))
 	else:
 		var data: Dictionary = response.data
-		add_message("Contabil", str(data.get("reply", "")), "business")
+		add_message("Contabil", str(data.get("reply", "")), "business", agent_mode == "live")
 		if data.get("state") is Dictionary:
 			state = data.state.duplicate(true)
 	changed.emit()
@@ -140,7 +140,7 @@ func upload_finished(response: Dictionary) -> void:
 		last_error = "" if response.get("error", {}).get("code") == "cancelled" else str(response.get("error", {}).get("message", "Nu am putut analiza extrasul."))
 	else:
 		var data: Dictionary = response.data
-		add_message("AIngel", str(data.get("reply") if data.get("reply") else "Am primit datele extrasului. Spune-mi ce obiectiv ai sau ce informații vrei să corectezi."))
+		add_message("AIngel", str(data.get("reply") if data.get("reply") else "Am primit datele extrasului. Spune-mi ce obiectiv ai sau ce informații vrei să corectezi."), "onboarding", agent_mode == "live" and data.get("reply") is String and not str(data.get("reply")).is_empty())
 		# A statement can alter a previously complete draft; require a new agent confirmation.
 		profile = {}
 		phase = "onboarding"
@@ -180,7 +180,7 @@ func _response(id: int, response: Dictionary) -> void:
 				phase = "onboarding"
 				add_message("AIngel", "Bine ai venit! Ce ți-ai dori să poți face cu banii tăi? Spune-mi în cuvintele tale; dacă nu ai încă un obiectiv, îl descoperim împreună.")
 		"onboarding":
-			add_message("AIngel", str(data.get("reply", "")))
+			add_message("AIngel", str(data.get("reply", "")), "onboarding", agent_mode == "live")
 			if data.get("done", false) and data.get("profile") is Dictionary:
 				profile = data.profile.duplicate(true)
 				phase = "review"
@@ -205,11 +205,11 @@ func _response(id: int, response: Dictionary) -> void:
 				needs_recovery = false
 				phase = "map"
 		"advisor":
-			add_message("AIngel", str(data.get("reply", "")))
+			add_message("AIngel", str(data.get("reply", "")), "onboarding", agent_mode == "live")
 		"investments":
-			add_message("Consultant de investiții", str(data.get("reply", "")), "investments")
+			add_message("Consultant de investiții", str(data.get("reply", "")), "investments", agent_mode == "live")
 		"business":
-			add_message("Contabil", str(data.get("reply", "")), "business")
+			add_message("Contabil", str(data.get("reply", "")), "business", agent_mode == "live")
 			if data.get("state") is Dictionary:
 				state = data.state.duplicate(true)
 		"products":

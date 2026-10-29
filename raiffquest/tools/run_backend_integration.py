@@ -42,12 +42,12 @@ def run_test(godot, scene, visible=False):
         thread = threading.Thread(target=server.run, kwargs={"sockets": [listener]}, daemon=True)
         thread.start()
         try:
-            deadline = time.monotonic() + 15
+            deadline = time.monotonic() + 60
             while not server.started:
                 if not thread.is_alive() or time.monotonic() > deadline:
                     raise RuntimeError("The local backend did not start; inspect the error above.")
                 time.sleep(0.05)
-            env = dict(os.environ, RAIFF_TEST_API=f"http://127.0.0.1:{port}")
+            env = dict(os.environ, RAIFF_LOCALE="ro", RAIFF_TEST_API=f"http://127.0.0.1:{port}")
             result = subprocess.run(
                 [godot, *([] if visible else ["--headless"]), "--path", str(ROOT), scene],
                 env=env, timeout=60, check=False,

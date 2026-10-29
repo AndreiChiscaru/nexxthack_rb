@@ -33,7 +33,7 @@ func request_json(path: String, method: int = HTTPClient.METHOD_GET, payload: Di
 	_pending[id] = http
 	http.request_completed.connect(_on_response.bind(id))
 	var body := "" if method == HTTPClient.METHOD_GET else JSON.stringify(payload)
-	var error := http.request(url, PackedStringArray(["Accept: application/json", "Content-Type: application/json"]), method, body)
+	var error := http.request(url, PackedStringArray(["Accept: application/json", "Content-Type: application/json", "Accept-Language: " + GameLocale.locale]), method, body)
 	if error != OK:
 		_complete.call_deferred(id, failure("network", "Nu s-a putut porni conexiunea cu serverul."))
 	return id

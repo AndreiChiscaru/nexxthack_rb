@@ -70,11 +70,12 @@ Source SHA-256: 38f4c5f927f746b3dfa4c3a5d7edf0b7a3e828e27438418fa54f9e1565289412
       const retry = document.getElementById('loading-retry');
       document.getElementById('game-title').textContent = document.title;
       // No saved game preference is visible here: follow the browser's preferred language.
-      const zh = false;
-      document.documentElement.lang = 'ro';
-      status.textContent = 'Se încarcă…';
-      retry.textContent = 'Reîncearcă';
-      progress.setAttribute('aria-label', 'Progres descărcare');
+      let en = false;
+      try { en = localStorage.getItem('raiffquest.locale') === 'en'; } catch (_) {}
+      document.documentElement.lang = en ? 'en' : 'ro';
+      status.textContent = (en ? 'Loading…' : 'Se încarcă…');
+      retry.textContent = (en ? 'Try again' : 'Reîncearcă');
+      progress.setAttribute('aria-label', (en ? 'Download progress' : 'Progres descărcare'));
       retry.addEventListener('click', () => window.location.reload());
       let failed = false;
       let ready = false;
@@ -87,8 +88,8 @@ Source SHA-256: 38f4c5f927f746b3dfa4c3a5d7edf0b7a3e828e27438418fa54f9e1565289412
         notice.hidden = false;
         retry.hidden = false;
         const message = performance.now() - lastProgressAt >= 30000
-          ? 'Nu a apărut progres recent. Poți aștepta sau reîncerca.'
-          : 'Se încarcă în continuare. Poți aștepta sau reîncerca.';
+          ? (en ? 'There has been no progress recently. You can wait or try again.' : 'Nu a apărut progres recent. Poți aștepta sau reîncerca.')
+          : (en ? 'Still loading. You can wait or try again.' : 'Se încarcă în continuare. Poți aștepta sau reîncerca.');
         if (notice.textContent !== message) notice.textContent = message;
       };
       const onWindowError = (event) => fail(event.error || new Error('Engine startup error'));
@@ -106,7 +107,7 @@ Source SHA-256: 38f4c5f927f746b3dfa4c3a5d7edf0b7a3e828e27438418fa54f9e1565289412
         stopObserving();
         console.error('[game-loading] Startup failed', error);
         loading.hidden = false;
-        status.textContent = 'Nu s-a putut încărca jocul. Încearcă din nou.';
+        status.textContent = (en ? 'The game could not load. Please try again.' : 'Nu s-a putut încărca jocul. Încearcă din nou.');
         progress.hidden = true;
         notice.hidden = true;
         retry.hidden = false;
@@ -128,13 +129,13 @@ Source SHA-256: 38f4c5f927f746b3dfa4c3a5d7edf0b7a3e828e27438418fa54f9e1565289412
         updateNotice();
         if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(current) || current < 0) {
           progress.removeAttribute('value');
-          status.textContent = 'Se încarcă…';
+          status.textContent = (en ? 'Loading…' : 'Se încarcă…');
           return;
         }
         progress.max = total;
         progress.value = Math.min(current, total);
         status.textContent = current >= total
-          ? 'Se pornește jocul…'
+          ? (en ? 'Starting the game…' : 'Se pornește jocul…')
           : `${Math.floor(current / total * 100)}%`;
       };
       const start = async () => {
