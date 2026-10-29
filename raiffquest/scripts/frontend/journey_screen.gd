@@ -149,17 +149,46 @@ func _build_header() -> void:
 	recovery_button = Kit.button("Reîncearcă sincronizarea", controller.refresh, true)
 	add_child(recovery_button)
 	recovery_button.hide()
-	advisor_button = Kit.button("", _show_onboarding_chat)
+	advisor_button = Kit.button("", func():
+		if channel == "business" and chat.visible:
+			_show_business()
+		else:
+			_show_onboarding_chat()
+	)
 	advisor_button.position = Vector2(24, 100)
-	advisor_button.icon = load("res://assets/raiff/consultant/consultant_idle.png")
+	advisor_button.icon = load("res://assets/raiff/consultant/consultant_cartoon.png")
 	advisor_button.expand_icon = true
-	advisor_button.add_theme_constant_override("icon_max_width", 68)
-	advisor_button.custom_minimum_size = Vector2(80, 80)
-	advisor_button.size = Vector2(80, 80)
-	advisor_button.pivot_offset = Vector2(40, 40)
+	advisor_button.add_theme_constant_override("icon_max_width", 106)
+	advisor_button.custom_minimum_size = Vector2(126, 126)
+	advisor_button.size = Vector2(126, 126)
+	advisor_button.pivot_offset = Vector2(63, 63)
 	advisor_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	for state in ["normal", "disabled", "pressed", "hover", "hover_pressed", "focus"]:
 		advisor_button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	var outline := Shader.new()
+	outline.code = """shader_type canvas_item;
+render_mode unshaded;
+varying vec4 tint;
+void vertex() { tint = COLOR; }
+void fragment() {
+    vec4 sprite = texture(TEXTURE, UV);
+    vec2 radius = fwidth(UV) * 2.5;
+    float coverage = sprite.a;
+    for (int i = 0; i < 24; i++) {
+        float angle = float(i) * 6.2831853 / 24.0;
+        vec2 sample_uv = UV + vec2(cos(angle), sin(angle)) * radius;
+        if (all(greaterThanEqual(sample_uv, vec2(0.0))) && all(lessThanEqual(sample_uv, vec2(1.0)))) {
+            coverage = max(coverage, texture(TEXTURE, sample_uv).a);
+        }
+    }
+    float alpha = max(sprite.a, coverage);
+    vec3 rgb = mix(vec3(1.0), sprite.rgb, sprite.a / max(alpha, 0.0001));
+    COLOR = vec4(rgb, alpha) * tint;
+}
+"""
+	var outline_material := ShaderMaterial.new()
+	outline_material.shader = outline
+	advisor_button.material = outline_material
 	advisor_button.mouse_entered.connect(func(): _animate_advisor_icon(true))
 	advisor_button.mouse_exited.connect(func(): _animate_advisor_icon(false))
 	advisor_button.focus_entered.connect(func(): _animate_advisor_icon(true))
@@ -231,6 +260,10 @@ func _layout() -> void:
 	profile_panel.size = Vector2(minf(670, w - 30), maxf(430, h - 125))
 
 func _process(_delta: float) -> void:
+	if is_instance_valid(advisor_button) and is_instance_valid(chat):
+		var face: Texture2D = preload("res://assets/raiff/accountant/accountant_idle.png") if channel == "business" and chat.visible else preload("res://assets/raiff/consultant/consultant_cartoon.png")
+		if advisor_button.icon != face:
+			advisor_button.icon = face
 	if not is_instance_valid(city) or controller.phase != "map":
 		return
 	var left := 70.0
@@ -556,7 +589,7 @@ func _show_business() -> void:
 	chat.invest_mode = true
 	chat.attach_kind = "business"
 	chat.set_agent("accountant")
-	chat.set_heading("Contabil\nAfacere · taxe 2026, PFA sau SRL")
+	chat.set_heading("Contabil")
 	chat.clear_messages()
 	if controller.business_transcript.is_empty():
 		chat.append({

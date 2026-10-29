@@ -103,6 +103,7 @@ func _ready() -> void:
 		await get_tree().process_frame
 		scene._show_business()
 		await get_tree().process_frame
+		check(scene.advisor_button.icon.resource_path.ends_with("accountant_idle.png"), "Accountant chat shows accountant map icon")
 		if repeat == 0:
 			var accountant_face := false
 			for portrait in scene.chat.portraits:
