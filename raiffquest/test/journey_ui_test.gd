@@ -184,5 +184,37 @@ func _ready() -> void:
 	scene.month_dialog.confirm_button.pressed.emit()
 	scene.month_dialog.confirm_button.pressed.emit()
 	check(confirmations[0] == 1 and not scene.month_dialog.visible, "Confirmation submits once and closes immediately")
+	scene._institution("bank")
+	scene.bank_amount_input.get_line_edit().text = "735"
+	scene.bank_amount_input.get_line_edit().text_changed.emit("735")
+	scene.bank_amount_input.apply()
+	scene._update()
+	check(scene.bank_amount_input.value == 735, "Bank amount survives state refresh")
+	scene._institution("home")
+	scene._institution("bank")
+	check(scene.bank_amount_input.value == 735, "Bank amount survives leaving and returning")
+	await scene._products()
+	check(scene._catalog_open and not scene.controller.products.is_empty(), "Catalog loads real backend product schema")
+	scene._update()
+	check(scene._catalog_open, "Catalog remains open during state refresh")
+	var cards := 0
+	for child in scene.location_contents.get_children():
+		if child is PanelContainer:
+			cards += 1
+	check(cards == scene.controller.products.size(), "Every catalog product has its own card")
+	await capture("bank-catalog")
+	var compact_position: Vector2 = scene.hud.position
+	var cash_text: String = scene.hud.cash_value.text
+	scene.hud.expand_button.pressed.emit()
+	await get_tree().create_timer(0.35).timeout
+	check(scene._hud_expanded and scene._hud_shade.visible, "HUD expands with map input shield")
+	check((scene.hud.position + scene.hud.size * scene.hud.scale / 2).distance_to(scene.size / 2) < 2, "Expanded HUD is centered")
+	check(scene.hud.scale.x > 0.74, "Expanded HUD is larger")
+	check(scene.hud.cash_value.text == cash_text, "Expansion preserves backend amounts")
+	await capture("hud-expanded")
+	scene.hud.expand_button.pressed.emit()
+	await get_tree().create_timer(0.35).timeout
+	check(not scene._hud_expanded and not scene._hud_shade.visible, "HUD collapses and releases map input")
+	check(scene.hud.position.distance_to(compact_position) < 2 and is_equal_approx(scene.hud.scale.x, 0.74), "HUD returns to its original corner and scale")
 	print("[journey-ui] ","FAIL" if failed else "PASS")
 	get_tree().quit(1 if failed else 0)

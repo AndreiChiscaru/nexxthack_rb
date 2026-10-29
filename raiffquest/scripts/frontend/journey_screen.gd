@@ -19,6 +19,9 @@ var start_button: Button
 var mode: Label
 var error_label: Label
 var hud: PanelContainer
+var _hud_expanded := false
+var _hud_tween: Tween
+var _hud_shade: ColorRect
 var advisor_button: Button
 var _advisor_hover_tween: Tween
 var channel := "onboarding"
@@ -48,6 +51,9 @@ var _score_log: Array = []
 var _pending_cause := ""
 var _shown_outcomes := {}
 var _extra_months := 0
+var _bank_amount := 100.0
+var bank_amount_input: SpinBox
+var _catalog_open := false
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -140,7 +146,7 @@ func _build_header() -> void:
 	brand.position = Vector2(74, 19)
 	brand.size = Vector2(260, 40)
 	add_child(brand)
-	mode = Kit.text("Conectare la backend după pornire", 12, Kit.MUTED)
+	mode = Kit.text(Kit.SLOGAN, 12, Kit.MUTED)
 	mode.position = Vector2(29, 59)
 	mode.size = Vector2(600, 24)
 	add_child(mode)
@@ -219,8 +225,18 @@ func _build_welcome() -> void:
 	start_spacing.add_child(start_button)
 
 func _build_hud() -> void:
+	_hud_shade = ColorRect.new()
+	_hud_shade.color = Color(0.19, 0.23, 0.16, 0.28)
+	_hud_shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_hud_shade.z_index = 30
+	_hud_shade.hide()
+	add_child(_hud_shade)
+	_hud_shade.gui_input.connect(func(event: InputEvent):
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			_toggle_hud())
 	hud = StatHud.new()
 	add_child(hud)
+	hud.expand_requested.connect(_toggle_hud)
 	map_controls = HBoxContainer.new()
 	map_controls.add_theme_constant_override("separation", 8)
 	add_child(map_controls)
@@ -228,6 +244,24 @@ func _build_hud() -> void:
 	map_controls.add_child(advance_button)
 	hud.hide()
 	map_controls.hide()
+
+func _toggle_hud() -> void:
+	_hud_expanded = not _hud_expanded
+	if is_instance_valid(_hud_tween):
+		_hud_tween.kill()
+	_hud_shade.visible = _hud_expanded
+	hud.z_index = 31 if _hud_expanded else 0
+	hud.expand_button.text = "−" if _hud_expanded else "⤢"
+	var target_scale := minf(1.5, minf((size.x - 64) / hud.size.x, (size.y - 64) / maxf(1, hud.size.y))) if _hud_expanded else 0.74
+	var target_position := (size - hud.size * target_scale) / 2 if _hud_expanded else Vector2(size.x - hud.size.x * 0.74 - 20, 20)
+	_hud_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_hud_tween.tween_property(hud, "scale", Vector2.ONE * target_scale, 0.25 if not reduced_motion else 0.0)
+	_hud_tween.tween_property(hud, "position", target_position, 0.25 if not reduced_motion else 0.0)
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if _hud_expanded and event.is_action_pressed("ui_cancel"):
+		_toggle_hud()
+		get_viewport().set_input_as_handled()
 
 func _layout() -> void:
 	var w := size.x
@@ -248,8 +282,10 @@ func _layout() -> void:
 		chat.position = Vector2(24, 190)
 		chat.size = Vector2(350, maxf(330, h - 280))
 	hud.size = Vector2(minf(440, w - 40), hud.get_combined_minimum_size().y)
-	hud.scale = Vector2.ONE * 0.74
-	hud.position = Vector2(w - hud.size.x * hud.scale.x - 20, 20)
+	var hud_scale := minf(1.5, minf((w - 64) / hud.size.x, (h - 64) / maxf(1, hud.size.y))) if _hud_expanded else 0.74
+	if not is_instance_valid(_hud_tween) or not _hud_tween.is_running():
+		hud.scale = Vector2.ONE * hud_scale
+		hud.position = (size - hud.size * hud_scale) / 2 if _hud_expanded else Vector2(w - hud.size.x * 0.74 - 20, 20)
 	toast.position = Vector2((w - toast.size.x) / 2, h - 150)
 	map_controls.position = Vector2(25, h - 60)
 	map_controls.size = Vector2(400, 40)
@@ -257,7 +293,7 @@ func _layout() -> void:
 	recovery_button.size = Vector2(270, 40)
 	error_label.position = Vector2(25, h - 105)
 	error_label.size = Vector2(maxf(400, w - 470), 40)
-	location.position = Vector2(w - 365, maxf(178, hud.position.y + hud.size.y * hud.scale.y + 18))
+	location.position = Vector2(w - 365, maxf(178, 20 + hud.size.y * 0.74 + 18))
 	location.size = Vector2(340, maxf(160, h - location.position.y - 72))
 	profile_panel.position = Vector2(maxf(15, (w - 670) / 2), 95)
 	profile_panel.size = Vector2(minf(670, w - 30), maxf(430, h - 125))
@@ -272,7 +308,7 @@ func _process(_delta: float) -> void:
 	var left := 70.0
 	var right := size.x - 70.0
 	if hud.visible:
-		right = minf(right, hud.position.x - 45.0)
+		right = minf(right, size.x - hud.size.x * 0.74 - 65.0)
 	if location.visible:
 		right = minf(right, location.position.x - 45.0)
 	if chat.visible:
@@ -290,7 +326,7 @@ func _update() -> void:
 	recovery_button.disabled = controller.busy
 	if phase != "review":
 		profile_panel.hide()
-	mode.text = "Banking 1:1. Level up your future."
+	mode.text = Kit.SLOGAN
 	chat.show_state(controller.busy, phase, controller.last_error)
 	uploader.session_id = controller.session_id
 	welcome.visible = phase == "welcome"
@@ -331,7 +367,10 @@ func _update() -> void:
 		if not controller.busy:
 			_check_outcome(state)
 		if not selected.is_empty() and location.visible:
-			_institution(selected)
+			if _catalog_open and selected == "bank":
+				_render_products()
+			else:
+				_institution(selected)
 
 func _horizon() -> int:
 	var goal = controller.profile.get("goal", {})
@@ -742,6 +781,7 @@ func _confirm_profile() -> void:
 	profile_panel.hide()
 
 func _institution(id: String) -> void:
+	_catalog_open = false
 	selected = id
 	chat.hide()
 	for child in location_contents.get_children():
@@ -894,11 +934,15 @@ func _expense_bar(caption: String, amount: float, total: float) -> VBoxContainer
 	return box
 
 func _bank_actions() -> void:
-	location_contents.add_child(Kit.text("Transfer în simulare", 17))
+	location_contents.add_child(Kit.strong("Ce vrei să faci cu banii tăi?", 17))
+	location_contents.add_child(Kit.text("Suma (lei)", 13, Kit.MUTED))
 	var amount := SpinBox.new()
+	bank_amount_input = amount
+	amount.update_on_text_changed = true
 	amount.min_value = 0
 	amount.max_value = 100000000
-	amount.value = 100
+	amount.value = _bank_amount
+	amount.value_changed.connect(func(value: float): _bank_amount = value)
 	amount.suffix = " lei"
 	location_contents.add_child(amount)
 	var offer_button := Kit.button("Întreabă-l pe AIngel de serviciile Raiffeisen", _ask_raiffeisen_offer, true)
@@ -907,6 +951,7 @@ func _bank_actions() -> void:
 	location_contents.add_child(offer_button)
 	for spec in [["save", "Mută în economii"], ["invest", "Investește"], ["repay", "Rambursează datorii"], ["set_monthly_saving", "Economisire lunară automată"], ["set_monthly_invest", "Investiție lunară automată"]]:
 		var button := Kit.button(spec[1], func():
+			amount.apply()
 			_pending_cause = "%s · %.0f lei" % [spec[1], amount.value]
 			controller.act("bank", spec[0], {"amount": amount.value}))
 		button.disabled = controller.busy or controller.needs_recovery
@@ -921,16 +966,54 @@ func _products() -> void:
 		await get_tree().process_frame
 	if not controller.last_error.is_empty():
 		return
+	_catalog_open = true
+	_render_products()
+
+func _render_products() -> void:
 	for child in location_contents.get_children():
 		location_contents.remove_child(child)
 		child.queue_free()
 	location_contents.add_child(Kit.button("← Înapoi la bancă", func(): _institution("bank")))
-	location_contents.add_child(Kit.text("Catalog Raiffeisen", 22))
+	location_contents.add_child(Kit.strong("Catalog Raiffeisen", 22))
+	location_contents.add_child(Kit.text("Descoperă opțiunile pentru planurile tale.", 14, Kit.MUTED))
+	var categories := {"cont": "Banii de zi cu zi", "card": "Carduri", "economii": "Pune bani deoparte", "investitii": "Investește în viitor", "credit": "Credite și refinanțare", "locuinta": "Casa ta", "asigurare": "Protecție și siguranță", "pensie": "Planuri pe termen lung"}
 	for product: Dictionary in controller.products:
-		location_contents.add_child(Kit.text(str(product.get("name", "")), 17))
-		location_contents.add_child(Kit.text(str(product.get("description", product.get("suitable_for", ""))), 13))
-		if product.has("cautions"):
-			location_contents.add_child(Kit.text(str(product.cautions), 12, Kit.MUTED))
+		var category := str(product.get("category", "altele"))
+		if not categories.has(category):
+			categories[category] = "Alte opțiuni"
+	for category: String in categories:
+		var matching: Array = controller.products.filter(func(p: Dictionary): return str(p.get("category", "altele")) == category)
+		if matching.is_empty():
+			continue
+		location_contents.add_child(Kit.strong(categories[category], 16, Kit.MUTED))
+		for product: Dictionary in matching:
+			var card := PanelContainer.new()
+			card.add_theme_stylebox_override("panel", Kit.box(Color("edf0d9"), Kit.INK, 12))
+			location_contents.add_child(card)
+			var col := VBoxContainer.new()
+			col.add_theme_constant_override("separation", 9)
+			card.add_child(col)
+			col.add_child(Kit.strong(str(product.get("name", "")), 17))
+			var summary := str(product.get("best_for", product.get("description", "")))
+			if not summary.is_empty():
+				col.add_child(Kit.text(summary.capitalize().substr(0, 1) + summary.substr(1), 14))
+			var details := VBoxContainer.new()
+			details.add_theme_constant_override("separation", 7)
+			var toggle := Kit.button("Vezi detaliile +", func(): pass)
+			toggle.pressed.connect(func():
+				details.visible = not details.visible
+				toggle.text = "Închide detaliile −" if details.visible else "Vezi detaliile +")
+			col.add_child(toggle)
+			col.add_child(details)
+			details.hide()
+			for field in [["terms", "Ce oferă"], ["conditions", "Condiții"]]:
+				var value := str(product.get(field[0], ""))
+				if not value.is_empty():
+					details.add_child(Kit.strong(field[1], 13))
+					details.add_child(Kit.text(value, 13))
+			# Agent-facing cautions remain in the backend; the catalog shows product facts.
+	if controller.products.is_empty():
+		location_contents.add_child(Kit.text("Catalogul nu conține încă produse.", 14))
 	if not location.visible:
 		_reveal(location)
 
