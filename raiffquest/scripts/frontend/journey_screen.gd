@@ -599,7 +599,8 @@ func _show_onboarding_chat(greet := true) -> void:
 		chat.append(message)
 	if controller.phase == "map":
 		_chat_place = selected if location.visible else ""
-		if greet:
+		# From a building the player's prefilled question opens the conversation, so AIngel stays quiet.
+		if greet and _chat_place.is_empty():
 			chat.append({"role": "AIngel", "text": _advice_for_screen()})
 	_open_chat()
 
