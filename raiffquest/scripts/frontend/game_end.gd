@@ -91,7 +91,7 @@ func _build_won(data: Dictionary) -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 12)
 	col.add_child(actions)
-	var real := Kit.button("Fă-l real cu Raiffeisen →", func(): chosen.emit("raiffeisen"), true)
+	var real := Kit.button("Planul meu cu Raiffeisen →", func(): chosen.emit("raiffeisen"), true)
 	real.icon = load("res://assets/raiff/raiffeisen_logo.png")
 	real.expand_icon = true
 	real.add_theme_constant_override("icon_max_width", 24)
@@ -128,7 +128,7 @@ func _build_card(data: Dictionary, negative: bool) -> void:
 			col.add_child(Kit.strong("Ai ajuns la obiectiv!", 28))
 			col.add_child(Kit.text("Ai atins obiectivul (%s) în %d %s%s. Scorul tău e %d din 100: banii sunt acolo, dar unele alegeri te-au costat puncte." % [data.get("goal_text", ""), month, "lună" if month == 1 else "luni", (" din %d" % horizon) if horizon > 0 else "", score], 16))
 			_add_list(col, "Unde mai puteai câștiga puncte", data.get("worst", []), Color("eef0db"), Kit.INK)
-			var offer := Kit.button("Vezi cum te pot ajuta soluțiile Raiffeisen să economisești", func(): chosen.emit("raiffeisen_save"))
+			var offer := Kit.button("Planul meu cu Raiffeisen →", func(): chosen.emit("raiffeisen_save"))
 			offer.icon = load("res://assets/raiff/raiffeisen_logo.png")
 			offer.expand_icon = true
 			offer.add_theme_constant_override("icon_max_width", 28)
@@ -152,13 +152,13 @@ func _build_card(data: Dictionary, negative: bool) -> void:
 				text += " Îți mai lipsesc %s." % _lei(missing)
 			col.add_child(Kit.text(text + " Cu venitul tău, termenul ales a fost prea scurt.", 16))
 			col.add_child(_bar(progress))
-			actions = [["Mai joacă 3 luni", "extend", true], ["Joc nou", "new_game", false]]
+			actions = [["Planul meu cu Raiffeisen →", "raiffeisen", true], ["Mai joacă 3 luni", "extend", false], ["Joc nou", "new_game", false]]
 		_:
 			top.add_child(_tag("OBIECTIV RATAT", Color("8f1f12"), Color.WHITE))
 			col.add_child(Kit.strong("Timpul s-a terminat", 28, RED))
 			col.add_child(Kit.text("Au trecut cele %d luni și obiectivul a rămas la %.0f%%. Scorul tău e doar %d din 100. Cheltuielile au mâncat banii pe care trebuia să-i pui deoparte." % [month, progress, score], 16))
 			_add_list(col, "Ce te-a costat", data.get("worst", []), Color("f1c9c1"), RED)
-			actions = [["Încearcă din nou", "new_game", true], ["Vorbește cu AIngel", "talk", false]]
+			actions = [["Planul meu cu Raiffeisen →", "raiffeisen", true], ["Încearcă din nou", "new_game", false]]
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(spacer)

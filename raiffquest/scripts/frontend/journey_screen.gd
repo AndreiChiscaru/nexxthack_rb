@@ -558,19 +558,16 @@ func _new_game() -> void:
 	controller.reset_game()
 
 func _ask_raiffeisen_for_goal() -> void:
-	if controller.busy:
-		return
-	var goal_text := str(_outcome_data(controller.state).get("goal_text", "obiectivul meu"))
-	_show_onboarding_chat()
-	chat.append({"role": "AIngel", "text": "Ai atins obiectivul în joc. Hai să vedem cum îl atingi și în realitate, cu Raiffeisen."})
-	controller.send_message(GameLocale.text("Am atins în joc obiectivul meu (%s). Ce produse Raiffeisen mă ajută să-l ating și în realitate? Dă-mi câteva recomandări și explică-mi beneficiile lor." % goal_text))
+	_ask_final_plan()
 
 func _ask_raiffeisen_savings() -> void:
+	_ask_final_plan()
+
+func _ask_final_plan() -> void:
 	if controller.busy:
 		return
 	_show_onboarding_chat()
-	chat.append({"role": "AIngel", "text": "Ai ajuns la obiectiv, dar se putea și mai bine. Hai să vedem ce soluții Raiffeisen te ajută să economisești mai ușor."})
-	controller.send_message(GameLocale.text("Ce soluții Raiffeisen mă ajută să economisesc mai ușor, pornind de la cheltuielile mele și de la alegerile care m-au costat puncte? Dă-mi câteva recomandări și explică-mi beneficiile lor."))
+	controller.send_message(GameLocale.text("Pe baza obiectivului meu, a situației actuale și a alegerilor din joc, ce a mers bine și ce pot îmbunătăți? Recomandă-mi cel mult două soluții Raiffeisen din catalog care mi se potrivesc, explică pe scurt de ce și ce condiții importante au. Încheie cu un pas concret pentru obiectivul meu. Te rog să fii concis, în maximum 120 de cuvinte, fără promisiuni de câștig."))
 
 func _build_toast() -> void:
 	toast = PanelContainer.new()

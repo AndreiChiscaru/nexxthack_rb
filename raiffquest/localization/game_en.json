@@ -660,5 +660,7 @@
   "Scor": "Score",
   "Sugestie: %s": "Suggestion: %s",
   "Eveniment nou: %s": "New event: %s",
-  "Analizăm documentul… %d s. Poate dura până la câteva minute.": "Analyzing your document… %d s. This may take a few minutes."
+  "Analizăm documentul… %d s. Poate dura până la câteva minute.": "Analyzing your document… %d s. This may take a few minutes.",
+  "Planul meu cu Raiffeisen →": "My plan with Raiffeisen →",
+  "Pe baza obiectivului meu, a situației actuale și a alegerilor din joc, ce a mers bine și ce pot îmbunătăți? Recomandă-mi cel mult două soluții Raiffeisen din catalog care mi se potrivesc, explică pe scurt de ce și ce condiții importante au. Încheie cu un pas concret pentru obiectivul meu. Te rog să fii concis, în maximum 120 de cuvinte, fără promisiuni de câștig.": "Based on my goal, current finances and choices in the game, what went well and what could I improve? Suggest at most two suitable Raiffeisen solutions from the catalog, briefly explaining why they fit and their key conditions. End with one practical next step toward my goal. Please keep it under 120 words and do not promise returns."
 }

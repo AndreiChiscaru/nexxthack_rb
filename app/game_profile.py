@@ -60,13 +60,13 @@ def to_game_profile(analysis: dict) -> dict:
         terms = _loan_terms(str(item.get("descriere", "")))
         loans.append({
             "name": str(item.get("descriere") or "Credit existent")[:40],
-            "principal": round(_principal(payment, terms["apr"], terms["months"]), 2),
-            "apr": terms["apr"],
+            "principal": _num(item["sold_ramas"]) if item.get("sold_ramas") is not None else None,
+            "apr": _num(item["dobanda_anuala"]) if item.get("dobanda_anuala") is not None else None,
             "months": terms["months"],
             "payment": payment,
         })
     debt_payments = sum(loan["payment"] for loan in loans)
-    mortgage_principal = sum(loan["principal"] for loan in loans if loan["months"] == MORTGAGE_LOAN["months"])
+    mortgage_principal = sum((loan["principal"] or 0) for loan in loans if loan["months"] == MORTGAGE_LOAN["months"])
 
     income = _num(analysis.get("venit_lunar_estimat")) or _num(analysis.get("total_intrari")) / months
     if analysis.get("cheltuieli_lunare_estimate") is not None:

@@ -5,7 +5,6 @@ Pure functions, no I/O. The agent keeps its own field names; this module is the 
 from typing import Any
 
 from .agents import profile as prof
-from .game_profile import _loan_terms, _principal
 from .schemas import INSTITUTIONS
 
 # Agent path -> §4.1 path, for fields that are copied as-is (only renamed or moved).
@@ -51,19 +50,13 @@ def _set(target: dict, path: str, value: Any) -> None:
 def _debt(item: dict) -> dict:
     """Agent debt {name, monthly_payment, remaining?, apr?} -> §4.1 {name, monthly, remaining, apr}.
 
-    Missing apr/remaining are estimated from the loan's name with the same rules as to_game_profile
-    (mortgage / IFN / default term and APR), assuming the loan is at the start of its term.
+    Missing APR/principal stay null until explicitly supplied by the user or statement.
     """
     name = str(item.get("name") or "Credit existent")
     monthly = float(item.get("monthly_payment") or 0)
-    terms = _loan_terms(name)
-    apr = float(item["apr"]) if item.get("apr") is not None else terms["apr"]
-    if item.get("remaining") is not None:
-        remaining = float(item["remaining"])
-    elif apr > 0:
-        remaining = round(_principal(monthly, apr, terms["months"]), 2)
-    else:
-        remaining = monthly * terms["months"]
+    # Unknown balances/rates remain unknown; onboarding must ask, never amortize a guessed term.
+    apr = float(item['apr']) if item.get('apr') is not None else None
+    remaining = float(item['remaining']) if item.get('remaining') is not None else None
     return {"name": name, "monthly": monthly, "remaining": remaining, "apr": apr}
 
 
@@ -73,7 +66,7 @@ def agent_profile_to_profile(data: dict, statement: dict | None = None) -> dict:
     Differences handled here (everything else in FIELD_MAP is only renamed or moved):
     - home.* / market.*      -> recurring.* (rent, utilities, subscriptions, transport) and spending.* (food, leisure)
     - bank.cash/savings/...  -> root fields cash / savings / investments
-    - bank.debts[]           -> debts[] with monthly_payment -> monthly; apr/remaining estimated if missing;
+    - bank.debts[]           -> debts[] with monthly_payment -> monthly; apr/remaining remain null if missing;
                                 no debts reported -> [] (optional for the agent, required in §4.1)
     - income.scholarship     -> education.scholarship
     - business.interest      -> business_interest
@@ -111,5 +104,9 @@ def agent_profile_to_profile(data: dict, statement: dict | None = None) -> dict:
 
 def missing_fields(agent_profile: dict) -> list[str]:
     """Required fields the agent still needs, as §4.1 paths (agent-only fields keep the agent's name)."""
-    return [FIELD_MAP.get(path, path) for path, _, required, _ in prof.FIELD_SPECS
-            if required and prof.get(agent_profile["data"], path) is None]
+    result = [FIELD_MAP.get(path, path) for path, _, required, _ in prof.FIELD_SPECS
+              if required and prof.get(agent_profile["data"], path) is None]
+    for index, debt in enumerate(prof.get(agent_profile['data'], 'bank.debts') or []):
+        for field in ('remaining', 'apr'):
+            if debt.get(field) is None: result.append(f'debts.{index}.{field}')
+    return result

@@ -48,6 +48,7 @@ Reguli:
 - Semnale de risc relevante: sold negativ/descoperit, comisioane de neplată, popriri/executări silite, jocuri de noroc, credite rapide (IFN), retrageri mari de numerar, venit neregulat, cheltuieli > venituri.
 - cheltuieli_lunare_estimate = consumul RECURENT real pe lună (chirie, mâncare, utilități, transport, cumpărături, transferuri regulate către alte persoane). Exclude tranzacțiile mari evident unice sau ocazionale (le menționezi în observatii_calitate_date și, dacă e cazul, în semnale_de_risc). FĂRĂ transferuri între conturile proprii ale titularului (ex. spre propriul Revolut), FĂRĂ alimentări de depozite/economii și FĂRĂ rate de credit. Dacă perioada nu e o lună, normalizează la o lună. Dacă banii pleacă spre un cont propriu din care probabil se plătesc cheltuielile, include sumele respective în estimare și explică în observatii_calitate_date.
 - economii_identificate = economiile titularului vizibile la sfârșitul perioadei (depozite, conturi de economii active), fără soldul contului curent; null dacă nu apar.
+- Pentru fiecare credit, sold_ramas este principalul restant explicit la finalul perioadei, iar dobanda_anuala este rata anuală explicită ca fracție. Dacă lipsesc, setează null; nu le estima din rată sau din numele produsului.
 - Nu inventa date. Dacă o informație lipsește, folosește null sau listă goală și menționează în observatii_calitate_date.
 - rezumat: 3-6 propoziții în limba română despre starea financiară a persoanei.
 """
@@ -74,7 +75,7 @@ REPORT_TOOL = {
             "venituri": _objects(sursa=_STR, tip=_STR, suma_totala=_NUM, frecventa=_STR),
             "venit_lunar_estimat": _NUM, "cheltuieli_lunare_estimate": _NUM, "economii_identificate": _NUM,
             "cheltuieli_pe_categorii": _objects(categorie=_STR, suma=_NUM, procent=_NUM),
-            "obligatii_recurente": _objects(descriere=_STR, tip=_STR, suma_lunara=_NUM),
+            "obligatii_recurente": _objects(descriere=_STR, tip=_STR, suma_lunara=_NUM, sold_ramas=_NUM, dobanda_anuala=_NUM),
             "grad_indatorare_procent": _NUM,
             "cele_mai_mari_tranzactii": _objects(data=_STR, descriere=_STR, suma=_NUM, directie=_STR),
             "semnale_de_risc": _LIST_STR, "puncte_forte": _LIST_STR,

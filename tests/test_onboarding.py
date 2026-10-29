@@ -79,16 +79,15 @@ def test_mapping_defaults_goal_type_and_empty_debts():
     ("Credius IFN", 0.35, 24),
     ("Leasing auto", 0.10, 48),
 ])
-def test_mapping_estimates_missing_apr_and_remaining(name, apr, months):
+def test_mapping_preserves_unknown_apr_and_remaining(name, apr, months):
     [debt] = agent_profile_to_profile({"bank": {"debts": [{"name": name, "monthly_payment": 1000}]}})["debts"]
-    assert debt["apr"] == apr
-    r = apr / 12
-    assert debt["remaining"] == pytest.approx(1000 * (1 - (1 + r) ** -months) / r, abs=0.01)
+    assert debt["apr"] is None
+    assert debt["remaining"] is None
 
 
 def test_mapping_zero_apr_without_remaining():
     [debt] = agent_profile_to_profile({"bank": {"debts": [{"name": "Rate magazin", "monthly_payment": 100, "apr": 0}]}})["debts"]
-    assert debt["apr"] == 0 and debt["remaining"] == 100 * 48
+    assert debt["apr"] == 0 and debt["remaining"] is None
 
 
 def test_mapping_statement_source():
@@ -169,7 +168,7 @@ def test_statement_merge_fills_draft_so_agent_stops_asking():
     assert mapped["name"] == "Ion Popescu"
     assert mapped["income"]["salary"] == 6850 and mapped["cash"] == 5309.81
     assert [(d["name"], d["monthly"], d["apr"]) for d in mapped["debts"]] == [
-        ("Rata credit ipotecar BT", 2310.0, 0.065), ("Credius IFN rata", 650.0, 0.35)]
+        ("Rata credit ipotecar BT", 2310.0, None), ("Credius IFN rata", 650.0, None)]
 
 
 def test_statement_endpoint_merges_and_writes_nothing(monkeypatch):

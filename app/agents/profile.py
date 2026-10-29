@@ -113,7 +113,13 @@ def merge(profile: dict, patch: dict, source: str) -> list[str]:
 
 
 def missing(profile: dict) -> list[str]:
-    return [label for path, label, required, _ in FIELD_SPECS if required and get(profile["data"], path) is None]
+    result = [label for path, label, required, _ in FIELD_SPECS if required and get(profile["data"], path) is None]
+    for debt in get(profile["data"], "bank.debts") or []:
+        if debt.get("remaining") is None:
+            result.append("Sold rămas credit: " + str(debt.get("name", "")))
+        if debt.get("apr") is None:
+            result.append("Dobândă anuală credit: " + str(debt.get("name", "")))
+    return result
 
 
 def fields_view(profile: dict) -> list[dict]:
