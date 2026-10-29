@@ -8,9 +8,9 @@ const FOUNTAIN_CENTER := Vector2(1127, 672)
 const BUILDING_SIZE := Vector2(336, 257.6)
 const BUILDING_ANCHOR := Vector2(168, 277.6)
 const PLACES := {
-	"home": {"name": "Acasă", "position": Vector2(490, 478.8)},
+	"home": {"name": "Acasă", "position": Vector2(500, 640)},
 	"education": {"name": "Educație", "position": Vector2(910, 445.2)},
-	"work": {"name": "Loc de muncă", "position": Vector2(1435, 462)},
+	"work": {"name": "Loc de muncă", "position": Vector2(1344, 462)},
 	"bank": {"name": "Bancă", "position": Vector2(1820, 648.2)},
 	"business": {"name": "Afacere", "position": Vector2(1834, 1092)},
 	"hospital": {"name": "Spital", "position": Vector2(1428, 1316)},
@@ -18,23 +18,17 @@ const PLACES := {
 	"market": {"name": "Piață", "position": Vector2(462, 1106)},
 }
 const NODES := {
-	"market_corner": Vector2(650, 1098),
-
-	"home": Vector2(560, 470.8),
+	# Entrances: where the avatar parks beside each building.
+	"home": Vector2(570, 632),
 	"education": Vector2(980, 437.2),
-	"work": Vector2(1505, 454),
+	"work": Vector2(1414, 454),
 	"bank": Vector2(1890, 640.2),
 	"business": Vector2(1904, 1084),
 	"hospital": Vector2(1498, 1308),
 	"entertainment": Vector2(945, 1280),
 	"market": Vector2(532, 1098),
 
-	"home_approach": Vector2(273, 476),
-	"bank_approach": Vector2(1890, 676.2),
-	"eastBusiness": Vector2(2097.2, 980),
-	"hospital_approach": Vector2(1498, 1337),
-	"entertainment_approach": Vector2(1127, 1232),
-	"westMarket": Vector2(252, 994),
+	# Central plaza: four tips and the middle of each side.
 	"west": Vector2(770, 672),
 	"north": Vector2(1127, 434),
 	"east": Vector2(1484, 672),
@@ -43,39 +37,42 @@ const NODES := {
 	"ne": Vector2(1309, 553),
 	"se": Vector2(1309, 791),
 	"sw": Vector2(945, 791),
-	"westGate": Vector2(266, 672),
-	"nwCorner": Vector2(273, 329),
-	"nwTurn": Vector2(546, 98),
-	"topLeft": Vector2(1050, 98),
-	"topGate": Vector2(1127, 140),
-	"topRight": Vector2(1204, 98),
-	"neTurn": Vector2(1596, 98),
-	"neCorner": Vector2(2086, 455),
+
+	# Four diagonal streets leave the plaza sides, bend and join the outer ring.
+	# Together with the four avenues they split the city into eight blocks, one per building.
+	"homeEntry": Vector2(693, 424),
+	"home_corner": Vector2(650, 304),
+	"workEntry": Vector2(1561, 424),
+	"work_corner": Vector2(1604, 304),
+	"marketEntry": Vector2(693, 959),
+	"market_corner": Vector2(650, 1098),
+	"businessEntry": Vector2(1561, 959),
+	"business_approach": Vector2(1604, 1084),
+
+	# Outer ring, clockwise from the top-left, with the gates where avenues and streets join it.
+	"nwCorner": Vector2(312, 304),
+	"nwTurn": Vector2(560, 98),
+	"topGate": Vector2(1127, 98),
+	"neTurn": Vector2(1722, 98),
+	"neCorner": Vector2(2100, 304),
 	"eastGate": Vector2(2093, 676.2),
-	"seCorner": Vector2(2100, 1050),
+	"eastBusiness": Vector2(2097.2, 980),
+	"seCorner": Vector2(2100, 1084),
 	"seTurn": Vector2(1722, 1337),
-	"bottomRight": Vector2(1204, 1337),
-	"bottomGate": Vector2(1127, 1281),
-	"bottomLeft": Vector2(1050, 1337),
+	"hospital_approach": Vector2(1498, 1337),
+	"bottomGate": Vector2(1127, 1337),
+	"entertainment_approach": Vector2(945, 1337),
 	"swTurn": Vector2(560, 1337),
-	"swCorner": Vector2(252, 1064),
+	"swCorner": Vector2(252, 1098),
+	"westMarket": Vector2(252, 994),
+	"westGate": Vector2(266, 672),
+	"home_approach": Vector2(570, 672),
+	"bank_approach": Vector2(1890, 676.2),
 	"bridge": Vector2(238, 651),
 	"bridgewest": Vector2(21, 651),
-	"marketEntry": Vector2(693, 959),
-	"business_approach": Vector2(1719, 1084),
-	"outerSEJoin": Vector2(1848, 1218),
 }
 const EDGES := [
-	["marketEntry", "market_corner"],
-	["market_corner", "market"],
-	["bottomGate", "entertainment"],
-	["business_approach", "business"],
-	["home_approach", "home"],
-	["nw", "education"],
-	["ne", "work"],
-	["bank_approach", "bank"],
-	["hospital_approach", "hospital"],
-
+	# Plaza.
 	["west", "nw"],
 	["nw", "north"],
 	["north", "ne"],
@@ -84,33 +81,53 @@ const EDGES := [
 	["se", "south"],
 	["south", "sw"],
 	["sw", "west"],
-	["sw", "marketEntry"],
-	["se", "business_approach"],
-	["business_approach", "outerSEJoin"],
+
+	# Avenues from the plaza to the outer ring.
 	["north", "topGate"],
-	["west", "westGate"],
+	["west", "home_approach"],
+	["home_approach", "westGate"],
 	["east", "bank_approach"],
 	["bank_approach", "eastGate"],
-	["south", "entertainment_approach"],
-	["entertainment_approach", "bottomGate"],
-	["westGate", "home_approach"],
-	["home_approach", "nwCorner"],
+	["south", "bottomGate"],
+
+	# Diagonal streets, mirrored top and bottom, left and right.
+	["nw", "homeEntry"],
+	["homeEntry", "home_corner"],
+	["home_corner", "nwCorner"],
+	["ne", "workEntry"],
+	["workEntry", "work_corner"],
+	["work_corner", "neCorner"],
+	["sw", "marketEntry"],
+	["marketEntry", "market_corner"],
+	["market_corner", "market"],
+	["market", "swCorner"],
+	["se", "businessEntry"],
+	["businessEntry", "business_approach"],
+	["business_approach", "business"],
+	["business", "seCorner"],
+
+	# Driveways.
+	["home_approach", "home"],
+	["nw", "education"],
+	["ne", "work"],
+	["bank_approach", "bank"],
+	["hospital_approach", "hospital"],
+	["entertainment_approach", "entertainment"],
+
+	# Outer ring.
+	["westGate", "nwCorner"],
 	["nwCorner", "nwTurn"],
-	["nwTurn", "topLeft"],
-	["topLeft", "topGate"],
-	["topGate", "topRight"],
-	["topRight", "neTurn"],
+	["nwTurn", "topGate"],
+	["topGate", "neTurn"],
 	["neTurn", "neCorner"],
 	["neCorner", "eastGate"],
 	["eastGate", "eastBusiness"],
 	["eastBusiness", "seCorner"],
-	["seCorner", "outerSEJoin"],
-	["outerSEJoin", "seTurn"],
+	["seCorner", "seTurn"],
 	["seTurn", "hospital_approach"],
-	["hospital_approach", "bottomRight"],
-	["bottomRight", "bottomGate"],
-	["bottomGate", "bottomLeft"],
-	["bottomLeft", "swTurn"],
+	["hospital_approach", "bottomGate"],
+	["bottomGate", "entertainment_approach"],
+	["entertainment_approach", "swTurn"],
 	["swTurn", "swCorner"],
 	["swCorner", "westMarket"],
 	["westMarket", "westGate"],
@@ -229,19 +246,20 @@ func _ready() -> void:
 	_transform_world()
 	set_institutions(_statuses)
 
-func _label_style(selected: bool) -> StyleBoxFlat:
+## roomy: the larger padding of the building name tags; map controls keep the compact one.
+func _label_style(selected: bool, roomy := false) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color("fee600") if selected else Color("fffbef")
 	style.border_color = Color("8f977c")
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(4)
+	style.set_corner_radius_all(6 if roomy else 4)
 	style.shadow_color = Color("303a2830")
 	style.shadow_size = 1
 	style.shadow_offset = Vector2(0,3)
-	style.content_margin_left = 10
-	style.content_margin_right = 10
-	style.content_margin_top = 4
-	style.content_margin_bottom = 4
+	style.content_margin_left = 18 if roomy else 10
+	style.content_margin_right = 18 if roomy else 10
+	style.content_margin_top = 6 if roomy else 4
+	style.content_margin_bottom = 6 if roomy else 4
 	return style
 
 func _add_building(id: String) -> void:
@@ -260,16 +278,17 @@ func _add_building(id: String) -> void:
 	button.mouse_exited.connect(_hover.bind(id, false))
 	var label := Button.new()
 	label.text = PLACES[id].name
-	label.add_theme_font_size_override("font_size",20)
+	label.add_theme_font_size_override("font_size",34)
 	label.add_theme_font_override("font",load("res://assets/raiff/fonts/Figtree-Bold.ttf"))
 	label.add_theme_color_override("font_color",INK)
-	label.add_theme_stylebox_override("normal",_label_style(false))
-	label.add_theme_stylebox_override("hover",_label_style(false))
-	label.add_theme_stylebox_override("pressed",_label_style(true))
+	label.add_theme_stylebox_override("normal",_label_style(false, true))
+	label.add_theme_stylebox_override("hover",_label_style(false, true))
+	label.add_theme_stylebox_override("pressed",_label_style(true, true))
 	label.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	world.add_child(label)
 	label.reset_size()
-	label.position = center + Vector2(-label.size.x / 2, 12)
+	# Tucked against the building's front corner rather than floating below it.
+	label.position = center + Vector2(-label.size.x / 2, -16)
 	label.pressed.connect(navigate_to.bind(id))
 	labels[id] = label
 	var badge := Label.new()
@@ -351,7 +370,7 @@ func navigate_to(id: String) -> void:
 	_walking = true
 	_hint.text = "În drum spre %s…" % PLACES[id].name
 	for key in labels:
-		labels[key].add_theme_stylebox_override("normal", _label_style(key == id))
+		labels[key].add_theme_stylebox_override("normal", _label_style(key == id, true))
 	var points := path_to(_at, id)
 	_route.points = points
 	_travel = create_tween()
