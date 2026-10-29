@@ -133,6 +133,8 @@ var _camera: Tween
 var _pan := Vector2.ZERO
 var _dragging := false
 var _walking := false
+var follow_enabled := false
+var follow_view_rect := Rect2()
 var _reduced_motion := false
 var _travel: Tween
 var _statuses: Array = []
@@ -296,7 +298,7 @@ func park_position(id: String) -> Vector2:
 
 ## Exact entrance-to-entrance shortest path; no extra parking movement.
 func path_to(origin: String, destination: String) -> PackedVector2Array:
-	if not PLACES.has(origin) or not PLACES.has(destination):
+	if not NODES.has(origin) or not PLACES.has(destination):
 		return PackedVector2Array()
 	var distance := {}
 	var previous := {}
@@ -331,17 +333,57 @@ func path_to(origin: String, destination: String) -> PackedVector2Array:
 		points.append(NODES[id])
 	return points
 
+## Attach the current position to its road segment and compare both directions.
+## This keeps redirects on roads instead of restarting from the last building.
+func path_from_position(position: Vector2, destination: String) -> PackedVector2Array:
+	var nearest_edge: Array = []
+	var nearest := INF
+	for edge in EDGES:
+		var projected := Geometry2D.get_closest_point_to_segment(position, NODES[edge[0]], NODES[edge[1]])
+		var gap := position.distance_squared_to(projected)
+		if gap < nearest:
+			nearest = gap
+			nearest_edge = edge
+	var best := PackedVector2Array()
+	var best_cost := INF
+	for endpoint: String in nearest_edge:
+		var tail := path_to(endpoint, destination)
+		if tail.is_empty():
+			continue
+		var candidate := PackedVector2Array([position])
+		var cost := 0.0
+		for point in tail:
+			var step := candidate[-1].distance_to(point)
+			if step > 0.01:
+				cost += step
+				candidate.append(point)
+		if cost < best_cost:
+			best_cost = cost
+			best = candidate
+	return best
+
 func navigate_to(id: String) -> void:
-	if _walking or not PLACES.has(id) or not is_instance_valid(_avatar):
+	if not PLACES.has(id) or not is_instance_valid(_avatar):
 		return
-	if id == _at:
-		institution_selected.emit(id)
+	var points := path_from_position(_avatar.position, id)
+	if points.is_empty():
 		return
-	_walking = true
+	if _travel:
+		_travel.kill()
 	for key in labels:
 		labels[key].add_theme_stylebox_override("normal", _label_style(key == id))
-	var points := path_to(_at, id)
+	follow_enabled = true
+	if _camera:
+		_camera.kill()
+	# The sidebar follows the selected destination immediately, not arrival.
+	institution_selected.emit(id)
 	_route.points = points
+	_walking = points.size() > 1
+	if not _walking:
+		_at = id
+		_avatar.rest()
+		_route.clear_points()
+		return
 	_travel = create_tween()
 	for index in range(1, points.size()):
 		var duration := 0.001 if _reduced_motion else points[index - 1].distance_to(points[index]) / 350.0
@@ -352,10 +394,10 @@ func navigate_to(id: String) -> void:
 		_walking = false
 		_avatar.rest()
 		_route.clear_points()
-		institution_selected.emit(id)
 	)
 
 func enter_map() -> void:
+	follow_enabled = false
 	_pan = Vector2.ZERO
 	_zoom = 0.88
 	_transform_world()
@@ -363,6 +405,7 @@ func enter_map() -> void:
 	_transform_world(true)
 
 func focus_all() -> void:
+	follow_enabled = false
 	_zoom = 1.0
 	_pan = Vector2.ZERO
 	_transform_world(true)
@@ -371,12 +414,29 @@ func _set_zoom(value: float) -> void:
 	_zoom = clampf(value, 0.8, 2.3)
 	_transform_world(true)
 
+func _process(delta: float) -> void:
+	if not visible or not follow_enabled or not is_instance_valid(_avatar):
+		return
+	if _camera and _camera.is_running():
+		return
+	var safe := follow_view_rect if follow_view_rect.has_area() else Rect2(Vector2(60, 100), size - Vector2(120, 190))
+	var target := safe.get_center() - _avatar.position * world.scale
+	if not _dragging:
+		world.position = world.position.lerp(target, 1.0 if _reduced_motion else 1.0 - exp(-6.0 * delta))
+	# Hard guard at the edge: the avatar cannot slip behind a newly opened panel.
+	var avatar_screen := world.position + _avatar.position * world.scale
+	var clamped := avatar_screen.clamp(safe.position, safe.end)
+	world.position += clamped - avatar_screen
+	_pan = world.position - size * 0.5 + FOUNTAIN_CENTER * world.scale
+
 func _transform_world(animated: bool = false) -> void:
 	if not is_instance_valid(world):
 		return
 	var fit := maxf(0.05, minf(size.x / MAP_SIZE.x, (size.y - 40) / MAP_SIZE.y))
 	var target_scale := Vector2.ONE * fit * _zoom
 	var target_position := size * 0.5 + _pan - FOUNTAIN_CENTER * target_scale
+	if follow_enabled and follow_view_rect.has_area():
+		target_position = follow_view_rect.get_center() - _avatar.position * target_scale
 	if _camera:
 		_camera.kill()
 	if animated and not _reduced_motion:

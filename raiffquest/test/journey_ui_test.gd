@@ -139,6 +139,27 @@ func _ready() -> void:
 				var sample := (point - button.position - offset) / factor
 				if sample.x >= 0 and sample.y >= 0 and sample.x < pixels.x and sample.y < pixels.y:
 					check(mask.get_pixel(int(sample.x), int(sample.y)).a < 0.5, "Route avoids opaque building pixels: " + id + " / " + str(edge))
+	scene.city._reduced_motion = false
+	scene.city.navigate_to("bank")
+	check(scene.selected == "bank" and scene.location.visible, "Destination panel opens before arrival")
+	await get_tree().create_timer(0.2).timeout
+	var avatar_screen: Vector2 = scene.city.world.position + scene.city._avatar.position * scene.city.world.scale
+	check(scene.city.follow_view_rect.has_point(avatar_screen), "Following camera keeps avatar in unobscured map area")
+	check(avatar_screen.x < scene.location.position.x - 25, "Right sidebar never covers walking avatar")
+	var redirect_position: Vector2 = scene.city._avatar.position
+	scene.city.navigate_to("hospital")
+	check(scene.selected == "hospital", "Click while walking immediately changes sidebar")
+	check(scene.city._avatar.position.is_equal_approx(redirect_position), "Rerouting never teleports avatar")
+	check(scene.city._route.points[0].is_equal_approx(redirect_position), "Rerouting starts at current position")
+	check(scene.city._route.points[-1] == scene.city.park_position("hospital"), "Rerouting targets new building")
+	scene.city._reduced_motion = true
+	scene.city.navigate_to("home")
+	await get_tree().create_timer(0.3).timeout
+	check(not scene.city._walking and scene.city._at == "home", "Returning to previous origin mid-route reaches it correctly")
+	check(scene.selected == "home", "Cancelled route cannot reopen stale destination")
+	var arrival_screen: Vector2 = scene.city.world.position + scene.city._avatar.position * scene.city.world.scale
+	check(scene.city.follow_view_rect.has_point(arrival_screen), "Avatar remains visible after arrival and rerouting")
+
 	scene.city._reduced_motion = true
 	scene.city.navigate_to("entertainment")
 	await get_tree().create_timer(0.5).timeout

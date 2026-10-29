@@ -230,6 +230,19 @@ func _layout() -> void:
 	profile_panel.position = Vector2(maxf(15, (w - 670) / 2), 95)
 	profile_panel.size = Vector2(minf(670, w - 30), maxf(430, h - 125))
 
+func _process(_delta: float) -> void:
+	if not is_instance_valid(city) or controller.phase != "map":
+		return
+	var left := 70.0
+	var right := size.x - 70.0
+	if hud.visible:
+		right = minf(right, hud.position.x - 45.0)
+	if location.visible:
+		right = minf(right, location.position.x - 45.0)
+	if chat.visible:
+		left = maxf(left, chat.position.x + chat.size.x + 45.0)
+	city.follow_view_rect = Rect2(Vector2(left, 140), Vector2(maxf(100, right - left), maxf(100, size.y - 240)))
+
 func _update() -> void:
 	var phase: String = controller.phase
 	start_button.disabled = controller.busy or controller.needs_recovery
