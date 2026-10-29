@@ -48,6 +48,8 @@ var _score_log: Array = []
 var _pending_cause := ""
 var _shown_outcomes := {}
 var _extra_months := 0
+# Building the AIngel chat was opened from ("" = from the map); decides which decision the chat is about.
+var _chat_place := ""
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -449,6 +451,7 @@ func _new_game() -> void:
 	_pending_cause = ""
 	_shown_outcomes = {}
 	_extra_months = 0
+	_chat_place = ""
 	controller.reset_game()
 
 func _ask_raiffeisen_for_goal() -> void:
@@ -555,6 +558,7 @@ func _show_onboarding_chat() -> void:
 			continue
 		chat.append(message)
 	if controller.phase == "map":
+		_chat_place = selected if location.visible else ""
 		chat.append({"role": "AIngel", "text": _advice_for_screen()})
 	_open_chat()
 
@@ -562,21 +566,21 @@ func _is_game_log(message: Dictionary) -> bool:
 	var text := str(message.get("text", ""))
 	return str(message.get("role", "")) == "Joc" or text.begins_with("Am pregătit orașul") or "a dispărut din cheltuielile lunare" in text or text == "Decizia a fost înregistrată."
 
+# Inside a building only that building's decision counts; another building's cut is not "on screen".
+# From the map, the first open cut is what the player is asked to resolve before the next month.
 func _decision_on_screen() -> Dictionary:
-	var on_this_building: Array[Dictionary] = []
-	var cuts: Array[Dictionary] = []
 	for event: Dictionary in controller.events:
-		if not selected.is_empty() and str(event.get("institution", "")) == selected:
-			on_this_building.append(event)
-		elif str(event.get("id", "")).begins_with("taie_"):
-			cuts.append(event)
-	if not on_this_building.is_empty():
-		return on_this_building[0]
-	if not cuts.is_empty():
-		return cuts[0]
+		if _chat_place.is_empty():
+			if str(event.get("id", "")).begins_with("taie_"):
+				return event
+		elif str(event.get("institution", "")) == _chat_place:
+			return event
 	return {}
 
 func _advice_for_screen() -> String:
+	# Opened from a building: one open question; a pending decision there still reaches the agent with the message.
+	if not _chat_place.is_empty():
+		return "Cu ce sfat financiar te pot ajuta în zona de %s?" % NAMES.get(_chat_place, _chat_place)
 	var event := _decision_on_screen()
 	if event.is_empty():
 		return "Nu ai o decizie deschisă. Spune-mi ce vrei să schimbi la bani în luna asta."
