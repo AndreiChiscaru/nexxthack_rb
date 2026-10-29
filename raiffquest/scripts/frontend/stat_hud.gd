@@ -3,6 +3,8 @@ extends PanelContainer
 const Kit = preload("res://scripts/frontend/journey_theme.gd")
 const POSITIVE := Color("416a38")
 const NEGATIVE := Color("ad5939")
+signal expand_requested
+var expand_button: Button
 var month_label: Label
 var horizon_label: Label
 var score_label: Label
@@ -87,6 +89,12 @@ func _ready() -> void:
 	horizon_label.size_flags_horizontal = Control.SIZE_FILL
 	horizon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	header.add_child(horizon_label)
+	expand_button = Kit.button("⤢", func(): expand_requested.emit())
+	expand_button.custom_minimum_size = Vector2(20, 20)
+	expand_button.add_theme_font_size_override("font_size", 11)
+	for state in ["normal", "hover", "pressed", "hover_pressed", "focus", "disabled"]:
+		expand_button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	header.add_child(expand_button)
 	col.add_child(rule())
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 10)

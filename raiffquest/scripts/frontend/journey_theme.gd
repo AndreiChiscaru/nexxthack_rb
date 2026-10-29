@@ -1,4 +1,5 @@
 extends RefCounted
+const SLOGAN := "Banking 1:1. Level up your future."
 const INK := Color("303a28")
 const PAPER := Color("fffbed")
 const GRASS := Color("b9c98b")

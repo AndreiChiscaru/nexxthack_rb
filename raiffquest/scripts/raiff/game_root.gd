@@ -86,7 +86,7 @@ func _build_title_screen() -> void:
 	vb.add_theme_constant_override("separation", 12)
 	panel.add_child(vb)
 	vb.add_child(Kit.label("RAIFF QUEST", 58, Kit.YELLOW, true))
-	vb.add_child(Kit.wrapped("Trăiește mai întâi consecințele banilor. Apoi primești sfaturi explicabile.", 20, Kit.TEXT, true))
+	vb.add_child(Kit.wrapped(preload("res://scripts/frontend/journey_theme.gd").SLOGAN, 20, Kit.TEXT, true))
 	var persona := PanelContainer.new()
 	persona.add_theme_stylebox_override("panel", Kit.box(Kit.PANEL_2, Kit.BORDER, 10, 14))
 	var pv := VBoxContainer.new()

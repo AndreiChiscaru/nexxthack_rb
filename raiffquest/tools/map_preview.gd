@@ -36,10 +36,10 @@ func _ready() -> void:
 		get_tree().quit(0)
 
 func _preview_label() -> void:
-	screen.mode.text = "Previzualizare hartă · profil fictiv · backend conectat" if screen.controller.phase == "map" else "Se pregătește previzualizarea hărții…"
+	screen.mode.text = screen.Kit.SLOGAN
 
 func _fail(message: String) -> void:
-	screen.mode.text = message
+	screen.error_label.text = message
 	push_error(message + " " + screen.controller.last_error)
 	if "--smoke-test" in OS.get_cmdline_user_args():
 		get_tree().quit(1)
