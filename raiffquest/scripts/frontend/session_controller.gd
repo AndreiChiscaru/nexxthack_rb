@@ -107,7 +107,7 @@ func act(institution: String, action: String, params: Dictionary = {}) -> void:
 	_track(api.perform_action(session_id, institution, action, params), "action")
 
 func advance() -> void:
-	if not busy and not needs_recovery and phase == "map":
+	if not busy and not needs_recovery and phase == "map" and events.is_empty():
 		_track(api.advance_month(session_id), "advance")
 
 func refresh() -> void:

@@ -30,6 +30,9 @@ func _ready() -> void:
 	await settle(c)
 	check(screen.hud.cash_value.text == "2.300 lei" and screen.hud.savings_value.text == "6.100 lei", "Bank action updates HUD from server response")
 	check(is_equal_approx(screen.hud.progress.value, float(c.state.goal.progress) * 100), "HUD reflects server goal progress after action")
+	for pending: Dictionary in c.events.duplicate(true):
+		c.act(pending.institution, pending.id, {"option_id": pending.options[0].id})
+		await settle(c)
 	c.advance()
 	await settle(c)
 	check(screen.hud.month_label.text == "LUNA 1", "Month comes from backend")

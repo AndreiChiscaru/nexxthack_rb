@@ -69,7 +69,7 @@ func _ready() -> void:
 	surface.shadow_offset = Vector2(0, 5)
 	add_theme_stylebox_override("panel", surface)
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 7)
+	col.add_theme_constant_override("separation", 5)
 	add_child(col)
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 5)

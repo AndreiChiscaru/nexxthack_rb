@@ -52,6 +52,13 @@ func _ready() -> void:
 	scene.controller.confirm_profile(scene.controller.profile)
 	await wait_for(scene.controller)
 	check(scene.city.visible, "map visible after confirmed profile")
+	check(scene.advance_button.disabled, "Pending missions block next month")
+	var missions: Array = scene.controller.events.duplicate(true)
+	for mission: Dictionary in missions:
+		scene.controller.act(mission.institution, mission.id, {"option_id":mission.options[0].id})
+		await wait_for(scene.controller)
+		check(scene.advance_button.disabled == not scene.controller.events.is_empty(), "Next month unlocks only after last mission")
+
 	check(scene.map_controls.get_child_count() == 1 and not scene.recovery_button.visible, "Healthy map has no manual refresh button")
 	var original_state: Dictionary = scene.controller.state.duplicate(true)
 	scene.controller._track(99999, "advance")
@@ -96,6 +103,7 @@ func _ready() -> void:
 		await get_tree().process_frame
 		scene._show_business()
 		await get_tree().process_frame
+		check(scene.advisor_button.icon.resource_path.ends_with("accountant_idle.png"), "Accountant chat shows accountant map icon")
 		if repeat == 0:
 			var accountant_face := false
 			for portrait in scene.chat.portraits:
@@ -132,6 +140,37 @@ func _ready() -> void:
 				var sample := (point - button.position - offset) / factor
 				if sample.x >= 0 and sample.y >= 0 and sample.x < pixels.x and sample.y < pixels.y:
 					check(mask.get_pixel(int(sample.x), int(sample.y)).a < 0.5, "Route avoids opaque building pixels: " + id + " / " + str(edge))
+	scene.city._reduced_motion = false
+	scene.city.navigate_to("bank")
+	check(scene.selected == "bank" and scene.location.visible, "Destination panel opens before arrival")
+	await get_tree().create_timer(0.2).timeout
+	var avatar_screen: Vector2 = scene.city.world.position + scene.city._avatar.position * scene.city.world.scale
+	check(scene.city.follow_view_rect.has_point(avatar_screen), "Following camera keeps avatar in unobscured map area")
+	check(avatar_screen.x < scene.location.position.x - 25, "Right sidebar never covers walking avatar")
+	var redirect_position: Vector2 = scene.city._avatar.position
+	scene.city.navigate_to("hospital")
+	check(scene.selected == "hospital", "Click while walking immediately changes sidebar")
+	check(scene.city._avatar.position.is_equal_approx(redirect_position), "Rerouting never teleports avatar")
+	check(scene.city._route.points[0].is_equal_approx(redirect_position), "Rerouting starts at current position")
+	check(scene.city._route.points[-1] == scene.city.park_position("hospital"), "Rerouting targets new building")
+	scene.city._reduced_motion = true
+	scene.city.navigate_to("home")
+	await get_tree().create_timer(0.3).timeout
+	check(not scene.city._walking and scene.city._at == "home", "Returning to previous origin mid-route reaches it correctly")
+	check(scene.selected == "home", "Cancelled route cannot reopen stale destination")
+	var camera_before: Vector2 = scene.city.world.position
+	scene.city._pan_by(Vector2(35, 20))
+	check(not scene.city.follow_enabled, "Manual pan releases automatic camera follow")
+	check(scene.city.world.position.distance_to(camera_before + Vector2(35, 20)) < 0.1, "Manual pan moves camera by mouse displacement")
+	await get_tree().create_timer(0.2).timeout
+	check(scene.city.world.position.distance_to(camera_before + Vector2(35, 20)) < 0.1, "Camera does not snap back after manual pan")
+	scene.city.navigate_to("home")
+	await get_tree().process_frame
+	check(scene.city.follow_enabled, "Selecting a destination restores avatar follow")
+
+	var arrival_screen: Vector2 = scene.city.world.position + scene.city._avatar.position * scene.city.world.scale
+	check(scene.city.follow_view_rect.has_point(arrival_screen), "Avatar remains visible after arrival and rerouting")
+
 	scene.city._reduced_motion = true
 	scene.city.navigate_to("entertainment")
 	await get_tree().create_timer(0.5).timeout

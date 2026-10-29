@@ -260,6 +260,8 @@ def advance(req: GameAdvanceRequest):
         raise HTTPException(409, "Alege sugestia de reducere înainte să treci la luna următoare.")
     if any(e.id.startswith("fiscal_") for e in session.pending_events):
         raise HTTPException(409, "Alege ce faci cu termenul fiscal înainte să treci la luna următoare.")
+    if session.pending_events:
+        raise HTTPException(409, "Rezolvă toate misiunile înainte să treci la luna următoare.")
     before = adapter.balance(sim)
     summary = adapter.advance_month(sim, session.month, session.year_rep)
     session.month = int(summary["month"])

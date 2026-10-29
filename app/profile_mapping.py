@@ -89,6 +89,8 @@ def agent_profile_to_profile(data: dict, statement: dict | None = None) -> dict:
             _set(out, profile_path, value)
     if "goal" in out:
         out["goal"].setdefault("type", DEFAULT_GOAL_TYPE)
+    # The onboarding quiz no longer asks the 10% drop question, so a missing answer stays neutral.
+    out.setdefault("risk_tolerance", "medie")
     # Debts are optional for the agent: none reported means none.
     out["debts"] = [_debt(item) for item in prof.get(data, "bank.debts") or []]
     categories = []

@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from app.agents import llm
 from app.api.business import _tools
 from app.main import app
+from app.mock_data import ANDREI_PROFILE
 from app.sessions import get_session
 from app.sim import engine as E
 from app.sim import score as player_score
@@ -31,11 +32,48 @@ def answer(sid: str, event_id: str, option_id: str):
     })
 
 
+def test_a_shorter_goal_moves_more_points_than_a_longer_one():
+    def swing(months: int) -> int:
+        sid = client.post("/api/session").json()["session_id"]
+        profile = ANDREI_PROFILE.model_dump()
+        profile["goal"]["horizon_months"] = months
+        assert client.post("/api/game/start", json={"session_id": sid, "profile": profile}).status_code == 200
+        assert answer(sid, "dentist", "pay_cash").status_code == 200
+        choice = get_session(sid).choices[0]
+        assert choice["horizon_months"] == months
+        return choice["delta"]
+
+    short, medium, long = swing(6), swing(12), swing(36)
+    assert short == 16 and medium == 8 and long == 3
+    assert short > medium > long
+    assert short * 6 >= 80 and long * 36 >= 80
+
+
+def test_the_risk_answer_moves_the_opening_score_with_the_goal():
+    def opened(horizon: int, risk: str, signals: list[str] | None = None) -> int:
+        sid = client.post("/api/session").json()["session_id"]
+        profile = ANDREI_PROFILE.model_dump()
+        profile["goal"]["horizon_months"] = horizon
+        profile["risk_tolerance"] = risk
+        profile["health"]["insured"] = False
+        profile["dependents"] = 0
+        profile["source"] = {"statement_uploaded": bool(signals), "statement_score": None, "risk_signals": signals or []}
+        assert client.post("/api/game/start", json={"session_id": sid, "profile": profile}).status_code == 200
+        return get_session(sid).score_initial
+
+    assert opened(12, "scazuta") > opened(12, "ridicata")
+    assert opened(60, "ridicata") > opened(60, "scazuta")
+    assert opened(36, "medie", ["Rată la IFN", "Pariuri online"]) < opened(36, "medie")
+
+
 def test_opening_score_is_the_resilience_and_stays_inside_the_scale():
     sid = start_game()
     session = get_session(sid)
     state = client.get("/api/game/state", params={"session_id": sid}).json()
-    assert state["score"] == E.resilience_score(session.sim) == session.score_initial
+    base = E.resilience_score(session.sim)
+    assert session.score_quiz == player_score.quiz_points(session.profile)
+    assert state["score"] == session.score_initial == player_score.clamp(base + session.score_quiz)
+    assert session.score_quiz != 0
     assert 0 <= state["score"] <= 100
     assert session.choices == [] and session.score_adjustments == []
 
@@ -46,10 +84,10 @@ def test_the_healthier_option_raises_the_score_and_the_weaker_one_lowers_it():
     assert cash.status_code == loan.status_code == 200
     cash_session = get_session(cash.json()["state"]["session_id"])
     loan_session = get_session(loan.json()["state"]["session_id"])
-    assert cash_session.choices[0]["delta"] == 8
-    assert loan_session.choices[0]["delta"] == -8
-    assert cash.json()["state"]["score"] == player_score.clamp(cash_session.score_initial + 8)
-    assert loan.json()["state"]["score"] == player_score.clamp(loan_session.score_initial - 8)
+    assert cash_session.choices[0]["delta"] == 3
+    assert loan_session.choices[0]["delta"] == -3
+    assert cash.json()["state"]["score"] == player_score.clamp(cash_session.score_initial + 3)
+    assert loan.json()["state"]["score"] == player_score.clamp(loan_session.score_initial - 3)
     assert cash_session.choices[0]["label"] == "Plătesc din economii"
 
 
@@ -75,8 +113,8 @@ def test_saving_adds_points_and_a_pile_of_good_choices_stops_at_100():
         "session_id": sid, "institution": "bank", "action_id": "save", "params": {"amount": 100},
     })
     assert moved.status_code == 200
-    assert session.choices[-1]["delta"] == 5
-    assert moved.json()["state"]["score"] == min(100, session.score_initial + 5)
+    assert session.choices[-1]["delta"] == 2
+    assert moved.json()["state"]["score"] == min(100, session.score_initial + 2)
     session.score_initial = 90
     for _ in range(5):
         player_score.record_free(session, institution="bank", action_id="save", amount=50)
@@ -90,12 +128,12 @@ def test_agents_see_the_choice_and_a_second_note_replaces_the_first():
     choice_id = session.choices[0]["id"]
     before = player_score.current(session)
     first = player_score.add(session, "angel", choice_id, 10, "A plătit fără dobândă.")
-    assert first["delta_aplicat"] == 10
+    assert first["delta_cerut"] == 10 and first["delta_aplicat"] == 4
     replaced = player_score.add(session, "angel", choice_id, 4, "Corectez: plus mic.")
-    assert replaced["scor"] == before + 4
-    assert [item["delta"] for item in session.score_adjustments] == [4]
+    assert replaced["scor"] == before + 2
+    assert [item["delta"] for item in session.score_adjustments] == [2]
     other = player_score.add(session, "business", choice_id, -3, "Cashul de urgență a scăzut.")
-    assert other["scor"] == before + 4 - 3
+    assert other["scor"] == before + 2 - 1
     assert {item["agent"] for item in session.score_adjustments} == {"angel", "business"}
     view = player_score.public(session)
     assert view["alegeri"][0]["id"] == choice_id
@@ -108,16 +146,16 @@ def test_additions_are_cut_so_the_score_cannot_leave_0_to_100():
     answer(sid, "dentist", "pay_cash")
     session = get_session(sid)
     choice_id = session.choices[0]["id"]
-    session.score_initial = 96
-    assert player_score.current(session) == 100  # 96 + 8
+    session.score_initial = 97
+    assert player_score.current(session) == 100  # 97 + 3, the 36-month swing
     topped = player_score.add(session, "angel", choice_id, 10, "Încă un plus.")
     assert topped["scor"] == 100 and topped["delta_aplicat"] == 0
     session.score_adjustments.clear()
     session.score_initial = 3
-    session.choices[0]["delta"] = -8
+    session.choices[0]["delta"] = -3
     assert player_score.current(session) == 0
     lifted = player_score.add(session, "investments", choice_id, 10, "Are nevoie de aer.")
-    assert lifted["scor"] == 5 and lifted["delta_aplicat"] == 5
+    assert lifted["scor"] == 4 and lifted["delta_aplicat"] == 4
 
 
 @pytest.mark.parametrize(("delta", "reason"), [(11, "prea mult"), (-11, "prea puțin"), (1.5, "fracție"), ("4", "text"), (4, "  ")])
@@ -146,7 +184,7 @@ def test_accountant_and_both_consultants_can_add_and_a_failed_turn_rolls_back():
     choice_id = session.choices[0]["id"]
     tool = next(item for item in _tools(session) if item.name == "add_to_score")
     result = tool.handler(choice_id=choice_id, delta=-10, reason="Rata adaugă datorie.")
-    assert result["scor"] == player_score.clamp(session.score_initial - 8 - 10)
+    assert result["scor"] == player_score.clamp(session.score_initial - 3 - 4)
     assert session.tool_log[-1]["name"] == "add_to_score"
 
     monkeypatch = pytest.MonkeyPatch()

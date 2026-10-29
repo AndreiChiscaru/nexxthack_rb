@@ -143,7 +143,6 @@ var labels: Dictionary = {}
 var _hover_tweens: Dictionary = {}
 var _avatar: MapAvatar
 var _route: Line2D
-var _hint: Label
 var _at := "home"
 const PLAY_ZOOM := 1.0
 var _zoom := PLAY_ZOOM
@@ -151,6 +150,8 @@ var _camera: Tween
 var _pan := Vector2.ZERO
 var _dragging := false
 var _walking := false
+var follow_enabled := false
+var follow_view_rect := Rect2()
 var _reduced_motion := false
 var _travel: Tween
 var _statuses: Array = []
@@ -213,22 +214,12 @@ func _ready() -> void:
 	_avatar = MapAvatar.new()
 	_avatar.position = park_position(_at)
 	world.add_child(_avatar)
-	_hint = Label.new()
-	_hint.text = "Alege o clădire. Avatarul te conduce acolo."
-	_hint.add_theme_font_size_override("font_size", 13)
-	_hint.add_theme_color_override("font_color", INK)
-	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	_hint.offset_top = -28
-	_hint.offset_bottom = -4
-	add_child(_hint)
 	var controls := HBoxContainer.new()
 	controls.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	controls.position = Vector2(-180,-52)
-	controls.size = Vector2(164,36)
+	controls.position = Vector2(-96,-52)
+	controls.size = Vector2(80,36)
 	add_child(controls)
-	for item in [["−", "Micșorează harta"], ["+", "Mărește harta"], ["⌂", "Arată toată harta"], ["◌", "Redu animațiile"]]:
+	for item in [["−", "Micșorează harta"], ["+", "Mărește harta"]]:
 		var control := Button.new()
 		control.text = item[0]
 		control.custom_minimum_size = Vector2(36,36)
@@ -238,10 +229,6 @@ func _ready() -> void:
 		match item[0]:
 			"−": control.pressed.connect(func(): _set_zoom(_zoom - 0.15))
 			"+": control.pressed.connect(func(): _set_zoom(_zoom + 0.15))
-			"⌂": control.pressed.connect(focus_all)
-			"◌":
-				control.toggle_mode = true
-				control.toggled.connect(func(value: bool): _reduced_motion = value)
 	resized.connect(_transform_world)
 	_transform_world()
 	set_institutions(_statuses)
@@ -326,7 +313,7 @@ func park_position(id: String) -> Vector2:
 
 ## Exact entrance-to-entrance shortest path; no extra parking movement.
 func path_to(origin: String, destination: String) -> PackedVector2Array:
-	if not PLACES.has(origin) or not PLACES.has(destination):
+	if not NODES.has(origin) or not PLACES.has(destination):
 		return PackedVector2Array()
 	var distance := {}
 	var previous := {}
@@ -361,18 +348,57 @@ func path_to(origin: String, destination: String) -> PackedVector2Array:
 		points.append(NODES[id])
 	return points
 
+## Attach the current position to its road segment and compare both directions.
+## This keeps redirects on roads instead of restarting from the last building.
+func path_from_position(position: Vector2, destination: String) -> PackedVector2Array:
+	var nearest_edge: Array = []
+	var nearest := INF
+	for edge in EDGES:
+		var projected := Geometry2D.get_closest_point_to_segment(position, NODES[edge[0]], NODES[edge[1]])
+		var gap := position.distance_squared_to(projected)
+		if gap < nearest:
+			nearest = gap
+			nearest_edge = edge
+	var best := PackedVector2Array()
+	var best_cost := INF
+	for endpoint: String in nearest_edge:
+		var tail := path_to(endpoint, destination)
+		if tail.is_empty():
+			continue
+		var candidate := PackedVector2Array([position])
+		var cost := 0.0
+		for point in tail:
+			var step := candidate[-1].distance_to(point)
+			if step > 0.01:
+				cost += step
+				candidate.append(point)
+		if cost < best_cost:
+			best_cost = cost
+			best = candidate
+	return best
+
 func navigate_to(id: String) -> void:
-	if _walking or not PLACES.has(id) or not is_instance_valid(_avatar):
+	if not PLACES.has(id) or not is_instance_valid(_avatar):
 		return
-	if id == _at:
-		institution_selected.emit(id)
+	var points := path_from_position(_avatar.position, id)
+	if points.is_empty():
 		return
-	_walking = true
-	_hint.text = "În drum spre %s…" % PLACES[id].name
+	if _travel:
+		_travel.kill()
 	for key in labels:
 		labels[key].add_theme_stylebox_override("normal", _label_style(key == id, true))
-	var points := path_to(_at, id)
+	follow_enabled = true
+	if _camera:
+		_camera.kill()
+	# The sidebar follows the selected destination immediately, not arrival.
+	institution_selected.emit(id)
 	_route.points = points
+	_walking = points.size() > 1
+	if not _walking:
+		_at = id
+		_avatar.rest()
+		_route.clear_points()
+		return
 	_travel = create_tween()
 	for index in range(1, points.size()):
 		var duration := 0.001 if _reduced_motion else points[index - 1].distance_to(points[index]) / 350.0
@@ -383,11 +409,10 @@ func navigate_to(id: String) -> void:
 		_walking = false
 		_avatar.rest()
 		_route.clear_points()
-		_hint.text = "Ai ajuns la %s." % PLACES[id].name
-		institution_selected.emit(id)
 	)
 
 func enter_map() -> void:
+	follow_enabled = false
 	_pan = Vector2.ZERO
 	_zoom = 0.88
 	_transform_world()
@@ -395,6 +420,7 @@ func enter_map() -> void:
 	_transform_world(true)
 
 func focus_all() -> void:
+	follow_enabled = false
 	_zoom = 1.0
 	_pan = Vector2.ZERO
 	_transform_world(true)
@@ -403,12 +429,29 @@ func _set_zoom(value: float) -> void:
 	_zoom = clampf(value, 0.8, 2.3)
 	_transform_world(true)
 
+func _process(delta: float) -> void:
+	if not visible or not follow_enabled or not is_instance_valid(_avatar):
+		return
+	if _camera and _camera.is_running():
+		return
+	var safe := follow_view_rect if follow_view_rect.has_area() else Rect2(Vector2(60, 100), size - Vector2(120, 190))
+	var target := safe.get_center() - _avatar.position * world.scale
+	if not _dragging:
+		world.position = world.position.lerp(target, 1.0 if _reduced_motion else 1.0 - exp(-6.0 * delta))
+	# Hard guard at the edge: the avatar cannot slip behind a newly opened panel.
+	var avatar_screen := world.position + _avatar.position * world.scale
+	var clamped := avatar_screen.clamp(safe.position, safe.end)
+	world.position += clamped - avatar_screen
+	_pan = world.position - size * 0.5 + FOUNTAIN_CENTER * world.scale
+
 func _transform_world(animated: bool = false) -> void:
 	if not is_instance_valid(world):
 		return
 	var fit := maxf(0.05, minf(size.x / MAP_SIZE.x, (size.y - 40) / MAP_SIZE.y))
 	var target_scale := Vector2.ONE * fit * _zoom
 	var target_position := size * 0.5 + _pan - FOUNTAIN_CENTER * target_scale
+	if follow_enabled and follow_view_rect.has_area():
+		target_position = follow_view_rect.get_center() - _avatar.position * target_scale
 	if _camera:
 		_camera.kill()
 	if animated and not _reduced_motion:
@@ -418,6 +461,17 @@ func _transform_world(animated: bool = false) -> void:
 	else:
 		world.scale = target_scale
 		world.position = target_position
+
+func _pan_by(movement: Vector2) -> void:
+	if movement.is_zero_approx():
+		return
+	# Manual exploration owns the camera until another destination is selected.
+	follow_enabled = false
+	if _camera:
+		_camera.kill()
+	_pan = world.position - size * 0.5 + FOUNTAIN_CENTER * world.scale
+	_pan = (_pan + movement).clamp(-size * 0.65, size * 0.65)
+	_transform_world()
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
@@ -432,8 +486,6 @@ func _gui_input(event: InputEvent) -> void:
 		if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 			_dragging = false
 			return
-		_pan += event.relative
-		_pan = _pan.clamp(-size * 0.65, size * 0.65)
-		_transform_world()
+		_pan_by(event.relative)
 		accept_event()
 

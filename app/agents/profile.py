@@ -30,7 +30,7 @@ FIELD_SPECS = [
     ("bank.savings", "Economii", True, "money"),
     ("bank.investments", "Investiții", False, "money"),
     ("bank.debts", "Credite / rate", False, "debts"),
-    ("risk_tolerance", "Toleranță la risc", True, "text"),
+    ("risk_tolerance", "Toleranță la risc", False, "text"),
     ("dependents", "Persoane în întreținere", False, "int"),
     ("business.interest", "Interes pentru o afacere", False, "bool"),
     ("business.idea", "Ideea de afacere", False, "text"),

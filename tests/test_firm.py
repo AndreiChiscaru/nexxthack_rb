@@ -47,6 +47,7 @@ def test_starting_a_firm_spends_cash_and_shows_it_in_the_city():
 def test_may_deadline_must_be_paid_and_a_delay_comes_back_with_extra():
     sid = _started()
     session, calc = _start_pfa(sid)
+    session.pending_events.clear()  # Isolate fiscal deadlines from opening missions.
     session.sim["calendar_start"] = [2026, 4]
     advanced = client.post("/api/game/advance", json={"session_id": sid})
     assert advanced.status_code == 200, advanced.text

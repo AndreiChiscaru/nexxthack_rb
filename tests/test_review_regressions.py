@@ -1,3 +1,4 @@
+from app.sessions import get_session as pending_session
 import random
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
@@ -101,6 +102,8 @@ def test_pending_event_snapshot_and_concurrent_answer(monkeypatch):
     successful = next(r.json() for r in replies if r.status_code == 200)
     snapshot = client.get("/api/game/snapshot", params={"session_id":sid}).json()
     assert successful["pending_events"] == snapshot["events"]
+    # Isolate monthly accounting from independently tested mission choices.
+    pending_session(sid).pending_events.clear()
     step = client.post("/api/game/advance", json={"session_id":sid}).json()
     snapshot = client.get("/api/game/snapshot", params={"session_id":sid}).json()
     assert step["pending_events"] == snapshot["events"]

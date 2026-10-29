@@ -1,3 +1,4 @@
+from app.sessions import get_session as pending_session
 """Real monthly game loop: engine + adapter behind /api/game/*."""
 import pytest
 from fastapi.testclient import TestClient
@@ -20,6 +21,8 @@ def start_game(profile: dict | None = None) -> str:
 
 
 def advance(sid: str) -> dict:
+    # Isolate monthly accounting from independently tested mission choices.
+    pending_session(sid).pending_events.clear()
     r = client.post("/api/game/advance", json={"session_id": sid})
     assert r.status_code == 200
     return r.json()

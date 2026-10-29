@@ -151,17 +151,46 @@ func _build_header() -> void:
 	recovery_button = Kit.button("Reîncearcă sincronizarea", controller.refresh, true)
 	add_child(recovery_button)
 	recovery_button.hide()
-	advisor_button = Kit.button("", _show_onboarding_chat)
+	advisor_button = Kit.button("", func():
+		if channel == "business" and chat.visible:
+			_show_business()
+		else:
+			_show_onboarding_chat()
+	)
 	advisor_button.position = Vector2(24, 100)
-	advisor_button.icon = load("res://assets/raiff/consultant/consultant_idle.png")
+	advisor_button.icon = load("res://assets/raiff/consultant/consultant_cartoon.png")
 	advisor_button.expand_icon = true
-	advisor_button.add_theme_constant_override("icon_max_width", 68)
-	advisor_button.custom_minimum_size = Vector2(80, 80)
-	advisor_button.size = Vector2(80, 80)
-	advisor_button.pivot_offset = Vector2(40, 40)
+	advisor_button.add_theme_constant_override("icon_max_width", 106)
+	advisor_button.custom_minimum_size = Vector2(126, 126)
+	advisor_button.size = Vector2(126, 126)
+	advisor_button.pivot_offset = Vector2(63, 63)
 	advisor_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	for state in ["normal", "disabled", "pressed", "hover", "hover_pressed", "focus"]:
 		advisor_button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	var outline := Shader.new()
+	outline.code = """shader_type canvas_item;
+render_mode unshaded;
+varying vec4 tint;
+void vertex() { tint = COLOR; }
+void fragment() {
+    vec4 sprite = texture(TEXTURE, UV);
+    vec2 radius = fwidth(UV) * 2.5;
+    float coverage = sprite.a;
+    for (int i = 0; i < 24; i++) {
+        float angle = float(i) * 6.2831853 / 24.0;
+        vec2 sample_uv = UV + vec2(cos(angle), sin(angle)) * radius;
+        if (all(greaterThanEqual(sample_uv, vec2(0.0))) && all(lessThanEqual(sample_uv, vec2(1.0)))) {
+            coverage = max(coverage, texture(TEXTURE, sample_uv).a);
+        }
+    }
+    float alpha = max(sprite.a, coverage);
+    vec3 rgb = mix(vec3(1.0), sprite.rgb, sprite.a / max(alpha, 0.0001));
+    COLOR = vec4(rgb, alpha) * tint;
+}
+"""
+	var outline_material := ShaderMaterial.new()
+	outline_material.shader = outline
+	advisor_button.material = outline_material
 	advisor_button.mouse_entered.connect(func(): _animate_advisor_icon(true))
 	advisor_button.mouse_exited.connect(func(): _animate_advisor_icon(false))
 	advisor_button.focus_entered.connect(func(): _animate_advisor_icon(true))
@@ -232,6 +261,23 @@ func _layout() -> void:
 	profile_panel.position = Vector2(maxf(15, (w - 670) / 2), 95)
 	profile_panel.size = Vector2(minf(670, w - 30), maxf(430, h - 125))
 
+func _process(_delta: float) -> void:
+	if is_instance_valid(advisor_button) and is_instance_valid(chat):
+		var face: Texture2D = preload("res://assets/raiff/accountant/accountant_idle.png") if channel == "business" and chat.visible else preload("res://assets/raiff/consultant/consultant_cartoon.png")
+		if advisor_button.icon != face:
+			advisor_button.icon = face
+	if not is_instance_valid(city) or controller.phase != "map":
+		return
+	var left := 70.0
+	var right := size.x - 70.0
+	if hud.visible:
+		right = minf(right, hud.position.x - 45.0)
+	if location.visible:
+		right = minf(right, location.position.x - 45.0)
+	if chat.visible:
+		left = maxf(left, chat.position.x + chat.size.x + 45.0)
+	city.follow_view_rect = Rect2(Vector2(left, 140), Vector2(maxf(100, right - left), maxf(100, size.y - 240)))
+
 func _update() -> void:
 	var phase: String = controller.phase
 	start_button.disabled = controller.busy or controller.needs_recovery
@@ -277,15 +323,9 @@ func _update() -> void:
 		var state: Dictionary = controller.state
 		hud.update_state(state, controller.profile)
 		city.set_institutions(state.get("institutions", []))
-		var waiting := ""
-		for event: Dictionary in controller.events:
-			var event_id := str(event.get("id", ""))
-			if event_id.begins_with("fiscal_"):
-				waiting = "fiscal"
-			elif event_id.begins_with("taie_") and waiting != "fiscal":
-				waiting = "cut"
-		advance_button.disabled = controller.busy or controller.needs_recovery or waiting != ""
-		advance_button.text = "Alege termenul fiscal" if waiting == "fiscal" else ("Alege sugestia" if waiting == "cut" else "Luna următoare →")
+		var remaining: int = controller.events.size()
+		advance_button.disabled = controller.busy or controller.needs_recovery or remaining > 0
+		advance_button.text = "Rezolvă misiunea rămasă" if remaining == 1 else ("Rezolvă cele %d misiuni" % remaining if remaining > 1 else "Luna următoare →")
 		_update_score(state)
 		if not controller.busy:
 			_check_outcome(state)
@@ -553,12 +593,12 @@ func _show_business() -> void:
 	chat.invest_mode = true
 	chat.attach_kind = "business"
 	chat.set_agent("accountant")
-	chat.set_heading("Contabil\nAfacere · taxe 2026, PFA sau SRL")
+	chat.set_heading("Contabil")
 	chat.clear_messages()
 	if controller.business_transcript.is_empty():
 		chat.append({
 			"role": "Contabil",
-			"text": "Sunt contabilul de la Afacere. Spune-mi ideea, veniturile și cheltuielile, iar eu compar PFA cu SRL. Cu «Adaugă un document» îmi trimiți dosarul ONRC sau o factură. Când confirmi cifrele, pornesc firma în oraș, iar taxele apar aici la termen. Cifrele pentru 2026 sunt orientative.",
+			"text": "Sunt contabilul de la Afacere. Spune-mi ideea, veniturile și cheltuielile. Cu «Adaugă un document» îmi trimiți dosarul sau o factură. Când confirmi cifrele, pornesc firma în oraș, iar taxele apar aici la termen. Cifrele pentru 2026 sunt orientative.",
 		})
 	else:
 		for message: Dictionary in controller.business_transcript:
