@@ -597,7 +597,7 @@ func _show_business() -> void:
 	if controller.business_transcript.is_empty():
 		chat.append({
 			"role": "Contabil",
-			"text": "Sunt contabilul de la Afacere. Spune-mi ideea, veniturile și cheltuielile, iar eu compar PFA cu SRL. Cu «Adaugă un document» îmi trimiți dosarul ONRC sau o factură. Când confirmi cifrele, pornesc firma în oraș, iar taxele apar aici la termen. Cifrele pentru 2026 sunt orientative.",
+			"text": "Sunt contabilul de la Afacere. Spune-mi ideea, veniturile și cheltuielile. Cu «Adaugă un document» îmi trimiți dosarul sau o factură. Când confirmi cifrele, pornesc firma în oraș, iar taxele apar aici la termen. Cifrele pentru 2026 sunt orientative.",
 		})
 	else:
 		for message: Dictionary in controller.business_transcript:
