@@ -96,10 +96,15 @@ def test_mapping_statement_source():
     assert out["source"] == {"statement_uploaded": True, "statement_score": 58, "risk_signals": ["Rată la IFN"]}
 
 
+def test_a_finished_profile_defaults_risk_when_the_quiz_does_not_ask():
+    data = {key: value for key, value in AGENT_DATA.items() if key != "risk_tolerance"}
+    assert agent_profile_to_profile(data)["risk_tolerance"] == "medie"
+
+
 def test_missing_fields_are_profile_paths():
     assert missing_fields(prof.empty()) == [
         "name", "age", "occupation", "goal.description", "goal.target_amount", "goal.horizon_months",
-        "income.salary", "recurring.rent", "recurring.utilities", "spending.food", "cash", "savings", "risk_tolerance"]
+        "income.salary", "recurring.rent", "recurring.utilities", "spending.food", "cash", "savings"]
     assert missing_fields({"data": AGENT_DATA, "sources": {}}) == []
 
 

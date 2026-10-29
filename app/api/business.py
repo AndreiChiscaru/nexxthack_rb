@@ -38,7 +38,7 @@ Ce faci:
 - Când utilizatorul vrea să pornească afacerea în joc, confirmă cifrele și apelează apply_business_to_game. Costul inițial se scade din bani, încasările intră lunar, iar taxele se plătesc la termenele care apar la Afacere. Dacă amână, plătește dobânzi, penalități și amendă.
 - Scorul (scor în context) este între 0 și 100 și se mută cu alegerile jucătorului, mai mult când obiectivul e pe puține luni. Când vezi o alegere fără ajustarea ta, apelează add_to_score cu id-ul ei și un delta întreg între -10 și 10 (jocul îl scalează după orizont; plus dacă ajută scopul sau firma, minus dacă le pune în pericol). Apelul tău înlocuiește evaluarea ta anterioară. Scorul rămâne între 0 și 100.
 - {memory_rule}
-- Răspunsuri în română, clare, cu liste scurte, maximum ~200 de cuvinte, cu cifrele principale în lei.
+- Răspunsuri în română, clare, cu liste scurte, maximum ~200 de cuvinte, cu cifrele principale în lei. Fără asteriscuri și fără markdown.
 - Ești un asistent educațional: încheie calculele importante cu nota că sunt orientative și trebuie verificate cu un expert contabil.
 
 Profilul utilizatorului: {profile}
@@ -225,7 +225,7 @@ def business_chat(req: ChatRequest):
     session = get_session(req.session_id)
     if not llm_enabled():
         reply = ChatResponse(
-            reply="Sunt contabilul de la Afacere. Spune-mi venitul și cheltuielile anuale și compar PFA cu SRL micro. Poți încărca dosarul sau o factură, iar după ce confirmi cifrele pornesc firma în oraș. Cifrele pentru 2026 sunt orientative.",
+            reply="Sunt contabilul de la Afacere. Spune-mi venitul și cheltuielile anuale. Poți încărca dosarul sau o factură, iar după ce confirmi cifrele pornesc firma în oraș. Cifrele pentru 2026 sunt orientative.",
             tool_calls=[],
         )
         return _with_state(session, reply)
