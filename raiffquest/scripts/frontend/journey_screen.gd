@@ -96,7 +96,6 @@ func _ready() -> void:
 	chat.sent.connect(_on_sent)
 	controller.message_added.connect(_on_message)
 	chat.upload_requested.connect(_pick_statement)
-	chat.sample_requested.connect(_load_sample)
 	chat.review_requested.connect(_show_profile)
 	chat.closed.connect(_close_chat)
 	location = PanelContainer.new()
@@ -613,7 +612,8 @@ func _toggle_investments() -> void:
 	else:
 		_show_investments()
 
-func _show_onboarding_chat() -> void:
+## greet: AIngel opens with a line of its own; off when the player's question is sent right away.
+func _show_onboarding_chat(greet := true) -> void:
 	channel = "onboarding"
 	chat.invest_mode = false
 	chat.attach_kind = "statement"
@@ -626,7 +626,9 @@ func _show_onboarding_chat() -> void:
 		chat.append(message)
 	if controller.phase == "map":
 		_chat_place = selected if location.visible else ""
-		chat.append({"role": "AIngel", "text": _advice_for_screen()})
+		# From a building the player's prefilled question opens the conversation, so AIngel stays quiet.
+		if greet and _chat_place.is_empty():
+			chat.append({"role": "AIngel", "text": _advice_for_screen()})
 	_open_chat()
 
 func _is_game_log(message: Dictionary) -> bool:
@@ -717,11 +719,6 @@ func _open_chat() -> void:
 	profile_panel.hide()
 	_reveal(chat)
 	chat.input.grab_focus()
-
-func _load_sample() -> void:
-	if controller.busy or controller.phase == "map":
-		return
-	uploader.load_sample()
 
 func _upload_finished(response: Dictionary) -> void:
 	if uploader.last_purpose == "business":
@@ -876,8 +873,7 @@ func _institution(id: String) -> void:
 func _ask_raiffeisen_offer() -> void:
 	if controller.busy:
 		return
-	_show_onboarding_chat()
-	chat.append({"role": "AIngel", "text": "Hai să vedem ce îți poate oferi Raiffeisen: conturi și economii, depozite, carduri, credite, investiții, pensie și asigurări. Mă uit în oferta băncii și îți spun ce ți se potrivește acum."})
+	_show_onboarding_chat(false)
 	controller.send_message("Ce produse și servicii Raiffeisen mi se potrivesc acum, pentru obiectivul și cheltuielile mele? Dă-mi câteva recomandări și explică-mi beneficiile lor.")
 
 const EXPENSE_LABELS := {"entertainment": "Divertisment", "home": "Locuință", "market": "Cumpărături", "education": "Educație", "health": "Sănătate", "business": "Firmă", "bank": "Rate la bancă"}
