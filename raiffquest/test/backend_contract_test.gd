@@ -1,6 +1,6 @@
 extends Node
 ## Exercises the actual GameApi client against the team's FastAPI application.
-## The server currently provides mock agents and a mock simulation.
+## Uses mock agents and the actual financial engine for deterministic tests.
 
 const Api := preload("res://scripts/frontend/game_api.gd")
 var _api: Node
@@ -42,7 +42,7 @@ func _run() -> void:
 	var response: Dictionary = await _wait(_api.request_json("/api/health"))
 	_check(response.ok and response.data.get("status") == "ok" and response.data.get("agent_model") is String, "merged backend exposes agent configuration")
 	response = await _wait(_api.request_json("/api/demo/session", HTTPClient.METHOD_POST))
-	_check(response.ok and response.data.has("session_id") and response.data.has("onboarding"), "agent demo routes coexist with the shared API")
+	_check(not response.ok and response.status == 404, "obsolete demo routes are absent")
 	response = await _wait(_api.create_session())
 	_check(response.ok and response.data is Dictionary and response.data.has("session_id"), "session response contract")
 	if _failed:
@@ -71,15 +71,17 @@ func _run() -> void:
 	var events: Array = response.data.events
 	_check(initial.session_id == session_id and initial.month == 0, "initial state belongs to the active session")
 	_check(initial.monthly.income == 5100 and initial.goal.target_amount == 18000, "confirmed profile reaches the backend")
-	_check(initial.institutions.size() == 7, "all seven institutions are present")
+	_check(initial.institutions.size() == 8, "all eight institutions are present")
 	response = await _wait(_api.get_game_state(session_id))
 	_check(response.ok and response.data == initial, "GET state returns state directly")
 	response = await _wait(_api.perform_action(session_id, "bank", "save", {"amount": 500}))
 	_check(response.ok and response.data.delta.savings == 500 and response.data.advisor_note is String, "action returns state, delta and advisor note")
 	_check(response.data.state.balance.savings == initial.balance.savings + 500, "savings action is reflected by the server")
-	var event: Dictionary = events[0]
-	response = await _wait(_api.perform_action(session_id, event.institution, event.id, {"option_id": event.options[0].id}))
-	_check(response.ok and response.data.state.log[-1].institution == event.institution, "event id and option_id are accepted")
+	response = await _wait(_api.advance_month(session_id))
+	_check(not response.ok and response.status == 409, "pending missions block the next month")
+	for event: Dictionary in events:
+		response = await _wait(_api.perform_action(session_id, event.institution, event.id, {"option_id": event.options[0].id}))
+		_check(response.ok and response.data.state.log[-1].institution == event.institution, "event id and option_id are accepted")
 	response = await _wait(_api.advance_month(session_id))
 	_check(response.ok and response.data.state.month == 1 and response.data.events is Array, "advance returns the next state and new events")
 	var advanced: Dictionary = response.data.state

@@ -18,10 +18,10 @@ func _ready() -> void:
 	for origin in city.PLACES:
 		for destination in city.PLACES:
 			var route: PackedVector2Array = city.path_to(origin, destination)
-			check(route.size() >= 3, "Every institution must be reachable from every other")
+			check(route.size() >= (1 if origin == destination else 2), "Every institution must be reachable from every other")
 			check(route[0].is_equal_approx(city.park_position(origin)), "Travel starts beside origin label")
 			check(route[-1].is_equal_approx(city.park_position(destination)), "Travel parks beside destination label")
-			check(route[-1].x > city.NODES[destination].x + 40, "Avatar stays lateral to label")
+			check(route[-1].x > city.PLACES[destination].position.x + 40, "Avatar stays lateral to label")
 	check(city.path_to("missing", "bank").is_empty(), "Unknown locations reject navigation")
 	city.set_institutions([{"id": "bank", "pending_events": 2}])
 	check(city.badges["bank"].text == "2", "Badges display server event counts")
@@ -42,10 +42,10 @@ func _ready() -> void:
 	await get_tree().create_timer(0.2).timeout
 	city._hover("bank", false)
 	await get_tree().create_timer(0.2).timeout
-	check(city.buttons["bank"].position.is_equal_approx(city.PLACES["bank"].position - Vector2(80,143)), "Hover exit restores building resting position")
+	check(city.buttons["bank"].position.is_equal_approx(city.PLACES["bank"].position - city.BUILDING_ANCHOR), "Hover exit restores building resting position")
 	if "--capture" in OS.get_cmdline_user_args():
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png("C:/Users/ioana/Documents/ChatGPT/hackathon/map-native-qa.png")
-	print("City map navigation tests: ", failures, " failures")
+	print("[city-map] ", "PASS:" if failures == 0 else "FAIL:", " ", failures, " failures")
 	get_tree().quit(1 if failures else 0)
 

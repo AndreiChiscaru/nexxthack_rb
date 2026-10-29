@@ -204,7 +204,7 @@ Same names in both: `name`, `age`, `goal.description/target_amount/horizon_month
 
 ## Products & campaigns
 
-The catalog is `data/products.json`: the public Raiffeisen offer as of 28 October 2026, the same file the consultant agent (`app/agents/consultant.py`) searches. `app/catalog.py` validates it once at startup. The server refuses to start on:
+The catalog is `data/products.json`: the public Raiffeisen offer as of 28 October 2026, the same file the advisor tools use. `app/catalog.py` validates it once at startup. The server refuses to start on:
 - a duplicate id or an id that isn't `snake_case`
 - a missing required field
 - an unknown category
@@ -314,40 +314,15 @@ Examples (Andrei, month 0):
  "summary": "3 pași: Echilibrează bugetul lunar; Construiește fondul de urgență; Caută un venit suplimentar"}
 ```
 
-### Status: consultant agent
+### Advisor integration
 
-`app/agents/consultant.py` **can't take these tools yet**:
-- **Fixed tool list:** `user_turn(session_id, convo, text)` builds its own list with `_tools(session_id)`.
-- **Its own copy of the game:** the profile, statement and game come from the SQLite store, in the `app/demo/engine.py` format.
-- **Prompt:** it names its own tools (`get_financial_state`, `simulate_event_options`, `simulate_plan`).
-
-Until that changes, `/api/advisor/message` returns a fixed reply, but its `tool_calls` are real `run_tool` calls: `get_goal_progress`, `search_products`, then `compare_products` (if the message mentions a loan) or `create_action_plan`.
-
-Proposed change for the agents owner, backwards compatible, so the demo keeps working:
-
-```python
-# app/agents/consultant.py
-def user_turn(session_id: str, convo: dict, text: str, tools: list[Tool] | None = None,
-              profile: dict | None = None, statement: dict | None = None):
-    profile = profile if profile is not None else store.load(session_id, "profile", {}).get("data", {})
-    statement = statement if statement is not None else (store.load(session_id, "statement") or {}).get("analysis")
-    ...
-    yield from chat_turn(convo, system, tools if tools is not None else _tools(session_id))
-```
-
-The backend would then call:
-```python
-consultant.user_turn(session.id, convo, text, tools=llm_tools(session.id),
-                     profile=session.profile.model_dump(), statement=session.statement)
-```
-
-The `SYSTEM` prompt should then name the tools generically, or accept the tool list as a parameter, instead of hard-coding the demo's three names.
+`app/api/advisor.py` serves the advisor and investment conversations using the current session and simulation state. In live mode it calls the configured agent with financial tools and shared memory; `MOCK_LLM=true` selects deterministic replies for tests. There is no separate `/api/demo/*` game engine.
 
 ## Data & privacy
 
 - **Uploaded files** are read into memory and never written to disk. Neither the file nor its extracted text is kept in the session; the session keeps only `{score, risk_signals}` from the analysis.
 - **Session data** (draft profile, conversation, §4.1 profile, game) lives in server memory only and is lost on restart.
-- **`data/demo.sqlite3`**: in real mode the agents write the shared "user file" there (`app/agents/memory.py`, keyed by `session_id`), which also holds the `/api/demo/*` sessions. These short notes can include facts from the conversation and the statement summary (stability score, risk level, up to 3 risk signals). The file is in `.gitignore` (`data/*.sqlite3`) and its contents are never logged.
+- **`data/demo.sqlite3`**: in real mode the agents write the shared "user file" there (`app/agents/memory.py`, keyed by `session_id`). These short notes can include facts from the conversation and the statement summary (stability score, risk level, up to 3 risk signals). The file is in `.gitignore` (`data/*.sqlite3`) and its contents are never logged.
 - **Use only synthetic statements** (like `deploy/sample_statement.py`) for the demo. Real bank statements must not be uploaded: their text is sent to the Claude API, and facts from them can end up in `data/demo.sqlite3`.
 
 ## Errors

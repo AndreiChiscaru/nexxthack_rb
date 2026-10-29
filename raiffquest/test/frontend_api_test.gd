@@ -3,7 +3,6 @@ extends Node
 
 const Api := preload("res://scripts/frontend/game_api.gd")
 const Config := preload("res://scripts/frontend/api_config.gd")
-const Importer := preload("res://scripts/raiff/statement_import.gd")
 var _api: Node
 var _responses := {}
 var _completions := {}
@@ -116,15 +115,6 @@ func _run() -> void:
 	await _wait(nested_ids[0])
 	_api.queue_free()
 
-	var importer := Importer.new()
-	add_child(importer)
-	var import_errors: Array = []
-	importer.failed.connect(func(message: String) -> void: import_errors.append(message))
-	importer._finish({"game_profile": "invalid"})
-	importer._finish({"game_profile": {}})
-	_check(import_errors.size() == 2 and not importer.busy, "malformed imported profiles are rejected")
-	_check(importer.api_base == Config.LOCAL_BASE, "desktop upload defaults to local backend")
-	importer.queue_free()
 	await get_tree().process_frame
 	for failure: String in _failures:
 		push_error(failure)

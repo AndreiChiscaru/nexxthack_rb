@@ -11,7 +11,7 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT_PDF = ROOT / "static" / "demo" / "extras_student.pdf"
+OUT_PDF = ROOT / "static" / "samples" / "extras_student.pdf"
 OUT_TXT = ROOT / "data" / "extras_student.txt"
 OUT_COPY = ROOT / "documente_test_agenti" / "FICTIV_extras_student_12_luni.pdf"
 

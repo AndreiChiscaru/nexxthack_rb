@@ -3,8 +3,8 @@
   "checks": [
     {
       "kind": "scene",
-      "path": "res://test/test_suite.tscn",
-      "expect": "[game-generic-tests] PASS:",
+      "path": "res://test/journey_boot_test.tscn",
+      "expect": "[journey-boot] PASS:",
       "profile": "source"
     },
     {

@@ -1,170 +1,38 @@
-# Frontend: contracte si etape de integrare
+# Integrarea frontendului actual
 
-Branch initial: `frontend/integration-foundation`.
-Referinta comuna confirmata: `implementation-plan.md`, sectiunea 4.
-Detaliile HTTP implementate de backend: [`api.md`](api.md).
+Scena principală este `raiffquest/scenes/journey.tscn`. Codul activ este în `scripts/frontend/`; motorul financiar rulează pe backend, în `app/sim/`. Contractele HTTP sunt documentate în [api.md](api.md).
 
-## Mod de lucru convenit
+## Transport și stare
 
-Pentru fiecare punct din lista de task-uri:
+`api_config.gd` folosește originea paginii în Web, respectiv `http://127.0.0.1:8000` în modul nativ. `RAIFF_API` poate suprascrie adresa nativă (de exemplu portul 8010). `api_client.gd` gestionează cererile și erorile, `game_api.gd` expune operațiile, iar `session_controller.gd` păstrează starea și conversația interfeței. Deciziile se trimit backendului; interfața afișează răspunsul fără un al doilea motor financiar.
 
-1. `git fetch origin --prune`, verificarea commit-urilor noi si integrarea schimbarilor relevante din `main` si din branch-urile colegilor. Se pastreaza istoricul si se rezolva conflictele in branch-ul frontend.
-2. Implementare limitata la punctul curent si verificarea contractelor cu backend-ul.
-3. Testele relevante, apoi pornirea aplicatiei pentru verificare manuala.
-4. Utilizatoarea verifica aplicatia. Orice observatie se rezolva si se retesteaza.
-5. Dupa confirmarea verificarii, o ultima sincronizare, retestare daca au aparut modificari, commit si push pe branch-ul frontend. Fara force-push sau modificari directe pe `main`.
+Agenții curenți sunt integrați în `app/api/`. Pentru testare se folosește `MOCK_LLM=true`; modul real necesită configurarea locală a cheii și `MOCK_LLM=false`. `/api/health` raportează modul activ.
 
-Integrarea curenta include `main` (`6af45b6`), `backend/gabi` (`0cb9bc0`, API mock, motor portat si teste), `feature/ui-ux` (`d062c15`, ghid vizual actualizat) si `agenti` (`a504d30`, demo agenti si corectii de conversatie). Conflictul din `app/main.py` este rezolvat pastrand ambele familii de rute.
+## Importul documentelor
 
-**Limita actuala intre backend si agenti:** API-ul comun din `api.md` foloseste inca mock-uri. Branch-ul agentilor adauga separat `/api/demo/...`, un alt format de profil si alte sesiuni. Codul coexista, dar nu este inca legat in acelasi flux. Frontend-ul ramane pe contractul comun confirmat; conectarea agentilor cere un adaptor in backend sau o modificare coordonata a contractului. Nu schimbam implicit endpoint-urile clientului.
+`statement_upload.gd` validează și pregătește fișierul selectat sau tras în fereastră. Selectarea nu îl trimite. Chatul afișează numele și permite eliminarea atașamentului; **Trimite / Send** pornește cererea. Extrasul folosește `/api/onboarding/statement`, iar documentele contabilului `/api/business/document`. După eroare, atașamentul rămâne disponibil pentru reîncercare.
 
-## Etapa 1: transportul API (implementat)
+## Aspect și localizare
 
-- `raiffquest/scripts/frontend/api_config.gd`: URL comun. In browser se foloseste originea paginii. In editor/desktop se foloseste `http://127.0.0.1:8000`, suprascris explicit prin `RAIFF_API`.
-- `api_client.gd`: JSON, ID unic per cerere, timeout, limita de raspuns, anulare, stare de incarcare si erori normalizate. Nu retrimite automat actiuni dupa un timeout.
-- `game_api.gd`: metodele frontend pentru endpoint-urile convenite. Nu contine calcule financiare, prompt-uri sau catalog duplicat.
-- Importul existent foloseste aceeasi configurare si ramane pe `/api/analyze`. Upload-ul web are timeout si limita de 25 MB; anularea selectiei permite o noua incercare.
+`journey_theme.gd` definește paleta cartoon și fontul Figtree. `tools/build_cartoon_map.py` generează terenul curent. Harta conține opt instituții, inclusiv Divertisment; clădirile și traseele sunt definite de componentele hărții.
 
-Clientul nou este pregatit pentru ecranele urmatoare. Jocul existent ruleaza in continuare cu simulatorul local; nu sustinem ca a fost deja migrat la backend.
+`autoload/game_locale.gd` gestionează RO/EN. Sursa traducerilor este `data/localization/en.json`, sincronizată în `raiffquest/localization/game_en.json` prin `tools/sync_game_localization.py`. Cererile trimit limba în `Accept-Language`.
 
-### Utilizare in ecrane
+## Verificare
 
-```gdscript
-const GameApi := preload("res://scripts/frontend/game_api.gd")
-var api := GameApi.new()
-var pending_id := 0
-
-func _ready() -> void:
-    add_child(api)
-    api.request_finished.connect(_on_api_finished)
-    pending_id = api.create_session()
-
-func _on_api_finished(id: int, response: Dictionary) -> void:
-    if id != pending_id:
-        return
-    pending_id = 0
-    if not response.ok:
-        # Afiseaza response.error.message ca text simplu, nu HTML/BBCode.
-        return
-    # Valideaza schema endpoint-ului inainte sa actualizezi ecranul.
-    # response.data contine JSON-ul serverului, nemodificat.
-```
-
-`request_finished(id, response)` este emis o singura data, inclusiv la anulare.
-Eroarea de validare locala este emisa amanat, astfel incat ecranul poate salva ID-ul returnat.
-`busy_changed` reflecta toate cererile active ale clientului. Fiecare ecran trebuie sa previna dublarea propriei actiuni si sa anuleze cererile cand este abandonat. Transportul nu transforma un esec de API in date demonstrative.
-
-Raspuns normalizat:
-
-```json
-{"ok": true, "status": 200, "data": {"session_id": "..."}, "error": null}
-```
-
-La eroare: `ok=false`, `data=null`, `error={"code", "message"}`. Coduri: `invalid_request`, `network`, `timeout`, `http`, `invalid_json`, `invalid_response`, `response_too_large`, `cancelled`.
-
-### Interfata pentru colegul de backend
-
-| Metoda frontend | Cerere |
-|---|---|
-| `create_session()` | `POST /api/session`, `{}` |
-| `onboarding_message(session_id, text)` | `POST /api/onboarding/message`, `{session_id, text}` |
-| `start_game(session_id, profile)` | `POST /api/game/start`, `{session_id, profile}` |
-| `get_game_state(session_id)` | `GET /api/game/state?session_id=...` |
-| `perform_action(session_id, institution, action_id, params)` | `POST /api/game/action`, `{session_id, institution, action_id, params}` |
-| `advance_month(session_id)` | `POST /api/game/advance`, `{session_id}` |
-| `advisor_message(session_id, text)` | `POST /api/advisor/message`, `{session_id, text}` |
-| `get_products(category)` | `GET /api/products?category=...` |
-
-Implementarea backend integrata confirma `session_id` in JSON pentru POST si in query pentru GET; profilul de start este in cheia `profile`. Frontend-ul cere un profil confirmat pentru start, chiar daca serverul permite si pornirea fara profil explicit.
-
-`start` si `advance` returneaza `{state, events}`; `action` returneaza `{state, delta, advisor_note}`; `GET state` returneaza starea direct. `products` returneaza `{products}`. Clientul pastreaza aceste raspunsuri nemodificate. `/api/onboarding/statement` si `/api/business/message` au acum contracte multipart documentate in `api.md`; conectarea lor in frontend ramane o etapa separata.
-
-Endpoint-urile noi exista in backend-ul integrat, dar agentii si simularea folosesc inca date mock. Testele de integrare verifica compatibilitatea clientului Godot cu aceasta implementare, nu existenta agentilor LLM finali. Un 404 este afisat drept eroare, nu drept succes demonstrativ. `session_id` identifica o sesiune; transportul sau nu reprezinta un mecanism de autentificare.
-
-Pentru recuperarea completa dupa timeout mai trebuie ca backend-ul sa expuna si lista evenimentelor active: `GET state` ofera doar numarul lor pe institutie, iar `advance.events` contine doar evenimentele noi. Pana atunci, nu putem reconstrui numai din `GET state` optiunile unui eveniment al carui raspuns s-a pierdut.
-
-## Etapele urmatoare
-
-1. Onboarding: sesiune, conversatie, stari de incarcare/eroare, rezumat editabil si confirmarea profilului. In dezvoltare folosim raspunsuri sintetice marcate explicit.
-2. Stare centrala: preluarea starii de la backend si un adaptor de afisare pentru HUD; frontend-ul nu recalculeaza soldurile.
-3. Harta cu cele sapte ID-uri convenite, panouri pe institutii si acoperire pentru stari fara actiuni disponibile. Grafica va furniza resursele separat de logica.
-4. Actiune si luna urmatoare: alegere, trimitere, rezultat, evenimente noi; blocarea dublei trimiteri si recuperare dupa timeout prin recitirea starii.
-5. AIngel: chat, indicatoare de asteptare, tool calls `{name, args, summary}` si sugestii legate de obiectiv.
-6. Raport final, verificare in browser, rezolutii de ecran si demo end-to-end cu serviciile colegilor.
-
-Pentru fiecare etapa: date de intrare confirmate, UI verificabil independent, apoi verificare cu backend-ul real. Nu portam motorul financiar si nu modificam prompt-urile din branch-ul frontend.
-
-## Verificare locala
-
-Este necesar Godot 4.7 compatibil si Python 3; fixture-ul HTTP foloseste numai biblioteca standard. Din `raiffquest/`:
+Din rădăcina repo-ului:
 
 ```sh
-godot --headless --path . --import
-python tools/run_frontend_tests.py --godot /cale/catre/godot
-node test/statement_import_web_test.cjs
-godot --headless --path . res://test/test_suite.tscn
+python -m pytest -q
+python raiffquest/tools/verify_current.py --godot godot
+python raiffquest/tools/run_frontend_tests.py --godot godot
+python raiffquest/tools/run_statement_upload_tests.py --godot godot
+node raiffquest/test/statement_upload_web_test.cjs
+python raiffquest/tools/run_backend_integration.py --godot godot --scene res://test/statement_flow_test.tscn
+python raiffquest/tools/run_backend_integration.py --godot godot --scene res://test/journey_ui_test.tscn
+python raiffquest/tools/run_backend_integration.py --godot godot --scene res://test/localization_test.tscn
 ```
 
-Testele frontend pornesc un server temporar doar pe loopback si nu apeleaza Claude, banca sau serverul de deploy. Acopera requesturile convenite, sesiunea, Unicode, query encoding, erori HTTP/JSON, concurenta, anulare, timeout, lipsa retry-ului automat si importul web. Testele de transport nu valideaza logica backend-ului sau layout-ul final.
+Aceste teste folosesc date sintetice și agenți mock. Testarea manuală cu agenți reali se face separat. Exportul Web folosește presetul `Web`; deployul servește exportul din `game/` la `/joc/`. Adresa `/` redirecționează la joc.
 
-Pentru integrarea cu aplicatia FastAPI a echipei, instaleaza dependintele din `requirements.txt` intr-un mediu virtual, apoi ruleaza din `raiffquest/`:
-
-```sh
-python tools/run_backend_integration.py --godot /cale/catre/godot
-```
-
-Acest test porneste automat backend-ul pe un port local liber si il opreste la final. Foloseste clientul Godot pentru sesiune, onboarding, profil confirmat, stare, eveniment, economisire, luna urmatoare, consultant, produse si erori 400/404/409/422. Din radacina repository-ului, `python -m pytest -q` ruleaza si testele backend-ului.
-
-### Rezultatul verificarii integrarii curente
-
-- 308 verificari Godot ale jocului: PASS.
-- 59 verificari ale transportului frontend: PASS.
-- 26 verificari Godot - FastAPI (inclusiv coexistenta rutelor demo): PASS.
-- 65 teste backend si motor financiar: PASS.
-- Testele JavaScript ale importului web: PASS.
-- `python deploy/demo_selftest.py`: toate verificarile offline ale agentilor au trecut.
-- Aplicatia desktop porneste; `/api/health`, `/docs` si `/demo` raspund local.
-
-Apelurile LLM reale si exportul web complet nu au fost verificate in acest checkpoint. Verificarea utilizatoarei si push-ul sunt urmatorul pas al fluxului convenit.
-
-### Integrare backend — 28 octombrie 2026
-
-Integrate `backend/gabi` la `311e64c` (include `main` la `035a542`) si grafica `feature/ui-ux` la `99ab40c`.
-
-- `/api/onboarding/message` foloseste acum agentul real cand exista cheia configurata si `MOCK_LLM` nu este `true`. Contractul frontend ramane compatibil.
-- `/api/onboarding/statement` analizeaza documentul si poate returna suplimentar `reply`; profilul agentului este convertit la contractul comun.
-- Evenimentele sunt planificate din biblioteca noua; o actiune inexistenta returneaza 404. Testul clientului verifica acest comportament.
-- Runnerul de integrare seteaza explicit `MOCK_LLM=true` pentru a evita apelurile externe chiar daca exista credentiale in mediu.
-- Verificari dupa merge: 148 teste backend, 26 verificari Godot–FastAPI si 59 verificari transport frontend, toate trecute. Un avertisment de depreciere pytest/anyio.
-- Apelurile reale Claude nu au fost testate. Onboardingul Godot nu este implementat in acest checkpoint; macheta vizuala V2 este un prototip separat, cu dialog demonstrativ si avatar provizoriu, aflat in evaluare.
-
-## Divertisment (entertainment)
-
-Instituția `entertainment` este disponibilă în contractul API și în harta Godot, pe aleea dintre Bancă și Spital. `monthly.expenses.entertainment` este inclus în bilanțul lunar. Profilele păstrează câmpurile existente `spending.leisure` și `recurring.subscriptions`, pentru compatibilitate.
-
-Restaurantele, pariurile și abonamentele de streaming/sală sunt asociate cu Divertisment. Categoriile identificate de livrări, cafea, cumpărături, rate și numerar sunt scăzute din vechiul agregat leisure înainte de a calcula suma destinată Divertismentului; acestea rămân în agregatul Piață. Telefonul și abonamentele neclasificate rămân Acasă. Totalul cheltuielilor nu se schimbă la reclasificare. Corecțiile utilizatorului se aplică înaintea împărțirii.
-
-Sugestiile de reducere folosesc aceeași instituție ca liniile reclasificate. Evenimentele `seara_spectacol` și `festival_weekend` oferă alternative plătite și gratuite. Nu se inventează venituri din divertisment: salariul, bursa și veniturile firmei își păstrează sursele.
-
-
-## Terenul și traseele hărții
-
-`city_map.gd` definește pozițiile clădirilor, nodurile și muchiile navigabile. După modificarea geometriei, rulați `python raiffquest/tools/build_city_terrain.py`: generatorul reconstruiește `city_terrain.svg` din aceleași coordonate, cu iarbă uniformă, râu turcoaz, pavaj și decor care evită intrările. `city_props.svg` păstrează formele decorative reutilizabile. Pietrele pavajului sunt elemente SVG explicite deoarece importatorul Godot nu afișează pattern fills.
-
-Testul `journey_ui_test.tscn` verifică accesibilitatea tuturor perechilor de instituții și faptul că traseele nu traversează suprafețele clădirilor.
-
-Pentru modificări vizuale ale hărții, porniți Godot cu scena res://tools/map_preview.tscn și RAIFF_API configurat. Creează o sesiune backend cu profil fictiv și intră direct pe hartă. Pornirea normală a jocului păstrează onboardingul. Opțiunea -- --smoke-test verifică pornirea și închide procesul automat.
-
-
-## Macheta aprobată — terenul activ
-
-Harta activă folosește acum `city_approved_terrain.png`, un strat de decor separat de toate cele opt clădiri interactive. Coordonatele din macheta 1536×1024 sunt mărite uniform cu 1.4; `MAP_SIZE` și `FOUNTAIN_CENTER` din `city_map.gd` definesc cadrul și centrul. Ordinea clădirilor este: Acasă/Educație în nord-vest, Muncă/Bancă în nord-est, Piață/Divertisment în sud-vest și Spital/Afacere în sud-est.
-
-`NODES` și `EDGES` urmăresc aleile din imagine. După o editare a decorului, verificați și graful; vechiul `build_city_terrain.py` generează doar varianta SVG anterioară, care NU mai este încărcată în joc. Nu îl folosiți pentru a modifica terenul activ. Testul UI verifică accesibilitatea tuturor perechilor de instituții, centrarea fântânii, lipsa suprapunerilor cu HUD și evitarea pixelilor opaci ai clădirilor.
-
-
-## Fundal cartoon și sosire directă (versiunea activă)
-
-Distribuția aprobată a clădirilor este păstrată. Rendererul activ este `city_cartoon_terrain.svg`, în paleta desaturată inițială; se regenerează cu `python raiffquest/tools/build_cartoon_map.py`. Generatorul citește direct `NODES`/`EDGES` din `city_map.gd`, inclusiv aleile de acces. Imaginea PNG rămâne doar o referință, nu este afișată.
-
-Fiecare instituție are acum în graf punctul final de oprire. `park_position` întoarce acel nod exact, iar `path_to` nu mai adaugă o repoziționare după sosire. Click pe clădirea curentă deschide panoul fără mers suplimentar. Testul UI verifică punctele inițiale/finale, absența opririlor duplicate și a întoarcerilor de 180 de grade pentru toate perechile de instituții, plus evitarea pixelilor opaci ai clădirilor.
+Modificările se verifică local înainte de publicare. Push-ul și integrarea pe `main` se fac doar la cererea utilizatoarei.

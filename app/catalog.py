@@ -1,7 +1,7 @@
 """Raiffeisen product catalog (data/products.json) and time-limited campaigns (data/campaigns.json).
 
 Both files are validated once at import, so the app fails fast on bad data. data/products.json keeps the
-shape the consultant agent (app/agents/consultant.py) reads; as_of_date and disclaimer are optional there
+shape consumed by the advisor tools (app/api/advisor.py); as_of_date and disclaimer are optional there
 and default to the catalog's date and the standard disclaimer.
 """
 import json

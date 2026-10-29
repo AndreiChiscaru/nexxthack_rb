@@ -37,7 +37,7 @@ if __name__ == '__main__':
     with ThreadingHTTPServer(('127.0.0.1', 0), Fixture) as server:
         threading.Thread(target=server.serve_forever, daemon=True).start()
         result = subprocess.run([args.godot, '--headless', '--path', str(Path(__file__).resolve().parents[1]),
-                                 '--script', 'res://test/statement_upload_test.gd'],
+                                 'res://test/statement_upload_test.tscn'],
                                 env=dict(os.environ, RAIFF_UPLOAD_TEST_API=f'http://127.0.0.1:{server.server_port}'), timeout=60)
         server.shutdown()
         raise SystemExit(result.returncode)

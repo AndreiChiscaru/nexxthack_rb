@@ -110,13 +110,6 @@ def test_pending_event_snapshot_and_concurrent_answer(monkeypatch):
     assert len({e["id"] for e in step["pending_events"]}) == len(step["pending_events"])
 
 
-def test_web_engine_debt_goal_also_tracks_repayment():
-    from app.demo import engine
-    state = engine.new_game({"goal":{"type":"achitare_datorii", "target_amount":10000},
-        "bank":{"savings":5000,"debts":[{"name":"Credit","remaining":10000,"monthly_payment":500}]}}, seed=7)
-    assert engine.goal_progress(state) == 0
-    state["debts"][0]["balance"] = 7500
-    assert engine.goal_progress(state) == .25
 
 
 def test_advisor_debt_goal_uses_repayments_and_partial_target():

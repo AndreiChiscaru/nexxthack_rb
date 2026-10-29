@@ -3,11 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dld47504uglq"
-valid=false
+path="res://.godot/imported/city_props.svg-b71e8c0c36c75e8bb8e7cb6b32777887.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/raiff/city_props.svg"
+dest_files=["res://.godot/imported/city_props.svg-b71e8c0c36c75e8bb8e7cb6b32777887.ctex"]
 
 [params]
 

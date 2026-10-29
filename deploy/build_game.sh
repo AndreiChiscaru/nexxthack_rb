@@ -38,10 +38,17 @@ echo ">>> Import resurse"
 timeout 300 "$GODOT" --headless --path . --import >/dev/null 2>&1 || true
 
 echo ">>> Teste"
-timeout 300 "$GODOT" --headless --path . res://test/test_suite.tscn 2>&1 | grep -E "game-generic-tests|SCRIPT ERROR|Parse Error|ERROR" | head -40
-if ! timeout 300 "$GODOT" --headless --path . res://test/test_suite.tscn 2>&1 | grep -q "PASS:"; then
-  echo ">>> Testele au esuat" >&2; exit 1
-fi
+for scene in journey_boot_test city_map_test stat_hud_test; do
+  TEST_LOG=$(mktemp)
+  if ! timeout 300 "$GODOT" --headless --path . "res://test/${scene}.tscn" >"$TEST_LOG" 2>&1; then
+    cat "$TEST_LOG"; rm -f "$TEST_LOG"; exit 1
+  fi
+  cat "$TEST_LOG"
+  if grep -Eq "SCRIPT ERROR|Parse Error|ERROR" "$TEST_LOG" || ! grep -q "PASS" "$TEST_LOG"; then
+    rm -f "$TEST_LOG"; exit 1
+  fi
+  rm -f "$TEST_LOG"
+done
 
 echo ">>> Export web"
 rm -rf "$SRC_DIR/dist" && mkdir -p "$SRC_DIR/dist"

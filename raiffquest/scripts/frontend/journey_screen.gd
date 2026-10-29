@@ -338,7 +338,7 @@ func _layout() -> void:
 	error_label.position = Vector2(25, h - 105)
 	error_label.size = Vector2(maxf(400, w - 470), 40)
 	location.position = Vector2(w - 365, maxf(178, 20 + hud.size.y * 0.74 + 18))
-	location.size = Vector2(340, maxf(160, h - location.position.y - 72))
+	location.size = Vector2(340, maxf(160, h - location.position.y - 108))
 	profile_panel.position = Vector2(maxf(15, (w - 670) / 2), 95)
 	profile_panel.size = Vector2(minf(670, w - 30), maxf(430, h - 125))
 

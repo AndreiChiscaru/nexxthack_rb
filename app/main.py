@@ -8,13 +8,12 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 from fastapi import FastAPI, File, HTTPException, UploadFile  # noqa: E402
 from fastapi.concurrency import run_in_threadpool  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from fastapi.responses import FileResponse, RedirectResponse  # noqa: E402
+from fastapi.responses import RedirectResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from .agents.llm import AGENT_MODEL  # noqa: E402
 from .analyzer import MODEL, AnalysisError, analyze_statement  # noqa: E402
 from .api import advisor, business, game, onboarding, products, session  # noqa: E402
-from .demo.routes import router as demo_router  # noqa: E402
 from .extraction import extract_text  # noqa: E402
 from .game_profile import to_game_profile  # noqa: E402
 
@@ -44,24 +43,23 @@ for module in (session, onboarding, game, advisor, business, products):
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 if GAME_DIR.is_dir():
     app.mount("/joc", StaticFiles(directory=GAME_DIR, html=True), name="joc")
-app.include_router(demo_router)
 
 
 @app.get("/")
 def index():
-    return FileResponse(STATIC_DIR / "index.html")
+    return RedirectResponse(url="/joc/", status_code=308)
 
 
 @app.get("/demo", include_in_schema=False)
 @app.get("/demo/", include_in_schema=False)
 def demo():
-    """The address people already use. It opens the current game; the card demo stays at /demo-vechi."""
+    """Keep the existing address pointing to the current game."""
     return RedirectResponse(url="/joc/", status_code=308)
 
 
 @app.get("/demo-vechi", include_in_schema=False)
 def demo_previous():
-    return FileResponse(STATIC_DIR / "demo" / "index.html")
+    return RedirectResponse(url="/joc/", status_code=308)
 
 
 @app.get("/api/health")

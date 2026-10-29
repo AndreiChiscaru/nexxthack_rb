@@ -1,3 +1,5 @@
+> Plan inițial, păstrat pentru context. Pentru implementarea actuală (opt instituții, agenți integrați și RO/EN), vezi [frontend-integration.md](frontend-integration.md) și [api.md](api.md).
+
 # Raiff Quest — plan de implementare (24h, 4 roluri)
 
 Tema: **Raiffeisen Bank — Scaling & Growth: cum pot agenții AI să ajute clienții să navigheze alegerile și serviciile financiare.**

@@ -9,7 +9,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import catalog
-from app.agents import consultant
 from app.catalog import (
     CAMPAIGNS,
     CATALOG_CATEGORIES,
@@ -151,8 +150,7 @@ def test_active_campaigns_on_date():
 # ---------------------------------------------------------------- references to the catalog
 
 def test_consultant_reads_the_same_catalog():
-    assert {p["id"] for p in consultant.PRODUCTS} == set(PRODUCTS)
-    assert set(consultant.CATEGORIES) == {p.category for p in PRODUCTS.values()}
+    assert {p["id"] for p in json.loads(PRODUCTS_PATH.read_text(encoding="utf-8"))} == set(PRODUCTS)
 
 
 def test_every_product_id_the_backend_references_exists():

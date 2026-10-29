@@ -1,38 +1,33 @@
-# Raiff Quest — MVP
+# RaiffQuest
 
-Joc educațional financiar 2D în limba română. Ghidează personajul fictiv Ana Ionescu de la 22 la 52 de ani prin zece decizii. Toate produsele, dobânzile și datele sunt fictive și sunt folosite exclusiv în joc.
+Joc financiar 2D cu onboarding conversațional, opt instituții și agenți AI conectați la backend. Interfața oferă română și engleză.
 
-## Rulare
+## Pornire
 
-1. Instalează Godot 4.7 sau o versiune compatibilă.
-2. Deschide `project.godot` în Godot și apasă **F6/F5** sau rulează: `godot --path .`
+Pornește backendul FastAPI din rădăcina repo-ului, apoi deschide `project.godot` în Godot 4.7 și apasă F5. Scena principală este `scenes/journey.tscn`. Variabila `RAIFF_API` poate indica adresa backendului local.
 
-## Controale
+Pe hartă, selectează o clădire pentru deplasare și acțiuni. Poți deplasa harta cu mouse-ul și folosi butoanele de zoom. Selectorul de limbă se află în dreapta jos.
 
-- **WASD / săgeți**: mișcare pe hartă
-- **E / Enter / Spațiu**: interacțiune / confirmare
-- **1–4**: alege una dintre opțiunile unei decizii
-- **Esc**: meniu / închidere
+## Documente
 
-## Teste
+Alege sau trage un fișier în conversație. Numele apare ca atașament pregătit; analiza începe numai la **Trimite / Send**. Extrasul merge la `/api/onboarding/statement`, iar documentele contabilului la `/api/business/document`.
 
-Rulează testele jocului cu:
+## Arhitectură
+
+- `scripts/frontend/`: interfață și client API; fără simulare financiară locală.
+- `autoload/game_locale.gd`: localizarea activă RO/EN.
+- `../app/api/`: onboarding, consiliere și contabilitate.
+- `../app/sim/`: motorul financiar, sursa stării de joc.
+- `../data/`: evenimente, produse, traduceri și legislație.
+
+## Verificare și export
 
 ```sh
-godot --headless --path . res://test/test_suite.tscn
+python tools/verify_current.py --godot godot
+python tools/run_backend_integration.py --godot godot --scene res://test/journey_ui_test.tscn
+python tools/run_backend_integration.py --godot godot --scene res://test/localization_test.tscn
 ```
 
-Codul principal se află în `scripts/raiff/`; conținutul deciziilor și simularea financiară sunt în `events.gd` și `finance_sim.gd`. Fonturile, imaginile și licențele asociate sunt incluse în `assets/`.
+Verificările locale folosesc date sintetice și agenți mock. Agenții reali necesită configurarea serverului în `.env`. Nu se includ cheile în Git.
 
-## Pornire din extrasul de cont
-
-Pe ecranul de titlu, „Încarcă extrasul tău de cont” trimite fișierul la serverul de analiză (`POST /api/analyze`: extragere text PDF, OCR Tesseract ca rezervă, analiză Claude). Răspunsul conține `game_profile` (venit, cheltuieli, sold, economii, credite existente, stres/încredere), iar `Sim.new_state(seed, profile)` pornește simularea de la situația reală; prima decizie (bugetul) e adaptată cu `Events.personalize()`.
-
-- Web: fișierul se trimite la `/api/analyze` pe același domeniu (jocul e servit la `/joc/`). Exportul web cere HTTPS.
-- Desktop/editor: serverul implicit este `http://127.0.0.1:8000`; se poate schimba cu variabila de mediu `RAIFF_API` înainte de pornirea Godot.
-
-## Integrarea frontend cu agenții și backend-ul
-
-Clientul comun din `scripts/frontend/` urmează contractele din planul echipei. Configurarea, metodele API, limitele etapei curente și comenzile de test sunt în [ghidul de integrare](../docs/frontend-integration.md). Ecranele existente folosesc încă simulatorul local; migrarea la starea furnizată de backend se face în etapele următoare.
-
-**Notă:** „Consilier AI” este o simulare locală explicabilă; nu apelează un model AI și nu se conectează la bănci sau la internet. Jocul nu oferă recomandări financiare reale.
+Exportul Web folosește presetul `Web` și `web/loading.html`; creează folderul `dist` înainte de export. Nu mai este necesar runtime-ul Manus. Fonturile Figtree și licența lor sunt în `assets/raiff/fonts/`.

@@ -13,8 +13,13 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	var channel_ok: bool = not screen.advisor_button.visible
-	screen.chat.sample.pressed.emit()
-	screen._toggle_investments()
+	var path := "user://statement-flow-test.txt"
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string("Synthetic statement: monthly salary 5000 lei; groceries 800 lei; rent 1500 lei.")
+	file.close()
+	screen.uploader.upload_path(path)
+	channel_ok = channel_ok and screen.uploader.has_pending() and not c.busy and not screen.uploader.busy
+	screen.chat.submit()
 	channel_ok = channel_ok and screen.channel == "onboarding"
 	var deadline := Time.get_ticks_msec() + 240000
 	while c.busy and Time.get_ticks_msec() < deadline:
@@ -34,5 +39,6 @@ func _ready() -> void:
 			await get_tree().process_frame
 		ok = not c.busy and screen.chat.input.editable and not screen.chat.send.disabled and c.last_error.is_empty() and c.transcript.size() == before + 2
 		print("[statement-flow] follow-up editable=", screen.chat.input.editable, " messages=", c.transcript.size())
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	print("[statement-flow] ", "PASS" if ok else "FAIL")
 	get_tree().quit(0 if ok else 1)

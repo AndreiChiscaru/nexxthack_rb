@@ -28,22 +28,17 @@ Inspirație de brand: utilizarea consecventă a galbenului, a contrastului cu ne
 
 Paleta pentru **ilustrații și infografice** din aceeași arhivă conține tonuri suplimentare (de exemplu albastru și turcoaz). Folosiți-le pentru apă, cer, obiecte și varietate, fără a concura cu galbenul principal.
 
-### 2.2. Culori implementate momentan în Godot — `raiffquest/scripts/raiff/ui_kit.gd`
+### 2.2. Paleta curentă — `raiffquest/scripts/frontend/journey_theme.gd`
 
-| Token în cod | HEX existent | Utilizare curentă |
+| Token | HEX | Utilizare |
 | --- | --- | --- |
-| `BG` | `#14171C` | Fundal joc/UI |
-| `PANEL` | `#1F2329` | Panouri |
-| `PANEL_2` | `#2A2F37` | Panouri secundare |
-| `BORDER` | `#3A404A` | Borduri |
-| `YELLOW` | `#FFE600` | Butoane/accent |
-| `TEXT` | `#F4F4EF` | Text |
-| `MUTED` | `#A9AFB8` | Text secundar |
-| `GOOD` | `#62D98F` | Indicator pozitiv |
-| `BAD` | `#FF6F61` | Indicator negativ |
-| `INFO` | `#7BD3F7` | Indicator informativ |
+| `INK` | `#303A28` | Text și contururi |
+| `PAPER` | `#FFFBED` | Panouri crem |
+| `GRASS` | `#B9C98B` | Fundal verde |
+| `YELLOW` | `#FEE600` | Acțiuni principale |
+| `MUTED` | `#697856` | Text secundar |
 
-**Important — diferență de păstrat vizibilă:** galbenul oficial din paleta trimisă este `#FEE600`, iar proiectul Godot folosește în prezent `#FFE600`. Nu le considerați identice. Recomandare pentru echipă: trecerea la `#FEE600` pentru noul design, **după confirmarea cu frontend-ul**, fiindcă schimbarea tokenului `YELLOW` afectează toate ecranele existente. Până atunci, asset-urile noi se pot proiecta în `#FEE600`, fără modificarea codului.
+Panourile folosesc colțuri rotunjite și umbre ferme, în stil cartoon. Textul rămâne închis la hover pentru contrast.
 
 ## 3. Tipografie
 

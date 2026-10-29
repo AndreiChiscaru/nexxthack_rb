@@ -30,14 +30,8 @@ config/icon="res://assets/share/favicon.png"
 
 GameLocale="*res://autoload/game_locale.gd"
 
-TuningBridge="*res://scripts/manus/preview/tuning_adapter.gd"
 
-ManusFontTheme="*res://autoload/manus_font_theme.gd"
 
-SaveStore="*res://autoload/save_store.gd"
-I18n="*res://autoload/i18n.gd"
-TuningStore="*res://autoload/tuning_store.gd"
-AudioDirector="*res://autoload/audio_director.gd"
 
 [display]
 

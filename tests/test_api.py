@@ -179,16 +179,19 @@ def test_on_track_uses_profile_horizon(horizon, on_track):
 
 def test_existing_routes_still_work():
     assert client.get("/api/health").json()["status"] == "ok"
-    assert client.get("/").status_code == 200
+    response = client.get("/", follow_redirects=False)
+    assert response.status_code == 308
+    assert response.headers["location"] == "/joc/"
 
 
-def test_demo_opens_the_current_game_and_keeps_the_previous_one():
+def test_old_demo_addresses_redirect_to_current_game():
     current = client.get("/demo", follow_redirects=False)
     assert current.status_code == 308
     assert current.headers["location"].endswith("/joc/")
-    previous = client.get("/demo-vechi")
-    assert previous.status_code == 200
-    assert "varianta anterioară" in previous.text
+    previous = client.get("/demo-vechi", follow_redirects=False)
+    assert previous.status_code == 308
+    assert previous.headers["location"] == "/joc/"
+    assert client.post("/api/demo/session").status_code == 404
 
 
 def test_full_flow():

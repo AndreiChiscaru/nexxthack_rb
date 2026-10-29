@@ -21,11 +21,14 @@ async function run(){
   assert.equal(calls.length,0);
   good.app.pick('session-A',240000);good.inputs.at(-1).listeners.cancel();assert.equal(good.app.state,'cancelled');
   good.app.pick('session-A',240000);const input=good.inputs.at(-1);input.files=[{name:'unsafe"\r\n.pdf',size:12}];input.onchange();await tick();
+  assert.equal(good.app.state,'attached');assert.equal(calls.length,0);assert.equal(good.timers.size,0);
+  good.app.sendPending('session-A',240000,'/api/onboarding/statement','en');await tick();
+  assert.equal(calls[0].options.headers['Accept-Language'],'en');
   assert.equal(good.app.state,'done');assert.equal(good.app.status,200);assert.equal(calls[0].url,'/api/onboarding/statement');
   assert.equal(calls[0].options.redirect,'error');assert.equal(calls[0].options.body.fields[0][0],'session_id');assert.equal(calls[0].options.body.fields[0][1],'session-A');
   assert.equal(calls[0].options.body.fields[1][0],'file');assert.equal(calls[0].options.body.fields[1][2],'unsafe___.pdf');assert.equal(good.timers.size,0);
   const slow=setup((_url,opts)=>new Promise((_resolve,reject)=>opts.signal.addEventListener('abort',()=>reject(Object.assign(new Error('abort'),{name:'AbortError'})))));
-  slow.app.pick('session-B',240000);slow.inputs[0].files=[{name:'data.csv',size:12}];slow.inputs[0].onchange();await tick();[...slow.timers.values()][0]();await tick();assert.equal(slow.app.errorCode,'timeout');assert.equal(slow.app.state,'error');assert.equal(slow.timers.size,0);
+  slow.app.pick('session-B',240000);slow.inputs[0].files=[{name:'data.csv',size:12}];slow.inputs[0].onchange();assert.equal(slow.app.state,'attached');slow.app.sendPending('session-B',240000,'/api/onboarding/statement','en');await tick();[...slow.timers.values()][0]();await tick();assert.equal(slow.app.errorCode,'timeout');assert.equal(slow.app.state,'error');assert.equal(slow.timers.size,0);
   console.log('[statement-upload-web] PASS: session, validation, cancel, multipart, redirect policy, timeout');
 }
 run().catch(e=>{console.error(e);process.exitCode=1;});

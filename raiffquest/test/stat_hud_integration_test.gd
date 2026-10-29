@@ -35,11 +35,18 @@ func _ready() -> void:
 		await settle(c)
 	c.advance()
 	await settle(c)
-	check(screen.hud.month_label.text == "LUNA 1", "Month comes from backend")
+	check(c.state.month == 1 and screen.hud.month_label.text == "LUNA %d/%d" % [int(c.state.month), int(c.profile.goal.horizon_months)], "Month and goal horizon come from backend")
 	check(screen.hud.cash_value.text == screen.hud.money(float(c.state.balance.cash)), "Month advancement updates cash")
 	screen._institution("bank")
 	await get_tree().process_frame
 	check(screen.location.position.y >= screen.hud.get_global_rect().end.y, "Building actions do not overlap HUD")
 	check(screen.location.get_rect().end.y <= screen.size.y - 60, "Building actions fit above map controls")
+	var zoom_controls: HBoxContainer
+	for child in screen.city.get_children():
+		if child is HBoxContainer:
+			zoom_controls = child
+	check(zoom_controls != null, "Map exposes zoom controls")
+	if zoom_controls != null:
+		check(not screen.location.get_global_rect().intersects(zoom_controls.get_global_rect()), "Building panel does not cover zoom controls")
 	print("[stat-hud-integration] mode=", c.agent_mode, " ", "FAIL" if failed else "PASS")
 	get_tree().quit(1 if failed else 0)

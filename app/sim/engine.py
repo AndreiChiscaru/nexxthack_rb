@@ -1,8 +1,8 @@
-"""Financial engine of Raiff Quest: a 1:1 port of raiffquest/scripts/raiff/finance_sim.gd.
+"""Financial engine of RaiffQuest.
 
-Pure functions, no I/O. State is a plain dict with exactly the same keys as the .gd version,
-so it maps 1:1 to the Godot data and is JSON-serializable. Amounts are in lei (RON).
-One period = 36 months (3 years). Randomness only comes from the injected `random.Random`.
+Pure functions, no I/O. State is a JSON-serializable dictionary; the API adapter
+converts it to the frontend contract. Amounts are in lei (RON). One period is
+36 months. Randomness comes from the injected `random.Random`.
 """
 import copy
 import math

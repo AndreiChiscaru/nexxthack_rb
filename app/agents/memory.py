@@ -19,10 +19,6 @@ PROMPT_NOTES = 25
 
 
 def _month(session_id: str):
-    game = store.load(session_id, "game")
-    if isinstance(game, dict) and game.get("month") is not None:
-        return game["month"]
-    # The journey keeps its month on the live session, not in the demo store.
     from ..sessions import find_session
     live = find_session(session_id)
     if live is not None and live.sim is not None:

@@ -24,7 +24,7 @@ log = logging.getLogger("extras.onboarding")
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
 
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
-SAMPLE_PDF = Path(__file__).resolve().parents[2] / "static" / "demo" / "extras_student.pdf"
+SAMPLE_PDF = Path(__file__).resolve().parents[2] / "static" / "samples" / "extras_student.pdf"
 SAMPLE_TXT = Path(__file__).resolve().parents[2] / "data" / "extras_student.txt"
 MAX_MESSAGE_CHARS = 4000
 MOCK_MESSAGES_TO_DONE = 3
@@ -75,7 +75,7 @@ def onboarding_message(req: OnboardingMessageRequest):
     if not llm_enabled():
         return _mock_message(session)
 
-    # Work on copies and commit only if the whole agent turn succeeds (same as app/demo/routes.py).
+    # Work on copies and commit only if the whole agent turn succeeds.
     draft, convo = copy.deepcopy(session.agent_profile), copy.deepcopy(session.onboarding_convo)
     try:
         result = drain(agent.user_turn(session.id, draft, convo, req.text.strip()[:MAX_MESSAGE_CHARS]))
