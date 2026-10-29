@@ -51,8 +51,10 @@ class Session:
     used_events: dict[str, dict] = field(default_factory=dict)
     # Every agent tool call ({name, args, summary, duration_ms}); see app/tools.py run_tool().
     tool_log: list[dict] = field(default_factory=list)
-    # Choice score. score_initial is the opening resilience (0-100); choices and agent notes move it, still 0-100.
+    # Choice score. score_initial is resilience plus the onboarding quiz (0-100);
+    # score_quiz is the quiz part. Choices and agent notes move the total, still 0-100.
     score_initial: int | None = None
+    score_quiz: int = 0
     choices: list[dict] = field(default_factory=list)
     score_adjustments: list[dict] = field(default_factory=list)
 

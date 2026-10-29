@@ -1,8 +1,13 @@
 """Player score from choices. Starts at the opening resilience (0-100) and stays in that range.
 
-Each choice adds a bounded delta from how it compares with the other options.
-Each agent may add one delta per choice, between -10 and +10; a later call from the
-same agent replaces its previous one. The sum is clamped to 0-100.
+The opening value is the financial resilience plus a bounded adjustment from the
+onboarding quiz (risk answer versus the goal horizon, insurance, dependents, and the
+statement score and risk signals when one was uploaded).
+Each choice adds a delta from how it compares with the other options. The size of that
+delta is inversely proportional to the goal horizon: a short goal moves more points per
+choice, so a few months and a few years can both reach a high or a low score.
+Agents still judge a choice from -10 to +10; the game scales that note the same way.
+A later call from the same agent replaces its previous one. The sum is clamped to 0-100.
 """
 import time
 
@@ -10,8 +15,11 @@ from . import engine as E
 
 LO = 0
 HI = 100
+# A 12-month goal keeps the original swing: best choice +8, worst -8, agent note ±10.
+REFERENCE_MONTHS = 12
 CHOICE_SPAN = 8
 AGENT_SPAN = 10
+MAX_SPAN = 48
 AGENTS = ("angel", "investments", "business")
 
 
@@ -19,8 +27,37 @@ class ScoreError(ValueError):
     pass
 
 
-def initial(sim: E.SimState) -> int:
-    return E.resilience_score(sim)
+def quiz_points(profile) -> int:
+    """How the onboarding answers move the opening score, capped at ±20.
+
+    The money picture is already in the resilience score. This adds the quiz itself:
+    whether the risk answer fits the goal, plus insurance, dependents and, when the
+    player uploaded a statement, its stability score and risk signals.
+    """
+    if profile is None:
+        return 0
+    horizon = max(1, int(profile.goal.horizon_months))
+    risk = str(profile.risk_tolerance or "").strip().lower()
+    if horizon <= 24:
+        fit = {"scazuta": 6, "medie": 2, "ridicata": -6}
+    elif horizon <= 48:
+        fit = {"scazuta": 2, "medie": 6, "ridicata": 2}
+    else:
+        fit = {"scazuta": -2, "medie": 4, "ridicata": 6}
+    points = float(fit.get(risk, 0))
+    if profile.health.insured:
+        points += 4
+    points -= min(6, 2 * max(0, int(profile.dependents)))
+    source = profile.source
+    if source.statement_score is not None:
+        nudge = E.round_half_away((int(source.statement_score) - 50) / 10.0)
+        points += max(-8.0, min(8.0, nudge))
+    points -= min(8, 2 * len(source.risk_signals or []))
+    return int(max(-20, min(20, E.round_half_away(points))))
+
+
+def initial(sim: E.SimState, profile=None) -> int:
+    return clamp(E.resilience_score(sim) + quiz_points(profile))
 
 
 def clamp(value: float) -> int:
@@ -74,20 +111,44 @@ def option_points(ops: dict | None) -> float:
     return points
 
 
-def automatic_delta(chosen: dict | None, options: list[dict]) -> tuple[int, str]:
-    """Where the chosen option sits between the worst (-8) and the best (+8)."""
+def goal_months(session) -> int:
+    profile = getattr(session, "profile", None)
+    goal = getattr(profile, "goal", None)
+    try:
+        months = int(getattr(goal, "horizon_months", REFERENCE_MONTHS))
+    except (TypeError, ValueError):
+        return REFERENCE_MONTHS
+    return months if months >= 1 else REFERENCE_MONTHS
+
+
+def choice_span(months: int) -> int:
+    """Points a best-or-worst choice is worth. Shorter goals are worth more per choice."""
+    months = max(1, int(months))
+    scaled = E.round_half_away(CHOICE_SPAN * REFERENCE_MONTHS / months)
+    return int(max(1, min(MAX_SPAN, scaled)))
+
+
+def scale_points(base: float, months: int) -> int:
+    """Map a 12-month point value onto this goal's horizon."""
+    return int(E.round_half_away(float(base) * choice_span(months) / CHOICE_SPAN))
+
+
+def automatic_delta(chosen: dict | None, options: list[dict], span: int = CHOICE_SPAN) -> tuple[int, str]:
+    """Where the chosen option sits between the worst (-span) and the best (+span)."""
+    span = max(1, int(span))
     options = options or [chosen or {}]
     scores = [option_points(item) for item in options]
     mine = option_points(chosen)
     if len(scores) == 1:
-        delta = max(-CHOICE_SPAN, min(CHOICE_SPAN, int(E.round_half_away(mine))))
+        delta = int(E.round_half_away(mine * span / CHOICE_SPAN))
+        delta = max(-span, min(span, delta))
         return delta, "Singura variantă disponibilă."
     best, worst = max(scores), min(scores)
     if abs(best - worst) < 1e-9:
         return 0, "Variantele sunt echivalente pentru scor."
     position = (mine - worst) / (best - worst)
-    delta = int(E.round_half_away(position * (2 * CHOICE_SPAN) - CHOICE_SPAN))
-    delta = max(-CHOICE_SPAN, min(CHOICE_SPAN, delta))
+    delta = int(E.round_half_away(position * (2 * span) - span))
+    delta = max(-span, min(span, delta))
     if delta > 0:
         reason = "Alegerea e mai bună financiar decât celelalte variante."
     elif delta < 0:
@@ -129,7 +190,9 @@ def current(session) -> int:
 def reset(session, sim: E.SimState) -> int:
     session.choices = []
     session.score_adjustments = []
-    session.score_initial = initial(sim)
+    profile = getattr(session, "profile", None)
+    session.score_quiz = quiz_points(profile)
+    session.score_initial = clamp(E.resilience_score(sim) + session.score_quiz)
     return session.score_initial
 
 
@@ -145,13 +208,17 @@ def _append(session, **fields) -> dict:
 
 def record_choice(session, *, institution: str, action_id: str, option_id: str, title: str, label: str,
                   chosen_ops: dict, option_ops: list[dict]) -> dict:
-    delta, reason = automatic_delta(chosen_ops, option_ops)
+    months = goal_months(session)
+    span = choice_span(months)
+    delta, reason = automatic_delta(chosen_ops, option_ops, span)
     return _append(session, institution=institution, action_id=action_id, option_id=option_id,
-                   title=title, label=label, delta=delta, reason=reason)
+                   title=title, label=label, delta=delta, reason=reason, span=span, horizon_months=months)
 
 
 def record_free(session, *, institution: str, action_id: str, amount: float) -> dict:
-    delta, reason = free_delta(action_id, amount)
+    base, reason = free_delta(action_id, amount)
+    months = goal_months(session)
+    delta = scale_points(base, months)
     labels = {
         "save": "Mut în economii",
         "invest": "Investesc",
@@ -160,7 +227,8 @@ def record_free(session, *, institution: str, action_id: str, amount: float) -> 
         "set_monthly_invest": "Investiție lunară automată",
     }
     return _append(session, institution=institution, action_id=action_id, option_id=action_id,
-                   title=labels.get(action_id, action_id), label=f"{amount:.0f} lei", delta=delta, reason=reason)
+                   title=labels.get(action_id, action_id), label=f"{amount:.0f} lei", delta=delta, reason=reason,
+                   span=choice_span(months), horizon_months=months)
 
 
 def public(session) -> dict | None:
@@ -170,7 +238,10 @@ def public(session) -> dict | None:
     return {
         "valoare": current(session),
         "initial": session.score_initial,
+        "din_quiz": int(getattr(session, "score_quiz", 0) or 0),
         "interval": [LO, HI],
+        "orizont_luni": goal_months(session),
+        "amplitudine": choice_span(goal_months(session)),
         "alegeri": [
             {
                 "id": choice["id"],
@@ -210,7 +281,8 @@ def add(session, agent: str, choice_id: str, delta, reason: str) -> dict:
     text = str(reason or "").strip()
     if not text or len(text) > 240:
         raise ScoreError("Motivul trebuie să aibă între 1 și 240 de caractere.")
-    points = _delta(delta)
+    requested = _delta(delta)
+    points = scale_points(requested, goal_months(session))
     if not any(choice["id"] == choice_id for choice in session.choices):
         raise ScoreError("Alegerea nu există. Folosește id-ul din lista de alegeri.")
     before = current(session)
@@ -226,11 +298,11 @@ def add(session, agent: str, choice_id: str, delta, reason: str) -> dict:
     return {
         "scor": after,
         "inainte": before,
-        "delta_cerut": points,
+        "delta_cerut": requested,
         "delta_aplicat": applied,
         "interval": [LO, HI],
-        "summary": (f"Scor {after}/100 (cerut {points:+d}, aplicat {applied:+d}). "
-                    "Scorul rămâne între 0 și 100."),
+        "summary": (f"Scor {after}/100 (nota {requested:+d} valorează {points:+d} pe orizontul obiectivului, "
+                    f"aplicat {applied:+d}). Scorul rămâne între 0 și 100."),
     }
 
 
@@ -265,8 +337,9 @@ def tool(session_id: str, agent: str):
         "add_to_score",
         "Adaugă la scorul jucătorului (0-100) pentru o alegere deja făcută. "
         f"delta este un întreg între -{AGENT_SPAN} și {AGENT_SPAN}: plus dacă alegerea ajută scopul și reziliența, "
-        "minus dacă le înrăutățește. Apelul tău înlocuiește evaluarea anterioară a aceluiași agent pentru aceeași alegere. "
-        "Dacă suma nu încape în 0-100, se taie și primești delta_aplicat.",
+        "minus dacă le înrăutățește. Jocul scalează nota după orizontul obiectivului: aceeași notă adaugă sau "
+        "scade mai multe puncte când obiectivul e pe puține luni. Apelul tău înlocuiește evaluarea anterioară "
+        "a aceluiași agent pentru aceeași alegere. Dacă suma nu încape în 0-100, se taie și primești delta_aplicat.",
         {"type": "object", "properties": {
             "choice_id": {"type": "string", "description": "id-ul din scor.alegeri"},
             "delta": {"type": "integer", "minimum": -AGENT_SPAN, "maximum": AGENT_SPAN},
