@@ -157,6 +157,16 @@ func _ready() -> void:
 	await get_tree().create_timer(0.3).timeout
 	check(not scene.city._walking and scene.city._at == "home", "Returning to previous origin mid-route reaches it correctly")
 	check(scene.selected == "home", "Cancelled route cannot reopen stale destination")
+	var camera_before: Vector2 = scene.city.world.position
+	scene.city._pan_by(Vector2(35, 20))
+	check(not scene.city.follow_enabled, "Manual pan releases automatic camera follow")
+	check(scene.city.world.position.distance_to(camera_before + Vector2(35, 20)) < 0.1, "Manual pan moves camera by mouse displacement")
+	await get_tree().create_timer(0.2).timeout
+	check(scene.city.world.position.distance_to(camera_before + Vector2(35, 20)) < 0.1, "Camera does not snap back after manual pan")
+	scene.city.navigate_to("home")
+	await get_tree().process_frame
+	check(scene.city.follow_enabled, "Selecting a destination restores avatar follow")
+
 	var arrival_screen: Vector2 = scene.city.world.position + scene.city._avatar.position * scene.city.world.scale
 	check(scene.city.follow_view_rect.has_point(arrival_screen), "Avatar remains visible after arrival and rerouting")
 

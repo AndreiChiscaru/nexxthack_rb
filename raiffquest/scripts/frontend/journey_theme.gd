@@ -81,7 +81,6 @@ static func close_button(action: Callable) -> Button:
 	var b := Button.new()
 	b.icon = load("res://assets/raiff/icon_close.svg")
 	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	b.tooltip_text = "Închide"
 	b.custom_minimum_size = Vector2(36, 36)
 	b.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:

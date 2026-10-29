@@ -199,10 +199,10 @@ func _ready() -> void:
 	world.add_child(_avatar)
 	var controls := HBoxContainer.new()
 	controls.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	controls.position = Vector2(-180,-52)
-	controls.size = Vector2(164,36)
+	controls.position = Vector2(-96,-52)
+	controls.size = Vector2(80,36)
 	add_child(controls)
-	for item in [["−", "Micșorează harta"], ["+", "Mărește harta"], ["⌂", "Arată toată harta"], ["◌", "Redu animațiile"]]:
+	for item in [["−", "Micșorează harta"], ["+", "Mărește harta"]]:
 		var control := Button.new()
 		control.text = item[0]
 		control.custom_minimum_size = Vector2(36,36)
@@ -212,10 +212,6 @@ func _ready() -> void:
 		match item[0]:
 			"−": control.pressed.connect(func(): _set_zoom(_zoom - 0.15))
 			"+": control.pressed.connect(func(): _set_zoom(_zoom + 0.15))
-			"⌂": control.pressed.connect(focus_all)
-			"◌":
-				control.toggle_mode = true
-				control.toggled.connect(func(value: bool): _reduced_motion = value)
 	resized.connect(_transform_world)
 	_transform_world()
 	set_institutions(_statuses)
@@ -447,6 +443,17 @@ func _transform_world(animated: bool = false) -> void:
 		world.scale = target_scale
 		world.position = target_position
 
+func _pan_by(movement: Vector2) -> void:
+	if movement.is_zero_approx():
+		return
+	# Manual exploration owns the camera until another destination is selected.
+	follow_enabled = false
+	if _camera:
+		_camera.kill()
+	_pan = world.position - size * 0.5 + FOUNTAIN_CENTER * world.scale
+	_pan = (_pan + movement).clamp(-size * 0.65, size * 0.65)
+	_transform_world()
+
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
@@ -460,8 +467,6 @@ func _gui_input(event: InputEvent) -> void:
 		if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 			_dragging = false
 			return
-		_pan += event.relative
-		_pan = _pan.clamp(-size * 0.65, size * 0.65)
-		_transform_world()
+		_pan_by(event.relative)
 		accept_event()
 
