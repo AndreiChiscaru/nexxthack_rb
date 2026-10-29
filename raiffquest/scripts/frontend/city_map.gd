@@ -278,14 +278,39 @@ func _add_building(id: String) -> void:
 	label.position = center + Vector2(-label.size.x / 2, -16)
 	label.pressed.connect(navigate_to.bind(id))
 	labels[id] = label
+	# Pending-event count: a round yellow marker floating above the roof, pointing down at the building.
 	var badge := Label.new()
-	badge.position = center + Vector2(50,-140)
-	badge.add_theme_font_size_override("font_size",20)
+	badge.size = Vector2(80, 80)
+	badge.position = center + Vector2(-40, -350)
+	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	badge.add_theme_font_size_override("font_size",42)
+	badge.add_theme_font_override("font",load("res://assets/raiff/fonts/Figtree-Bold.ttf"))
 	badge.add_theme_color_override("font_color",INK)
-	badge.add_theme_stylebox_override("normal",_label_style(true))
+	var bubble := StyleBoxFlat.new()
+	bubble.bg_color = Color("fee600")
+	bubble.border_color = INK
+	bubble.set_border_width_all(3)
+	bubble.set_corner_radius_all(40)
+	bubble.shadow_color = Color("303a2850")
+	bubble.shadow_size = 2
+	bubble.shadow_offset = Vector2(0,5)
+	badge.add_theme_stylebox_override("normal",bubble)
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tip_outline := Polygon2D.new()
+	tip_outline.polygon = PackedVector2Array([Vector2(23,72), Vector2(57,72), Vector2(40,99)])
+	tip_outline.color = INK
+	badge.add_child(tip_outline)
+	var tip := Polygon2D.new()
+	tip.polygon = PackedVector2Array([Vector2(28,72), Vector2(52,72), Vector2(40,91)])
+	tip.color = Color("fee600")
+	badge.add_child(tip)
 	world.add_child(badge)
 	badges[id] = badge
+	if not _reduced_motion:
+		var bob := badge.create_tween().set_loops().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		bob.tween_property(badge, "position:y", badge.position.y - 10, 0.7)
+		bob.tween_property(badge, "position:y", badge.position.y, 0.7)
 
 func _hover(id: String, entered: bool) -> void:
 	if _hover_tweens.has(id):

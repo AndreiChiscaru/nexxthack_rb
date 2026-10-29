@@ -94,7 +94,6 @@ func _ready() -> void:
 	chat.sent.connect(_on_sent)
 	controller.message_added.connect(_on_message)
 	chat.upload_requested.connect(_pick_statement)
-	chat.sample_requested.connect(_load_sample)
 	chat.review_requested.connect(_show_profile)
 	chat.closed.connect(_close_chat)
 	location = PanelContainer.new()
@@ -692,11 +691,6 @@ func _open_chat() -> void:
 	profile_panel.hide()
 	_reveal(chat)
 	chat.input.grab_focus()
-
-func _load_sample() -> void:
-	if controller.busy or controller.phase == "map":
-		return
-	uploader.load_sample()
 
 func _upload_finished(response: Dictionary) -> void:
 	if uploader.last_purpose == "business":

@@ -1,7 +1,6 @@
 extends PanelContainer
 signal sent(text: String)
 signal upload_requested
-signal sample_requested
 signal review_requested
 signal closed
 const Kit = preload("res://scripts/frontend/journey_theme.gd")
@@ -10,7 +9,6 @@ var messages: VBoxContainer
 var input: LineEdit
 var send: Button
 var attach: Button
-var sample: Button
 var review: Button
 var status: Label
 var close_button: Button
@@ -24,6 +22,7 @@ var agent_face: TextureRect
 var invest_mode := false
 var attach_kind := "statement"
 var _rows: Array[Control] = []
+var _paste_callback: JavaScriptObject
 
 func _ready() -> void:
 	theme = Kit.theme()
@@ -57,6 +56,11 @@ func _ready() -> void:
 	input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	input.text_submitted.connect(func(_value): submit())
 	composer.add_child(input)
+	if OS.has_feature("web"):
+		# Over plain http the engine cannot read the clipboard, but the browser's paste event carries the text.
+		_paste_callback = JavaScriptBridge.create_callback(_on_browser_paste)
+		JavaScriptBridge.get_interface("window").addEventListener("paste", _paste_callback)
+		input.gui_input.connect(_skip_engine_paste)
 	send = Kit.button("Trimite →", submit, true)
 	composer.add_child(send)
 	var actions := HBoxContainer.new()
@@ -65,10 +69,6 @@ func _ready() -> void:
 	attach.add_theme_font_size_override("font_size", 12)
 	attach.custom_minimum_size.y = 30
 	actions.add_child(attach)
-	sample = Kit.button("Extras de student", func(): sample_requested.emit())
-	sample.add_theme_font_size_override("font_size", 12)
-	sample.custom_minimum_size.y = 30
-	actions.add_child(sample)
 	tip = Kit.text("opțional · sau trage fișierul în fereastră", 11, Kit.MUTED)
 	tip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(tip)
@@ -76,6 +76,25 @@ func _ready() -> void:
 	review.hide()
 	actions.add_child(review)
 	resized.connect(_resize_rows)
+
+func _on_browser_paste(args: Array) -> void:
+	if not input.has_focus() or not input.editable or args.is_empty():
+		return
+	var event = args[0]
+	if event.clipboardData == null:
+		return
+	var text := str(event.clipboardData.getData("text")).replace("\r", "").replace("\n", " ")
+	if text.is_empty():
+		return
+	event.preventDefault()
+	if input.has_selection():
+		input.delete_text(input.get_selection_from_column(), input.get_selection_to_column())
+	input.insert_text_at_caret(text)
+
+# On the web Ctrl+V would paste the engine's own (stale) clipboard as well; the browser event above does it instead.
+func _skip_engine_paste(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and event.keycode == KEY_V and event.is_command_or_control_pressed():
+		input.accept_event()
 
 func set_heading(text: String) -> void:
 	heading.text = text
@@ -169,8 +188,6 @@ func show_state(busy: bool, phase: String, error: String) -> void:
 	attach.visible = angel or documents
 	attach.text = "＋ Adaugă un document" if documents else "＋ Adaugă un extras"
 	tip.visible = angel
-	sample.disabled = busy
-	sample.visible = angel
 	review.visible = phase == "review"
 	review.disabled = busy
 	close_button.visible = phase == "map"
